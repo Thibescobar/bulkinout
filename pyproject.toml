@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.8,<3",
   "PyMuPDF>=1.24,<2",
-  "openai>=1.50",
+  "openai>=2,<4",
   "PyYAML>=6,<7",
   "typing-extensions>=4.12,<5",
 ]

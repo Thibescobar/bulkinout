@@ -73,15 +73,6 @@ imaging_safety.claustrophobia
 """
 
 
-def _schema_format(model: type[T]) -> JsonObject:
-    return {
-        "type": "json_schema",
-        "name": model.__name__,
-        "strict": True,
-        "schema": model.model_json_schema(),
-    }
-
-
 def _extract_json(response: Any) -> str:
     output_text = getattr(response, "output_text", None)
     if isinstance(output_text, str) and output_text:
@@ -115,15 +106,18 @@ class OpenAICoreExtractor:
 
     def _call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T:
         responses = cast(Any, self.client.responses)
-        response = responses.create(
+        response = responses.parse(
             model=self.model,
             reasoning={"effort": "medium"},
             input=[
                 {"role": "developer", "content": [{"type": "input_text", "text": prompt}]},
                 {"role": "user", "content": content},
             ],
-            text={"format": _schema_format(model_cls)},
+            text_format=model_cls,
         )
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is not None:
+            return model_cls.model_validate(parsed)
         return model_cls.model_validate_json(_extract_json(response))
 
     def _upload_or_inline(self, path: Path) -> JsonObject:
@@ -185,7 +179,7 @@ def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
             for s in fact.sources
         ]
         section[key] = ClinicalField(
-            value=fact.value,
+            value=cast(JsonValue, fact.value),
             status=FieldStatus(fact.status),
             sources=refs,
             confidence=fact.confidence,
@@ -200,12 +194,11 @@ def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
     for prior in extraction.prior_imaging:
         case.prior_imaging.append(
             PriorImaging(
-                modality=clinical_field(prior.get("modality")),
-                region=clinical_field(prior.get("region")),
-                date=clinical_field(prior.get("date")),
-                result=clinical_field(prior.get("result") or prior.get("summary")),
-                source_document=str(prior.get("source_document") or prior.get("filename") or "")
-                or None,
+                modality=clinical_field(prior.modality),
+                region=clinical_field(prior.region),
+                date=clinical_field(prior.date),
+                result=clinical_field(prior.result),
+                source_document=prior.source_document,
             )
         )
 

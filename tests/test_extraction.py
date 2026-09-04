@@ -13,18 +13,9 @@ class FakeResponses:
         self.response = response
         self.calls = []
 
-    def create(self, **kwargs):
+    def parse(self, **kwargs):
         self.calls.append(kwargs)
         return self.response
-
-
-def test_schema_format_uses_strict_pydantic_schema():
-    result = llm._schema_format(LLMExtraction)
-
-    assert result["type"] == "json_schema"
-    assert result["name"] == "LLMExtraction"
-    assert result["strict"] is True
-    assert result["schema"]["title"] == "LLMExtraction"
 
 
 def test_extract_json_prefers_output_text_and_falls_back_to_chunks():
@@ -74,7 +65,7 @@ def test_structured_call_uses_configured_model(monkeypatch):
 
     assert result == LLMExtraction()
     assert responses.calls[0]["model"] == "test-model"
-    assert responses.calls[0]["text"]["format"]["strict"] is True
+    assert responses.calls[0]["text_format"] is LLMExtraction
 
 
 def test_extractor_requires_openai_key(monkeypatch):
@@ -158,10 +149,10 @@ def test_extraction_to_case_preserves_facts_provenance_and_prior_imaging():
                 "modality": "CT",
                 "region": "abdomen",
                 "date": "2025-01-02",
-                "summary": "Normal",
-                "filename": "prior.pdf",
+                "result": "Normal",
+                "source_document": "prior.pdf",
             },
-            {"modality": None, "result": []},
+            {"modality": None, "result": None},
         ],
         contradictions=["allergy conflict"],
         document_notes=["handwritten"],

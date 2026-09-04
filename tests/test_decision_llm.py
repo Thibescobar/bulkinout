@@ -29,13 +29,6 @@ def test_extract_json_supports_output_text_chunks_and_empty_output():
     assert decision_llm._extract_json(SimpleNamespace()) == ""
 
 
-def test_schema_format_is_strict():
-    result = decision_llm._schema_format(ImagingDecision)
-
-    assert result["name"] == "ImagingDecision"
-    assert result["strict"] is True
-
-
 def test_decision_engine_requires_model(monkeypatch):
     monkeypatch.delenv("BULKINOUT_DECISION_MODEL", raising=False)
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
@@ -62,11 +55,11 @@ def test_decide_sends_case_questions_and_reference_context(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     calls = []
 
-    def create(**kwargs):
+    def parse(**kwargs):
         calls.append(kwargs)
         return SimpleNamespace(output_text=decision_json())
 
-    client = SimpleNamespace(responses=SimpleNamespace(create=create))
+    client = SimpleNamespace(responses=SimpleNamespace(parse=parse))
     monkeypatch.setattr(decision_llm, "OpenAI", lambda: client)
     engine = decision_llm.OpenAIRequestDecision(model="test-model")
 
@@ -79,6 +72,7 @@ def test_decide_sends_case_questions_and_reference_context(monkeypatch):
     payload = json.loads(calls[0]["input"][1]["content"][0]["text"])
     assert result.primary.exam_name == "CT abdomen"
     assert calls[0]["model"] == "test-model"
+    assert calls[0]["text_format"] is ImagingDecision
     assert payload["unresolved_questions"] == [{"field": "patient.age"}]
     assert payload["reference_context"]["matched_scenarios"][0]["id"] == "example"
 
@@ -88,7 +82,7 @@ def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):
     calls = []
     client = SimpleNamespace(
         responses=SimpleNamespace(
-            create=lambda **kwargs: (
+            parse=lambda **kwargs: (
                 calls.append(kwargs) or SimpleNamespace(output_text=decision_json())
             )
         )

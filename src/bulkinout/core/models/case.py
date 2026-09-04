@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal
+from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ...types import JsonObject, JsonValue
 
@@ -173,23 +173,41 @@ class TeleradiologyRequest(BaseModel):
     warning: str = "Brouillon généré automatiquement. Ne pas transmettre sans validation clinique."
 
 
-class LLMSource(BaseModel):
+LLMScalar: TypeAlias = str | int | float | bool
+LLMFactValue: TypeAlias = LLMScalar | list[LLMScalar] | None
+
+
+class StrictLLMModel(BaseModel):
+    """Base for closed schemas sent to strict structured-output APIs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class LLMSource(StrictLLMModel):
     filename: str
     page: int | None = None
     excerpt: str | None = None
 
 
-class LLMFact(BaseModel):
+class LLMFact(StrictLLMModel):
     field: str
-    value: JsonValue
+    value: LLMFactValue
     status: Literal["observed", "inferred", "unknown", "conflicting"]
     confidence: float = Field(ge=0.0, le=1.0)
     sources: list[LLMSource] = Field(default_factory=list)
 
 
-class LLMExtraction(BaseModel):
+class LLMPriorImaging(StrictLLMModel):
+    modality: str | None = None
+    region: str | None = None
+    date: str | None = None
+    result: str | None = None
+    source_document: str | None = None
+
+
+class LLMExtraction(StrictLLMModel):
     facts: list[LLMFact] = Field(default_factory=list)
-    prior_imaging: list[JsonObject] = Field(default_factory=list)
+    prior_imaging: list[LLMPriorImaging] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     document_notes: list[str] = Field(default_factory=list)
 

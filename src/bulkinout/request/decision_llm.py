@@ -43,15 +43,6 @@ Do not fabricate contraindications, lab values, allergies, pregnancy status or d
 """
 
 
-def _schema_format(model: type[T]) -> JsonObject:
-    return {
-        "type": "json_schema",
-        "name": model.__name__,
-        "strict": True,
-        "schema": model.model_json_schema(),
-    }
-
-
 def _extract_json(response: Any) -> str:
     output_text = getattr(response, "output_text", None)
     if isinstance(output_text, str) and output_text:
@@ -93,7 +84,7 @@ class OpenAIRequestDecision:
             "reference_context": cast(JsonObject, reference_context or {}),
         }
         responses = cast(Any, self.client.responses)
-        response = responses.create(
+        response = responses.parse(
             model=self.model,
             reasoning={"effort": "medium"},
             input=[
@@ -105,6 +96,9 @@ class OpenAIRequestDecision:
                     ],
                 },
             ],
-            text={"format": _schema_format(ImagingDecision)},
+            text_format=ImagingDecision,
         )
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is not None:
+            return ImagingDecision.model_validate(parsed)
         return ImagingDecision.model_validate_json(_extract_json(response))
