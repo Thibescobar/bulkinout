@@ -72,7 +72,7 @@ Every current clinical datum is wrapped in `ClinicalField`:
 
 | Field | Contract |
 |---|---|
-| `value` | Extracted or inferred content. Its runtime type depends on the clinical concept. |
+| `value` | Extracted or inferred JSON-compatible content. Its runtime type depends on the clinical concept. |
 | `status` | Evidence state: `observed`, `inferred`, `unknown`, or `conflicting`. |
 | `sources` | Zero or more source references. Non-unknown extracted facts should normally have at least one. |
 | `confidence` | Model confidence from `0.0` to `1.0`; not a calibrated clinical probability. |
@@ -161,7 +161,7 @@ stateDiagram-v2
 
 ## Clarification input
 
-The CLI writes required discriminators as `answers.template.json`:
+The shared output writer writes required discriminators as `answers.template.json`:
 
 ```json
 {

@@ -4,8 +4,10 @@ from bulkinout.request.golden import discover_golden_cases, run_golden_case
 
 ROOT = Path(__file__).parents[1]
 
+
 def test_golden_cases_exist():
     assert len(discover_golden_cases(ROOT / "tests" / "golden")) >= 10
+
 
 def test_all_golden_cases_pass():
     failures = []

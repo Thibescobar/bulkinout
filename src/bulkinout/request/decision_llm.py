@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 from openai import OpenAI
 from pydantic import BaseModel
 
 from ..core.models import ClinicalCase, ImagingDecision
+from ..errors import ConfigurationError
+from ..types import JsonObject, JsonValue
+from .types import ReferenceContext
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -38,7 +41,8 @@ Process:
 Do not fabricate contraindications, lab values, allergies, pregnancy status or device compatibility.
 """
 
-def _schema_format(model: type[T]) -> dict:
+
+def _schema_format(model: type[T]) -> JsonObject:
     return {
         "type": "json_schema",
         "name": model.__name__,
@@ -46,35 +50,50 @@ def _schema_format(model: type[T]) -> dict:
         "schema": model.model_json_schema(),
     }
 
-def _extract_json(response) -> str:
-    if getattr(response, "output_text", None):
-        return response.output_text
-    chunks = []
+
+def _extract_json(response: Any) -> str:
+    output_text = getattr(response, "output_text", None)
+    if isinstance(output_text, str) and output_text:
+        return output_text
+    chunks: list[str] = []
     for item in getattr(response, "output", []) or []:
         for c in getattr(item, "content", []) or []:
-            if getattr(c, "text", None):
-                chunks.append(c.text)
+            text = getattr(c, "text", None)
+            if isinstance(text, str):
+                chunks.append(text)
     return "".join(chunks)
+
 
 class OpenAIRequestDecision:
     def __init__(self, model: str | None = None):
-        self.client = OpenAI()
         self.model = model or os.getenv("BULKINOUT_MODEL")
         if not self.model:
-            raise ValueError("No model configured. Use --model or BULKINOUT_MODEL.")
+            raise ConfigurationError("No model configured. Use --model or BULKINOUT_MODEL.")
+        self.client = OpenAI()
 
-    def decide(self, case: ClinicalCase, missing_questions: list[dict], reference_context: dict | None = None) -> ImagingDecision:
-        payload = {
-            "clinical_case": case.model_dump(mode="json"),
-            "unresolved_questions": missing_questions,
-            "reference_context": reference_context or {},
+    def decide(
+        self,
+        case: ClinicalCase,
+        missing_questions: list[JsonObject],
+        reference_context: ReferenceContext | None = None,
+    ) -> ImagingDecision:
+        payload: JsonObject = {
+            "clinical_case": cast(JsonObject, case.model_dump(mode="json")),
+            "unresolved_questions": cast(list[JsonValue], missing_questions),
+            "reference_context": cast(JsonObject, reference_context or {}),
         }
-        response = self.client.responses.create(
+        responses = cast(Any, self.client.responses)
+        response = responses.create(
             model=self.model,
             reasoning={"effort": "medium"},
             input=[
                 {"role": "developer", "content": [{"type": "input_text", "text": DECISION_PROMPT}]},
-                {"role": "user", "content": [{"type": "input_text", "text": json.dumps(payload, ensure_ascii=False)}]},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": json.dumps(payload, ensure_ascii=False)}
+                    ],
+                },
             ],
             text={"format": _schema_format(ImagingDecision)},
         )

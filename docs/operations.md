@@ -94,7 +94,7 @@ The request status is independently derived:
 
 ## Failure modes and troubleshooting
 
-The CLI prints progress to standard output but has no structured logging or stable application error taxonomy. Most parsing, filesystem, SDK, network, and schema errors currently propagate with a Python traceback.
+The CLI prints concise progress to standard output. Expected configuration, input, and reference failures use the `BulkinoutError` hierarchy and are rendered as one-line CLI errors with exit code 2. Provider, filesystem, and Pydantic exceptions remain unwrapped so Python integrations can handle their original types and developers retain useful diagnostics. Structured operational logging is not implemented yet.
 
 | Symptom | Likely cause | Check |
 |---|---|---|
@@ -102,7 +102,7 @@ The CLI prints progress to standard output but has no structured logging or stab
 | `No model configured` | Neither `--model` nor `BULKINOUT_MODEL` is set | Pass `--model` explicitly or export the variable |
 | `No supported document found` | Empty path, wrong path, or unsupported extensions | Confirm the directory and use PDF, TXT, Markdown, PNG, JPEG, or WebP |
 | OpenAI authentication or network error | Invalid credentials, connectivity, quota, or service failure | Verify the runtime environment and provider status; no retry policy is implemented |
-| Pydantic validation error after a model call | Returned structured data did not satisfy the schema | Preserve the traceback and model name; retry only after assessing whether the failure is transient |
+| Pydantic validation error after a model call | Returned structured data did not satisfy the schema | Preserve the exception and model name; retry only after assessing whether the failure is transient |
 | YAML/parser error | Malformed scenario file | Run `bulkinout request catalog` and the golden cases before deployment |
 | Decision remains blocked | Required clinical or safety facts are unknown/conflicting | Review `missing_questions.json`, complete an answer file, and rerun |
 | Partial or mixed output files | Process stopped during sequential writes | Discard the directory and rerun into a new empty directory |

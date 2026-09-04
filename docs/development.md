@@ -45,7 +45,9 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 
 | Area | Main location | Responsibility |
 |---|---|---|
-| Command orchestration | `src/bulkinout/cli.py` | Parses commands, invokes services, applies final safeguards, and writes JSON artifacts |
+| Command interface | `src/bulkinout/cli.py` | Parses commands, invokes services, and displays concise results |
+| Request service | `src/bulkinout/request/service.py` | Owns the complete pre-exam execution order and safeguards |
+| Output writers | `src/bulkinout/output.py` | Serializes Core and Request results to the documented JSON files |
 | File ingestion | `src/bulkinout/core/ingestion/` | Discovers supported input files |
 | Extraction | `src/bulkinout/core/extraction/llm.py` | Builds multimodal LLM input and validates structured extraction |
 | Shared models | `src/bulkinout/core/models/case.py` | Defines the longitudinal case, facts, decisions, and requests |
@@ -56,7 +58,7 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 | Clinical presentation | `src/bulkinout/request/request_builder.py` | Builds the French-facing teleradiology request |
 | Reference content | `reference/scenarios/*.yaml` | Stores scenario matching, questions, candidates, and deterministic rules |
 
-The full Request workflow is currently orchestrated by `cmd_request_run()` rather than a standalone service. When changing its order, review the complete function: moving a guard before or after the LLM decision can change clinical behavior.
+The full Request workflow is orchestrated by `run_request()`. Keep the CLI thin and add application behavior to the service so CLI and Python users cannot diverge. Moving a guard before or after the LLM decision can change clinical behavior.
 
 ## Follow common change recipes
 
@@ -107,7 +109,7 @@ LLM calls are not part of the default suite and may vary across models. A succes
 
 ## Apply style and language rules
 
-Use four spaces, type hints on public functions, `pathlib.Path` for paths, `snake_case` for functions and modules, `PascalCase` for models, and uppercase constants. Ruff configuration lives in `pyproject.toml`.
+Use four spaces, type hints on source functions, `pathlib.Path` for paths, `snake_case` for functions and modules, `PascalCase` for models, and uppercase constants. Ruff enforces formatting and a cyclomatic-complexity ceiling of 10; strict mypy settings cover `src/`. Prefer small domain helpers over nested branches.
 
 The canonical technical language is English. Clinical input remains language-agnostic, matching dictionaries may be multilingual, and French is reserved for clinical content presented to current users. A terminology refactor must preserve existing matching and must not rename stable identifiers.
 
@@ -117,8 +119,11 @@ Before submitting a change:
 
 ```bash
 ruff check src tests
+ruff format --check src tests
+mypy
 pytest -q
 bulkinout request golden --cases tests/golden --reference reference/scenarios
+python -m build
 git diff --check
 ```
 

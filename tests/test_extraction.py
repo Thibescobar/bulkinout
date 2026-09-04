@@ -5,6 +5,7 @@ import pytest
 
 from bulkinout.core.extraction import llm
 from bulkinout.core.models import FieldStatus, LLMExtraction, LLMFact, LLMSource
+from bulkinout.errors import ConfigurationError
 
 
 class FakeResponses:
@@ -32,9 +33,7 @@ def test_extract_json_prefers_output_text_and_falls_back_to_chunks():
     response = SimpleNamespace(
         output_text="",
         output=[
-            SimpleNamespace(
-                content=[SimpleNamespace(text="first"), SimpleNamespace(text=None)]
-            ),
+            SimpleNamespace(content=[SimpleNamespace(text="first"), SimpleNamespace(text=None)]),
             SimpleNamespace(content=[SimpleNamespace(text="second")]),
         ],
     )
@@ -46,7 +45,7 @@ def test_extractor_requires_a_model(monkeypatch):
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ValueError, match="No model configured"):
+    with pytest.raises(ConfigurationError, match="No model configured"):
         llm.OpenAICoreExtractor()
 
 

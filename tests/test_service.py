@@ -2,16 +2,26 @@ import pytest
 
 from bulkinout.core import service
 from bulkinout.core.models import ClinicalCase, LLMExtraction
+from bulkinout.errors import ConfigurationError, InputError
 
 
 def test_build_radiology_case_rejects_empty_input(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "collect_files", lambda path: [])
 
-    with pytest.raises(ValueError, match="No supported document"):
+    with pytest.raises(InputError, match="No supported document"):
+        service.build_radiology_case(tmp_path)
+
+
+def test_build_radiology_case_requires_api_key_after_input_validation(monkeypatch, tmp_path):
+    monkeypatch.setattr(service, "collect_files", lambda path: [tmp_path / "letter.txt"])
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY is missing"):
         service.build_radiology_case(tmp_path)
 
 
 def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     paths = [tmp_path / "letter.txt", tmp_path / "scan.pdf"]
     extraction = LLMExtraction(document_notes=["ok"])
 

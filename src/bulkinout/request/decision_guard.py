@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from ..core.models import ClinicalCase, FieldStatus, ImagingDecision
+from ..core.models import ClinicalCase, DiscriminatingQuestion, FieldStatus, ImagingDecision
+from ..types import JsonValue
 
 
-def _get_case_value(case: ClinicalCase, field_path: str):
+def _get_case_value(case: ClinicalCase, field_path: str) -> tuple[JsonValue, bool]:
     if "." not in field_path:
         return None, True
     section_name, key = field_path.split(".", 1)
@@ -16,43 +17,50 @@ def _get_case_value(case: ClinicalCase, field_path: str):
     return f.value, False
 
 
-def enforce_decision_guard(case: ClinicalCase, decision: ImagingDecision) -> ImagingDecision:
-    """
-    Deterministic guard:
-    an unanswered discriminating question marked required_to_choose prevents selection.
-    """
-    unresolved_required = []
-    for q in decision.discriminating_questions:
-        _, unknown = _get_case_value(case, q.field)
-        if q.required_to_choose and unknown:
-            unresolved_required.append(q)
+def _unresolved_required_questions(
+    case: ClinicalCase, decision: ImagingDecision
+) -> list[DiscriminatingQuestion]:
+    return [
+        question
+        for question in decision.discriminating_questions
+        if question.required_to_choose and _get_case_value(case, question.field)[1]
+    ]
 
-    if unresolved_required:
-        decision.decision_status = "insufficient_information"
-        decision.primary.recommended = False
-        decision.decision_ready_for_human_approval = False
+
+def _block_unresolved_questions(
+    decision: ImagingDecision, questions: list[DiscriminatingQuestion]
+) -> None:
+    decision.decision_status = "insufficient_information"
+    decision.primary.recommended = False
+    decision.decision_ready_for_human_approval = False
+    decision.clinician_call_required = True
+    decision.primary.missing_information = list(
+        dict.fromkeys(
+            decision.primary.missing_information + [question.question for question in questions]
+        )
+    )
+    for question in questions:
+        reason = f"{question.question} — {question.why_it_matters}"
+        if reason not in decision.clinician_call_reasons:
+            decision.clinician_call_reasons.append(reason)
+
+
+def _normalize_readiness(decision: ImagingDecision) -> None:
+    if decision.decision_status == "selected" and decision.primary.recommended:
+        decision.decision_ready_for_human_approval = True
+    elif decision.decision_status in {"insufficient_information", "safety_blocked"}:
         decision.clinician_call_required = True
-        decision.primary.missing_information = list(dict.fromkeys(
-            decision.primary.missing_information + [q.question for q in unresolved_required]
-        ))
-        for q in unresolved_required:
-            reason = f"{q.question} — {q.why_it_matters}"
-            if reason not in decision.clinician_call_reasons:
-                decision.clinician_call_reasons.append(reason)
-
-    if decision.decision_status == "selected":
-        # A selected decision cannot simultaneously claim a required unanswered discriminator.
-        if unresolved_required:
-            decision.decision_status = "insufficient_information"
-        elif decision.primary.recommended:
-            decision.decision_ready_for_human_approval = True
-
-    if decision.decision_status in {"insufficient_information", "safety_blocked"}:
-        decision.clinician_call_required = True
         decision.decision_ready_for_human_approval = False
-
-    if decision.decision_status == "no_imaging_recommended":
+    elif decision.decision_status == "no_imaging_recommended":
         decision.primary.recommended = False
         decision.decision_ready_for_human_approval = True
 
+
+def enforce_decision_guard(case: ClinicalCase, decision: ImagingDecision) -> ImagingDecision:
+    """Prevent selection while a required discriminating question is unresolved."""
+
+    unresolved = _unresolved_required_questions(case, decision)
+    if unresolved:
+        _block_unresolved_questions(decision, unresolved)
+    _normalize_readiness(decision)
     return decision

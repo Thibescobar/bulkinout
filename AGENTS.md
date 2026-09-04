@@ -16,11 +16,11 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Run `ruff check src tests` before committing. Run `bulkinout request golden --cases tests/golden --reference reference/scenarios` to validate scenario rules without an LLM. Use `bulkinout request catalog` to inspect loaded scenarios. LLM-backed runs require `OPENAI_API_KEY` and `BULKINOUT_MODEL`; for example, `bulkinout request run --input input --output output`.
+Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden --reference reference/scenarios` to validate scenario rules without an LLM. Use `bulkinout request catalog` to inspect loaded scenarios. LLM-backed runs require `OPENAI_API_KEY` and `BULKINOUT_MODEL`; for example, `bulkinout request run --input input --output output`.
 
 ## Coding Style & Naming Conventions
 
-Follow standard Python conventions: four-space indentation, `snake_case` for functions and modules, `PascalCase` for Pydantic models, and uppercase names for constants. Add type hints to new public functions and use `pathlib.Path` for filesystem paths. Keep workflow rules deterministic where possible and preserve provenance when transforming clinical facts. Ruff is configured in `pyproject.toml`; keep imports grouped and changes consistent with nearby code.
+Follow standard Python conventions: four-space indentation, `snake_case` for functions and modules, `PascalCase` for models, and uppercase names for constants. Type all source functions; strict mypy settings apply to `src/`. Use `pathlib.Path` for filesystem paths and typed JSON/reference structures instead of unconstrained dictionaries. Ruff owns linting, formatting, and a maximum cyclomatic complexity of 10 through `pyproject.toml`. Keep workflow rules deterministic and preserve provenance when transforming clinical facts.
 
 ## Testing Guidelines
 

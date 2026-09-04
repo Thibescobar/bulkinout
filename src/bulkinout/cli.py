@@ -1,172 +1,85 @@
+"""Command-line interface for Bulkinout."""
+
 from __future__ import annotations
 
 import argparse
-import json
 import os
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from .request.answers import apply_answers, load_answers
-from .request.decision_guard import enforce_decision_guard
+from .errors import BulkinoutError, ConfigurationError
+from .output import write_core_outputs, write_request_outputs
 from .request.golden import discover_golden_cases, run_golden_case
 from .request.reference_catalog import build_catalog
-from .request.reference_engine import ReferenceEngine
-from .request.request_builder import build_teleradiology_request
-from .request.rules import generic_missing_questions, recommendation_specific_questions
+
+Command = Callable[[argparse.Namespace], None]
 
 
-def _dump(path: Path, payload):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-
-
-def cmd_core_structure(args):
-    from .core.service import build_radiology_case
+def _require_api_key() -> None:
     if not os.getenv("OPENAI_API_KEY"):
-        raise SystemExit("OPENAI_API_KEY is missing.")
-    output = Path(args.output)
-    case, extraction, _ = build_radiology_case(Path(args.input), model=args.model)
-    _dump(output / "radiology_case.json", case.model_dump(mode="json"))
-    _dump(output / "llm_extraction.json", extraction.model_dump(mode="json"))
-    print(f"Core structuring completed: {output / 'radiology_case.json'}")
+        raise ConfigurationError("OPENAI_API_KEY is missing.")
 
 
-def _write_answer_template(output_dir: Path, decision):
-    qs = sorted(decision.discriminating_questions, key=lambda q: q.priority)
-    payload = {
-        "answers": [
-            {
-                "question_id": q.question_id,
-                "field": q.field,
-                "value": None,
-                "note": q.question,
-            }
-            for q in qs if q.required_to_choose
-        ]
-    }
-    _dump(output_dir / "answers.template.json", payload)
+def cmd_core_structure(args: argparse.Namespace) -> None:
+    """Run Core extraction and write its output snapshots."""
 
-
-def cmd_request_run(args):
+    _require_api_key()
     from .core.service import build_radiology_case
-    from .request.decision_llm import OpenAIRequestDecision
-    if not os.getenv("OPENAI_API_KEY"):
-        raise SystemExit("OPENAI_API_KEY is missing.")
 
     output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    result = build_radiology_case(Path(args.input), model=args.model)
+    write_core_outputs(result, output_dir)
+    print(f"Core structuring completed: {output_dir / 'radiology_case.json'}")
 
-    print("[1/5] Bulkinout Core...")
-    radiology_case, extraction, _paths = build_radiology_case(Path(args.input), model=args.model)
-    case = radiology_case.clinical
 
-    if args.answers:
-        answer_path = Path(args.answers)
-        print(f"[2/5] Applying answers: {answer_path.name}")
-        case = apply_answers(case, load_answers(answer_path), answer_path.name)
-        radiology_case.clinical = case
-    else:
-        print("[2/5] No answer file provided.")
+def cmd_request_run(args: argparse.Namespace) -> None:
+    """Run the complete Request application service and write its snapshots."""
 
-    print("[3/5] Reference data and Request decision...")
-    initial_questions = generic_missing_questions(case)
-    ref_engine = ReferenceEngine(Path(args.reference))
-    reference_context = ref_engine.build_context(case)
+    _require_api_key()
+    from .request.service import run_request
 
-    decision_engine = OpenAIRequestDecision(model=args.model)
-    decision = decision_engine.decide(
-        case,
-        [q.model_dump(mode="json") for q in initial_questions],
-        reference_context=reference_context,
+    print("Running the Core and Request workflow...")
+    result = run_request(
+        Path(args.input),
+        reference_dir=Path(args.reference),
+        model=args.model,
+        answers_path=Path(args.answers) if args.answers else None,
     )
-    decision = enforce_decision_guard(case, decision)
-
-    print("[4/5] Applying modality-specific safeguards...")
-    specific_questions = recommendation_specific_questions(case, decision)
-    qs_by_field = {q.field: q for q in initial_questions + specific_questions}
-    all_questions = list(qs_by_field.values())
-
-    blocking = [q for q in all_questions if q.blocking]
-    if blocking:
-        safety_fields = {
-            "imaging_safety.pacemaker",
-            "imaging_safety.implant_or_metal",
-            "imaging_safety.pregnancy",
-            "allergies.iodinated_contrast_reaction",
-            "allergies.gadolinium_reaction",
-        }
-        decision.decision_status = (
-            "safety_blocked" if any(q.field in safety_fields for q in blocking)
-            else "insufficient_information"
-        )
-        decision.clinician_call_required = True
-        decision.decision_ready_for_human_approval = False
-        for q in blocking:
-            if q.question not in decision.clinician_call_reasons:
-                decision.clinician_call_reasons.append(q.question)
-
-    material_specific = [
-        q for q in specific_questions if q.importance in {"critical", "high"}
-    ]
-    if material_specific:
-        decision.clinician_call_required = True
-        decision.decision_ready_for_human_approval = False
-        if any(q.blocking for q in material_specific):
-            decision.decision_status = "safety_blocked"
-        elif decision.decision_status == "selected":
-            decision.decision_status = "insufficient_information"
-        for q in material_specific:
-            if q.question not in decision.clinician_call_reasons:
-                decision.clinician_call_reasons.append(q.question)
-
-    request = build_teleradiology_request(case, decision, all_questions)
-
-    radiology_case.referral = {
-        "reference_context": reference_context,
-        "imaging_decision": decision.model_dump(mode="json"),
-        "teleradiology_request": request.model_dump(mode="json"),
-    }
-    radiology_case.audit.append({
-        "event": "request_workflow_completed",
-        "decision_status": decision.decision_status,
-    })
-
-    print("[5/5] Writing outputs...")
-    _dump(output_dir / "radiology_case.json", radiology_case.model_dump(mode="json"))
-    _dump(output_dir / "llm_extraction.json", extraction.model_dump(mode="json"))
-    _dump(output_dir / "case.json", case.model_dump(mode="json"))
-    _dump(output_dir / "reference_context.json", reference_context)
-    _dump(output_dir / "missing_questions.json", [q.model_dump(mode="json") for q in all_questions])
-    _dump(output_dir / "imaging_decision.json", decision.model_dump(mode="json"))
-    _dump(output_dir / "teleradiology_request.json", request.model_dump(mode="json"))
-    _write_answer_template(output_dir, decision)
+    write_request_outputs(result, Path(args.output))
 
     print()
-    print(f"Decision: {decision.decision_status}")
-    print(f"Clinician call required: {'YES' if decision.clinician_call_required else 'NO'}")
-    print(f"Teleradiology request status: {request.status}")
+    print(f"Decision: {result.imaging_decision.decision_status}")
+    print(
+        "Clinician call required: "
+        f"{'YES' if result.imaging_decision.clinician_call_required else 'NO'}"
+    )
+    print(f"Teleradiology request status: {result.teleradiology_request.status}")
 
 
+def cmd_request_golden(args: argparse.Namespace) -> None:
+    """Run deterministic golden cases against the local reference."""
 
-
-def cmd_request_golden(args):
-    ref = Path(args.reference)
+    reference_dir = Path(args.reference)
     cases = discover_golden_cases(Path(args.cases))
     if not cases:
-        raise SystemExit("No golden cases found.")
+        raise ConfigurationError("No golden cases found.")
+
     failed = 0
     for path in cases:
-        result = run_golden_case(path, ref)
+        result = run_golden_case(path, reference_dir)
         print(f"[{'PASS' if result.passed else 'FAIL'}] {result.case_id}")
         if not result.passed:
             failed += 1
-            for err in result.errors:
-                print(f"  - {err}")
+            for error in result.errors:
+                print(f"  - {error}")
     print(f"\n{len(cases) - failed}/{len(cases)} golden cases passed.")
     if failed:
         raise SystemExit(1)
 
 
-def cmd_request_catalog(args):
+def cmd_request_catalog(args: argparse.Namespace) -> None:
+    """Print a compact inventory of configured reference scenarios."""
+
     catalog = build_catalog(Path(args.reference))
     print(f"{len(catalog)} scenario(s)")
     for item in catalog:
@@ -178,45 +91,98 @@ def cmd_request_catalog(args):
         )
 
 
-def main():
+def cmd_report(_args: argparse.Namespace) -> None:
+    """Report that the post-exam workflow is not implemented yet."""
+
+    print("Bulkinout Report is reserved for a later phase.")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser without executing a command."""
+
     parser = argparse.ArgumentParser(
         prog="bulkinout",
-        description="Bulkinout — Bulk in. Intelligence out."
+        description="Bulkinout — Bulk in. Intelligence out.",
     )
     top = parser.add_subparsers(dest="area", required=True)
 
     core = top.add_parser("core", help="Multimodal structuring core")
     core_sub = core.add_subparsers(dest="core_cmd", required=True)
     structure = core_sub.add_parser("structure", help="Bulk input -> structured RadiologyCase")
-    structure.add_argument("--input", default="input")
-    structure.add_argument("--output", default="output")
-    structure.add_argument("--model", default=os.getenv("BULKINOUT_MODEL"))
+    structure.add_argument(
+        "--input", default="input", help="Directory containing source documents (default: input)"
+    )
+    structure.add_argument(
+        "--output", default="output", help="Directory receiving Core JSON files (default: output)"
+    )
+    structure.add_argument(
+        "--model",
+        default=os.getenv("BULKINOUT_MODEL"),
+        help="Extraction model (default: BULKINOUT_MODEL)",
+    )
     structure.set_defaults(func=cmd_core_structure)
 
     request = top.add_parser("request", help="Pre-exam workflow")
     request_sub = request.add_subparsers(dest="request_cmd", required=True)
-    run = request_sub.add_parser("run")
-    run.add_argument("--input", default="input")
-    run.add_argument("--output", default="output")
-    run.add_argument("--answers", default=None)
-    run.add_argument("--reference", default="reference/scenarios")
-    run.add_argument("--model", default=os.getenv("BULKINOUT_MODEL"))
+    run = request_sub.add_parser("run", help="Run the complete pre-exam workflow")
+    run.add_argument(
+        "--input", default="input", help="Directory containing source documents (default: input)"
+    )
+    run.add_argument(
+        "--output",
+        default="output",
+        help="Directory receiving workflow JSON files (default: output)",
+    )
+    run.add_argument("--answers", default=None, help="Optional JSON file of clinician answers")
+    run.add_argument(
+        "--reference",
+        default="reference/scenarios",
+        help="Directory containing scenario YAML files (default: reference/scenarios)",
+    )
+    run.add_argument(
+        "--model",
+        default=os.getenv("BULKINOUT_MODEL"),
+        help="Extraction and decision model (default: BULKINOUT_MODEL)",
+    )
     run.set_defaults(func=cmd_request_run)
 
     catalog = request_sub.add_parser("catalog", help="List reference scenarios")
-    catalog.add_argument("--reference", default="reference/scenarios")
+    catalog.add_argument(
+        "--reference",
+        default="reference/scenarios",
+        help="Directory containing scenario YAML files (default: reference/scenarios)",
+    )
     catalog.set_defaults(func=cmd_request_catalog)
 
     golden = request_sub.add_parser("golden", help="Run golden cases without an LLM")
-    golden.add_argument("--cases", default="tests/golden")
-    golden.add_argument("--reference", default="reference/scenarios")
+    golden.add_argument(
+        "--cases",
+        default="tests/golden",
+        help="Directory containing golden YAML cases (default: tests/golden)",
+    )
+    golden.add_argument(
+        "--reference",
+        default="reference/scenarios",
+        help="Directory containing scenario YAML files (default: reference/scenarios)",
+    )
     golden.set_defaults(func=cmd_request_golden)
 
     report = top.add_parser("report", help="Post-exam workflow (standby)")
-    report.set_defaults(func=lambda args: print("Bulkinout Report is reserved for a later phase."))
+    report.set_defaults(func=cmd_report)
+    return parser
 
-    args = parser.parse_args()
-    args.func(args)
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Parse arguments, dispatch the command, and render expected errors."""
+
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    command: Command = args.func
+    try:
+        command(args)
+    except BulkinoutError as error:
+        parser.exit(2, f"error: {error}\n")
+
 
 if __name__ == "__main__":
     main()

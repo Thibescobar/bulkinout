@@ -86,17 +86,13 @@ bulkinout request run \
 | `--reference` | `reference/scenarios` | Scenario YAML directory. |
 | `--model` | `BULKINOUT_MODEL` | Model used for both extraction and decision support. |
 
-The command prints five progress phases:
+The command reports the combined service run before processing:
 
 ```text
-[1/5] Bulkinout Core...
-[2/5] Applying answers: ...       # or no answer file
-[3/5] Reference data and Request decision...
-[4/5] Applying modality-specific safeguards...
-[5/5] Writing outputs...
+Running the Core and Request workflow...
 ```
 
-It finishes with the guarded decision status, whether a clinician call is required, and the request status.
+It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, and the request status. Detailed step order belongs to the shared Request service and is identical for CLI and Python callers.
 
 ### Clarification pass
 
@@ -157,7 +153,7 @@ bulkinout request golden \
 | `--cases` | `tests/golden` | Directory recursively searched for YAML golden cases. |
 | `--reference` | `reference/scenarios` | Scenarios evaluated for every case. |
 
-The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It also exits if no golden files are found.
+The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It exits with status 2 if no golden files are found.
 
 ## `bulkinout report`
 

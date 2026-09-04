@@ -1,3 +1,5 @@
+import pytest
+
 from bulkinout.core.models import (
     ClinicalCase,
     ClinicalField,
@@ -56,3 +58,24 @@ def test_mri_requires_device_information():
     fields = {q.field for q in qs}
     assert "imaging_safety.pacemaker" in fields
     assert "imaging_safety.implant_or_metal" in fields
+
+
+@pytest.mark.parametrize(
+    ("sex", "age", "pregnancy_question_expected"),
+    [
+        ("M", None, False),
+        ("M", "not-a-number", True),
+        ("F", 5, False),
+        ("F", 30, True),
+    ],
+)
+def test_pregnancy_question_relevance_is_conservative(sex, age, pregnancy_question_expected):
+    patient = {"sex": observed(sex)}
+    if age is not None:
+        patient["age"] = observed(age)
+    case = ClinicalCase(patient=patient)
+    decision = ImagingDecision(primary=ImagingRecommendation(modality="CT", contrast="no"))
+
+    fields = {q.field for q in recommendation_specific_questions(case, decision)}
+
+    assert ("imaging_safety.pregnancy" in fields) is pregnancy_question_expected

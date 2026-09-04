@@ -38,8 +38,9 @@ Three ideas are central:
 ### Run or troubleshoot the software
 
 1. [CLI](cli.md) for commands, options, output files, and expected failures.
-2. [Operations and safety](operations.md) for configuration, data handling, and production gaps.
-3. [Testing](testing.md) for automated, golden, and manual validation.
+2. [Python API](python-api.md) for public services, typed results, persistence, and errors.
+3. [Operations and safety](operations.md) for configuration, data handling, and production gaps.
+4. [Testing](testing.md) for automated, golden, and manual validation.
 
 ### Change the software
 
@@ -69,7 +70,10 @@ bulkinout/
 │   ├── core/                 ingestion, extraction, models, case construction
 │   ├── request/              reference, decision, guards, request generation
 │   ├── report/               post-exam placeholder
-│   └── cli.py                command parsing and workflow orchestration
+│   ├── cli.py                command parsing and status display
+│   ├── errors.py             public application exception hierarchy
+│   ├── output.py             JSON snapshot writers
+│   └── types.py              shared JSON-compatible types
 ├── reference/
 │   ├── scenarios/            18 versioned YAML scenarios
 │   └── catalog.json          generated scenario summary

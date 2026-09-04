@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import NamedTuple
 
+from ..errors import ConfigurationError, InputError
 from .extraction import OpenAICoreExtractor, extraction_to_case
 from .ingestion import collect_files
-from .models import ArtifactRef, RadiologyCase, WorkflowState
+from .models import ArtifactRef, LLMExtraction, RadiologyCase, WorkflowState
 
 
-def build_radiology_case(input_dir: Path, model: str | None = None):
+class CoreResult(NamedTuple):
+    """Typed Core output that remains tuple-unpackable for compatibility."""
+
+    radiology_case: RadiologyCase
+    extraction: LLMExtraction
+    source_paths: list[Path]
+
+
+def build_radiology_case(input_dir: Path, model: str | None = None) -> CoreResult:
     paths = collect_files(input_dir)
     if not paths:
-        raise ValueError(f"No supported document found in {input_dir}")
+        raise InputError(f"No supported document found in {input_dir}")
+    if not os.getenv("OPENAI_API_KEY"):
+        raise ConfigurationError("OPENAI_API_KEY is missing.")
 
     extractor = OpenAICoreExtractor(model=model)
     extraction = extractor.extract(paths)
@@ -31,4 +44,4 @@ def build_radiology_case(input_dir: Path, model: str | None = None):
         ],
         audit=[{"event": "core_structuring_completed", "model": extractor.model}],
     )
-    return case, extraction, paths
+    return CoreResult(case, extraction, paths)
