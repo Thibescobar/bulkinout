@@ -17,6 +17,11 @@ Given a structured clinical case, unresolved questions and a reference context,
 reason across plausible imaging candidates.
 
 This is decision support, not autonomous prescribing.
+Clinical input may originate in any language. Do not assume that source documents are French.
+Use canonical English identifiers and language-independent canonical structured values.
+Write internal reasoning and metadata in English. Write only clinician- and radiologist-facing
+presentation text in French for the current product, including clinical questions, examination
+and protocol labels, the radiologist's clinical question, and request-facing rationale.
 
 Process:
 1. Use reference_context as the normative local decision-support context when supplied.
@@ -56,7 +61,7 @@ class OpenAIRequestDecision:
         self.client = OpenAI()
         self.model = model or os.getenv("BULKINOUT_MODEL")
         if not self.model:
-            raise ValueError("Aucun modèle configuré. Utilisez --model ou BULKINOUT_MODEL.")
+            raise ValueError("No model configured. Use --model or BULKINOUT_MODEL.")
 
     def decide(self, case: ClinicalCase, missing_questions: list[dict], reference_context: dict | None = None) -> ImagingDecision:
         payload = {

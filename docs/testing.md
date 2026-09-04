@@ -6,28 +6,28 @@
 pytest -q
 ```
 
-La suite couvre les modèles, l'ingestion, l'extraction avec clients simulés, les règles, la garde de décision, le moteur de référentiel, le catalogue, la CLI et les golden cases. `pytest-cov` mesure automatiquement `bulkinout` et impose un minimum de 95 %.
+The suite covers models, ingestion, extraction with simulated clients, rules, the decision guard, reference engine, catalog, CLI, and golden cases. `pytest-cov` measures `bulkinout` automatically and enforces at least 95% coverage.
 
-Vérifier également le lint avant chaque contribution :
+Run lint before every contribution:
 
 ```bash
 ruff check src tests
 ```
 
-## Golden cases
+## Golden Cases
 
-`tests/golden/*.yaml` teste le référentiel sans LLM. `case_from_facts()` transforme un dictionnaire `section.champ → valeur` en `ClinicalCase`; `run_golden_case()` compare ensuite scénario, règles, questions et résultats attendus. Ces tests sont rapides et déterministes.
+`tests/golden/*.yaml` tests the reference without an LLM. `case_from_facts()` converts `section.field → value` mappings into a `ClinicalCase`; `run_golden_case()` compares matched scenarios, triggered rules, questions, and expected results. These tests are fast and deterministic.
 
 ```bash
 bulkinout request golden --cases tests/golden --reference reference/scenarios
 ```
 
-## End-to-end
+Golden clinical facts may be French, English, or another supported input language. Keep existing French cases and add English equivalents when validating multilingual matching.
 
-`tests/e2e/` contient trois dossiers synthétiques multi-documents. Ils appellent réellement le Core/LLM puis Request et ne font pas partie du `pytest` par défaut. Chaque cas possède un `expected.json` pour la comparaison manuelle.
+## End-to-End
 
-La revue peut être consignée dans `review/radiologist_review_template.csv` avec les catégories d'erreur définies dans `review/README.md`.
+`tests/e2e/` contains synthetic multidocument records. They call the Core/LLM and Request workflows and are excluded from default pytest runs. Each case has an `expected.json` for manual comparison. Record findings in `review/radiologist_review_template.csv`.
 
-## Transformer une erreur en test
+## Turn Errors into Tests
 
-Lorsqu'une revue manuelle identifie une erreur de référentiel, créer ou modifier un golden case avant de changer la règle. Lorsqu'elle identifie une erreur d'extraction, conserver le cas E2E et son `expected.json` pour mesurer les versions ultérieures du Core.
+For a reference error, add or update a golden case before changing a rule. For an extraction error, retain the E2E case and `expected.json` so later Core versions remain measurable.

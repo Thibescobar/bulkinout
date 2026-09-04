@@ -1,14 +1,14 @@
 # BULKINOUT Report
 
-Reserved for the future post-exam workflow.
+`Report` is the future post-exam workflow. It will consume the same longitudinal `RadiologyCase` as Request.
 
-It will consume the same `RadiologyCase` produced by BULKINOUT Core and add:
-- performed study metadata,
-- computer-vision AI outputs,
-- radiologist dictation,
-- prior comparison,
-- structured findings,
-- impression,
-- final report.
+The intended scope includes:
 
-No business logic is implemented yet.
+- acquisition intake;
+- AI/computer-vision outputs;
+- radiologist dictation;
+- structured findings and impression;
+- final report;
+- audit and traceability.
+
+No Report processing is implemented in v0. Any future technical internals and canonical data must use English; French remains presentation content for current clinical users.

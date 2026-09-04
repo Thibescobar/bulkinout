@@ -1,28 +1,27 @@
-# Tests end-to-end
+# End-to-End Tests
 
-Ces dossiers synthétiques testent la chaîne complète **documents → Core → Request** avec un appel réel au LLM.
-Ils ne sont pas lancés par `pytest` : la v0 les utilise pour une revue manuelle et reproductible.
+These synthetic records test the complete **documents → Core → Request** path with a real LLM call. They are not run by pytest; v0 uses them for manual, reproducible review.
 
-## Cas inclus
+## Included Cases
 
-| Cas | Intention de test |
+| Case | Test intent |
 |---|---|
-| `case_001_rlq_complete` | Dossier complet : une proposition d'imagerie doit pouvoir être préparée sans rappel clinique. |
-| `case_002_right_sided_pain_ambiguous` | Dossier ambigu : BULKINOUT doit demander les informations discriminantes au lieu de forcer un examen. |
-| `case_003_suspected_pe_conflicting_allergy` | Données dispersées et contradiction sur une réaction iodée antérieure. |
+| `case_001_rlq_complete` | Complete record: an imaging proposal should be prepared without a clinician callback. |
+| `case_002_right_sided_pain_ambiguous` | Ambiguous record: BULKINOUT should request discriminating information instead of forcing an exam. |
+| `case_003_suspected_pe_conflicting_allergy` | Distributed data and contradictory evidence about a prior iodinated-contrast reaction. |
 
-Chaque dossier contient un `expected.json`. Ce fichier est un oracle de test et n'est pas ingéré par le Core : `collect_files()` ne collecte que PDF, TXT, Markdown et images prises en charge.
+Patient source documents remain in French because they are clinical input fixtures. `expected.json` keys and developer-facing metadata use English; expected French presentation strings remain French.
 
-## Exécuter un cas
+## Run a Case
 
 ```bash
-bulkinout request run   --input tests/e2e/case_001_rlq_complete   --output output_e2e/case_001
+bulkinout request run --input tests/e2e/case_001_rlq_complete --output output_e2e/case_001
 ```
 
-Comparer ensuite `output_e2e/case_001/` au fichier `expected.json` du cas et consigner la revue dans `review/radiologist_review_template.csv`.
+Compare `output_e2e/case_001/` with the case's `expected.json`, then record the review in `review/radiologist_review_template.csv`.
 
-Pour le cas 002, `answers_after_call.example.json` montre le format d'un second passage après clarification :
+For case 002, `answers_after_call.example.json` demonstrates a second pass after clarification:
 
 ```bash
-bulkinout request run   --input tests/e2e/case_002_right_sided_pain_ambiguous   --answers tests/e2e/case_002_right_sided_pain_ambiguous/answers_after_call.example.json   --output output_e2e/case_002_after_answers
+bulkinout request run --input tests/e2e/case_002_right_sided_pain_ambiguous --answers tests/e2e/case_002_right_sided_pain_ambiguous/answers_after_call.example.json --output output_e2e/case_002_after_answers
 ```

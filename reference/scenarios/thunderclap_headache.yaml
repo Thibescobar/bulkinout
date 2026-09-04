@@ -1,6 +1,6 @@
 id: thunderclap_headache
 version: 0.1.0
-title: Céphalée brutale maximale en moins d'une heure
+title: Thunderclap headache reaching maximum intensity within one hour
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,14 +8,14 @@ sources:
     url: https://acsearch.acr.org/docs/69482/Narrative/
 entry:
   all:
-    - {field: current_problem.symptoms, contains: "céphal"}
+    - {field: current_problem.symptoms, contains_any: ["céphal", "thunderclap headache"]}
 questions:
   - id: sudden_maximal
     field: current_problem.thunderclap
     question: "La céphalée a-t-elle atteint son intensité maximale en moins d'une heure ?"
     priority: 1
     material: true
-    reason: "Définit le variant de céphalée brutale."
+    reason: "Defines the thunderclap headache variant."
 candidates:
   - id: ct_head_nc
     exam_name: TDM cérébrale sans injection

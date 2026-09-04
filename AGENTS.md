@@ -33,3 +33,35 @@ History is minimal and establishes no formal commit convention. Use short, imper
 ## Security & Configuration
 
 Never commit `.env`, API keys, generated `output*/` directories, or real patient data. The reference is marked `needs_local_validation`; do not present generated imaging decisions as autonomous clinical prescriptions, and preserve human approval gates.
+
+## Language Policy
+
+The repository uses English as its canonical technical language.
+
+### English
+
+Always use English for source code and identifiers; comments and docstrings; the README and technical documentation; tests, test names, and developer-facing fixtures; technical CLI help, errors, logs, and audit events; JSON/YAML keys and canonical values; rule and scenario metadata; and developer review templates. LLM prompts and instructions must also be in English unless another language is specifically required.
+
+### French
+
+Use French for clinical content presented directly to current end users: questions asked to clinicians, imaging and teleradiology request text, clinical summaries for French users, and synthetic French patient documents used as input fixtures. Treat French presentation text as content, not canonical internal data.
+
+### Multilingual and Language-Agnostic Input
+
+Clinical input is language-agnostic. Never assume source documents are French. Matching keywords and synonym dictionaries may be multilingual: preserve French clinical terms and add English or other synonyms when useful. Never derive a canonical representation from the source language.
+
+### Canonical Data
+
+Internal structured data uses stable English identifiers and values such as `right_lower_quadrant`, `pregnancy`, `iodinated_contrast_reaction`, and `pulmonary_embolism`. Do not store canonical concepts as translated presentation strings when a stable structured value is available.
+
+### Agent Communication
+
+Users may discuss the project in French. Respond in French unless requested otherwise, while applying this policy to repository files.
+
+### Refactoring Safety
+
+Do not translate or rename stable IDs, JSON keys, rule IDs, scenario IDs, or public interfaces solely for consistency. Language refactors must not change clinical behavior. After terminology, matching, scenario, or clinical-content changes:
+
+1. Run the full automated test suite.
+2. Run the golden cases.
+3. Verify that multilingual clinical matching has not regressed.

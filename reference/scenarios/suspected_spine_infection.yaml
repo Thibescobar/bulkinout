@@ -1,6 +1,6 @@
 id: suspected_spine_infection
 version: 0.1.0
-title: Suspicion d'infection rachidienne / spondylodiscite / abcès épidural
+title: Suspected spine infection / spondylodiscitis / epidural abscess
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -9,27 +9,27 @@ sources:
 entry:
   any:
     - {field: current_problem.suspected_diagnosis, contains: "spondylodisc"}
-    - {field: current_problem.suspected_diagnosis, contains: "abcès épidural"}
-    - {field: current_problem.suspected_diagnosis, contains: "infection rachid"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["abcès épidural", "epidural abscess"]}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["infection rachid", "spinal infection"]}
 questions:
   - id: region
     field: current_problem.location
     question: "Quelle région rachidienne est symptomatique ?"
     priority: 1
     material: true
-    reason: "Détermine la zone IRM à explorer."
+    reason: "Determines the spinal region to cover with MRI."
   - id: neuro_deficit
     field: current_problem.neurologic_deficit
     question: "Déficit neurologique nouveau ou syndrome de la queue de cheval ?"
     priority: 1
     material: true
-    reason: "Majore l'urgence et la recherche d'extension épidurale."
+    reason: "Increases urgency and the need to assess epidural extension."
   - id: recent_intervention
     field: history.recent_spine_intervention
     question: "Chirurgie, infiltration ou implantation de matériel rachidien récente ?"
     priority: 2
     material: true
-    reason: "Contexte important du scénario."
+    reason: "Provides important scenario context."
 candidates:
   - id: mri_spine_wwo
     exam_name: IRM du rachis symptomatique sans et avec injection

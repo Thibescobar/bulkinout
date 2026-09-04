@@ -1,6 +1,6 @@
 # Architecture
 
-## Vue d'ensemble
+## Overview
 
 ```text
                      BULKINOUT
@@ -17,16 +17,16 @@
 
 ### Core
 
-Le Core ne décide pas quel examen prescrire. Il collecte les fichiers supportés, les envoie à un extracteur LLM à sortie structurée, convertit cette extraction en `ClinicalCase`, puis construit un `RadiologyCase` avec la liste des artefacts et un premier événement d'audit.
+Core does not select an imaging examination. It collects supported files, submits them to an LLM extractor with structured output, converts the extraction into a `ClinicalCase`, and builds a `RadiologyCase` containing artifacts and an initial audit event. Source documents are treated as language-agnostic.
 
 ### Request
 
-Request consomme `RadiologyCase.clinical`. Il ajoute les contrôles génériques, construit un contexte à partir des scénarios YAML, demande au LLM de comparer les candidats, applique un garde déterministe aux questions discriminantes et ajoute des contrôles de sécurité dépendant de la modalité. Il construit enfin `TeleradiologyRequest` et stocke les sorties dans `RadiologyCase.referral`.
+Request consumes `RadiologyCase.clinical`. It adds generic checks, builds context from YAML scenarios, asks the LLM to compare candidates, applies a deterministic guard to discriminating questions, and adds modality-dependent safety checks. It then builds a `TeleradiologyRequest` and stores outputs in `RadiologyCase.referral`.
 
 ### Report
 
-`bulkinout/report/` est volontairement en standby. Aucun traitement post-examen, résultat de computer vision, dictée ou génération de compte rendu n'est implémenté dans la v0.
+`bulkinout/report/` is intentionally on standby. v0 implements no post-exam processing, computer-vision result, dictation, or report generation.
 
-## Dépendances entre couches
+## Layer Dependencies
 
-`core` ne dépend pas de `request`. `request` importe les modèles de `core`. Cette direction de dépendance est volontaire : le même `RadiologyCase` pourra plus tard être consommé par `report` sans dépendre de la logique de pertinence pré-examen.
+`core` must not depend on `request`; `request` may import Core models. This direction allows the same `RadiologyCase` to support `report` later without depending on pre-exam relevance logic.

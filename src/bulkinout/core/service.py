@@ -10,7 +10,7 @@ from .models import ArtifactRef, RadiologyCase, WorkflowState
 def build_radiology_case(input_dir: Path, model: str | None = None):
     paths = collect_files(input_dir)
     if not paths:
-        raise ValueError(f"Aucun document supporté trouvé dans {input_dir}")
+        raise ValueError(f"No supported document found in {input_dir}")
 
     extractor = OpenAICoreExtractor(model=model)
     extraction = extractor.extract(paths)

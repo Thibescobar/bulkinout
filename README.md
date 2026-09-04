@@ -3,33 +3,33 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-47%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-65%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
-**Bulk in. Intelligence out.** BULKINOUT transforme des documents cliniques hétérogènes en un dossier radiologique structuré, puis utilise un référentiel radiologique et un LLM pour préparer une proposition d'imagerie et un bon de téléradiologie.
+**Bulk in. Intelligence out.** BULKINOUT transforms heterogeneous clinical documents into a structured radiology record, then uses a radiology reference and an LLM to prepare an imaging proposal and a teleradiology request.
 
-> **v0 = POC de décision assistée.** Le référentiel est marqué `needs_local_validation` et toute prescription/transmission reste soumise à validation humaine.
+> **v0 is a decision-support proof of concept.** The reference is marked `needs_local_validation`; every prescription and transmission remains subject to human approval.
 
-## Ce qui fonctionne dans la v0
+## What v0 Supports
 
 ```text
 PDF / TXT / images
         ↓
 BULKINOUT Core
         ↓
-RadiologyCase structuré + provenance
+Structured RadiologyCase + provenance
         ↓
 BULKINOUT Request
         ↓
-scénarios + questions discriminantes
+scenarios + discriminating questions
         ↓
-proposition / abstention / clarification
+proposal / abstention / clarification
         ↓
-brouillon de demande de téléradiologie
+teleradiology request draft
 ```
 
-`Report` (workflow post-examen) est réservé pour une version ultérieure.
+`Report`, the post-exam workflow, is reserved for a later release.
 
 ## Installation
 
@@ -37,34 +37,34 @@ brouillon de demande de téléradiologie
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-cp .env.example .env               # ou exportez les variables manuellement
+cp .env.example .env               # or export the variables manually
 export OPENAI_API_KEY="..."
-export BULKINOUT_MODEL="<modele-compatible>"
+export BULKINOUT_MODEL="<compatible-model>"
 ```
 
-Le modèle n'est volontairement pas figé dans la v0 : utilisez `BULKINOUT_MODEL` ou `--model`.
+v0 deliberately does not pin an LLM: configure it with `BULKINOUT_MODEL` or `--model`.
 
-## Utilisation
+## Usage
 
-Structurer les documents sans exécuter le workflow Request :
+Structure documents without running the Request workflow:
 
 ```bash
 bulkinout core structure --input input --output output_core
 ```
 
-Exécuter le workflow pré-examen complet :
+Run the complete pre-exam workflow:
 
 ```bash
 bulkinout request run   --input input   --output output   --reference reference/scenarios
 ```
 
-Si une clarification est nécessaire, compléter le `answers.template.json` produit puis relancer :
+If clarification is required, complete the generated `answers.template.json` and rerun:
 
 ```bash
 bulkinout request run   --input input   --answers answers.json   --output output_after_answers
 ```
 
-Inspecter le référentiel ou lancer les tests métier déterministes :
+Inspect the reference or run deterministic domain tests:
 
 ```bash
 bulkinout request catalog
@@ -72,27 +72,31 @@ bulkinout request golden
 pytest -q
 ```
 
-## Sorties principales
+## Main Outputs
 
-| Fichier | Rôle |
+| File | Purpose |
 |---|---|
-| `radiology_case.json` | Objet longitudinal principal. |
-| `case.json` | Contexte clinique structuré extrait des documents. |
-| `reference_context.json` | Scénarios, candidats, questions et règles issus du référentiel. |
-| `imaging_decision.json` | Décision assistée, candidats, justification et statut de clarification. |
-| `teleradiology_request.json` | Brouillon destiné à la validation humaine. |
-| `answers.template.json` | Questions discriminantes à compléter si nécessaire. |
+| `radiology_case.json` | Main longitudinal object. |
+| `case.json` | Structured clinical context extracted from documents. |
+| `reference_context.json` | Scenarios, candidates, questions, and reference rules. |
+| `imaging_decision.json` | Assisted decision, candidates, rationale, and clarification status. |
+| `teleradiology_request.json` | Draft awaiting human approval. |
+| `answers.template.json` | Discriminating questions to complete when needed. |
 
-## Tests fournis
+## Included Tests
 
-- `tests/golden/` : tests rapides du référentiel, **sans LLM**.
-- `tests/e2e/` : 3 dossiers patients synthétiques réalistes pour tester manuellement la chaîne complète.
-- `review/` : grille de revue radiologue.
+- `tests/golden/`: fast reference tests that make **no LLM calls**.
+- `tests/e2e/`: realistic synthetic patient records for manual full-pipeline testing.
+- `review/`: radiologist review template.
 
 ## Documentation
 
-Commencer par **[`docs/README.md`](docs/README.md)**. Elle décrit l'architecture, le modèle de données, le Core, Request, le référentiel, les tests et chaque fonction/module de la v0.
+Start with **[`docs/README.md`](docs/README.md)**. It covers the architecture, data model, Core, Request, reference, tests, and v0 code surface.
 
-## Limites connues
+## Language Handling
 
-La normalisation terminologique avancée, la réconciliation dédiée, la timeline clinique et le workflow `Report` sont encore des emplacements architecturaux. Le Core actuel s'appuie principalement sur l'extraction structurée du LLM et sur la provenance fournie par les documents. Le référentiel v0 doit être revu et validé localement avant tout usage clinique réel.
+Clinical input is language-agnostic. The extraction layer must not assume French source documents. Internal keys and canonical values use English, while French is retained for clinical text presented to current users and for French matching synonyms.
+
+## Known Limitations
+
+Advanced terminology normalization, dedicated reconciliation, the clinical timeline, and the `Report` workflow remain architectural placeholders. The current Core relies mainly on structured LLM extraction and document provenance. The v0 reference must be reviewed and validated locally before any real clinical use.

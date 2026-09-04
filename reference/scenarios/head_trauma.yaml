@@ -1,6 +1,6 @@
 id: head_trauma
 version: 0.1.0
-title: Traumatisme crânien aigu
+title: Acute head trauma
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,21 +8,21 @@ sources:
     url: https://acsearch.acr.org/docs/69481/Narrative/
 entry:
   any:
-    - {field: history.trauma, contains: "crân"}
-    - {field: current_problem.indication, contains: "traumatisme crânien"}
+    - {field: history.trauma, contains_any: ["crân", "head"]}
+    - {field: current_problem.indication, contains_any: ["traumatisme crânien", "head trauma"]}
 questions:
   - id: clinical_rule
     field: current_problem.head_ct_rule_positive
     question: "Une règle clinique validée indique-t-elle une TDM cérébrale ?"
     priority: 1
     material: true
-    reason: "L'ACR distingue explicitement les traumatismes légers selon l'indication par règle clinique."
+    reason: "ACR explicitly stratifies mild head trauma by validated clinical decision rules."
   - id: gcs
     field: current_problem.gcs
     question: "Score de Glasgow ?"
     priority: 1
     material: true
-    reason: "Participe à la stratification du traumatisme."
+    reason: "Contributes to trauma severity stratification."
 candidates:
   - id: ct_head_nc
     exam_name: TDM cérébrale sans injection

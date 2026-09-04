@@ -37,7 +37,7 @@ def test_decision_engine_requires_model(monkeypatch):
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(decision_llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ValueError, match="Aucun modèle configuré"):
+    with pytest.raises(ValueError, match="No model configured"):
         decision_llm.OpenAIRequestDecision()
 
 

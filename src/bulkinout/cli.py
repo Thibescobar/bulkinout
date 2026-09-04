@@ -22,12 +22,12 @@ def _dump(path: Path, payload):
 def cmd_core_structure(args):
     from .core.service import build_radiology_case
     if not os.getenv("OPENAI_API_KEY"):
-        raise SystemExit("OPENAI_API_KEY absent.")
+        raise SystemExit("OPENAI_API_KEY is missing.")
     output = Path(args.output)
     case, extraction, _ = build_radiology_case(Path(args.input), model=args.model)
     _dump(output / "radiology_case.json", case.model_dump(mode="json"))
     _dump(output / "llm_extraction.json", extraction.model_dump(mode="json"))
-    print(f"Core structuring terminé: {output / 'radiology_case.json'}")
+    print(f"Core structuring completed: {output / 'radiology_case.json'}")
 
 
 def _write_answer_template(output_dir: Path, decision):
@@ -50,7 +50,7 @@ def cmd_request_run(args):
     from .core.service import build_radiology_case
     from .request.decision_llm import OpenAIRequestDecision
     if not os.getenv("OPENAI_API_KEY"):
-        raise SystemExit("OPENAI_API_KEY absent.")
+        raise SystemExit("OPENAI_API_KEY is missing.")
 
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -61,13 +61,13 @@ def cmd_request_run(args):
 
     if args.answers:
         answer_path = Path(args.answers)
-        print(f"[2/5] Application des réponses: {answer_path.name}")
+        print(f"[2/5] Applying answers: {answer_path.name}")
         case = apply_answers(case, load_answers(answer_path), answer_path.name)
         radiology_case.clinical = case
     else:
-        print("[2/5] Aucun fichier de réponses.")
+        print("[2/5] No answer file provided.")
 
-    print("[3/5] Référentiel + décision Request...")
+    print("[3/5] Reference data and Request decision...")
     initial_questions = generic_missing_questions(case)
     ref_engine = ReferenceEngine(Path(args.reference))
     reference_context = ref_engine.build_context(case)
@@ -80,7 +80,7 @@ def cmd_request_run(args):
     )
     decision = enforce_decision_guard(case, decision)
 
-    print("[4/5] Garde-fous spécifiques...")
+    print("[4/5] Applying modality-specific safeguards...")
     specific_questions = recommendation_specific_questions(case, decision)
     qs_by_field = {q.field: q for q in initial_questions + specific_questions}
     all_questions = list(qs_by_field.values())
@@ -130,7 +130,7 @@ def cmd_request_run(args):
         "decision_status": decision.decision_status,
     })
 
-    print("[5/5] Écriture...")
+    print("[5/5] Writing outputs...")
     _dump(output_dir / "radiology_case.json", radiology_case.model_dump(mode="json"))
     _dump(output_dir / "llm_extraction.json", extraction.model_dump(mode="json"))
     _dump(output_dir / "case.json", case.model_dump(mode="json"))
@@ -141,9 +141,9 @@ def cmd_request_run(args):
     _write_answer_template(output_dir, decision)
 
     print()
-    print(f"Décision: {decision.decision_status}")
-    print(f"Appel clinicien nécessaire: {'OUI' if decision.clinician_call_required else 'NON'}")
-    print(f"Statut bon téléradiologie: {request.status}")
+    print(f"Decision: {decision.decision_status}")
+    print(f"Clinician call required: {'YES' if decision.clinician_call_required else 'NO'}")
+    print(f"Teleradiology request status: {request.status}")
 
 
 
@@ -152,7 +152,7 @@ def cmd_request_golden(args):
     ref = Path(args.reference)
     cases = discover_golden_cases(Path(args.cases))
     if not cases:
-        raise SystemExit("Aucun golden case trouvé.")
+        raise SystemExit("No golden cases found.")
     failed = 0
     for path in cases:
         result = run_golden_case(path, ref)
@@ -161,18 +161,18 @@ def cmd_request_golden(args):
             failed += 1
             for err in result.errors:
                 print(f"  - {err}")
-    print(f"\n{len(cases) - failed}/{len(cases)} golden cases passent.")
+    print(f"\n{len(cases) - failed}/{len(cases)} golden cases passed.")
     if failed:
         raise SystemExit(1)
 
 
 def cmd_request_catalog(args):
     catalog = build_catalog(Path(args.reference))
-    print(f"{len(catalog)} scénario(s)")
+    print(f"{len(catalog)} scenario(s)")
     for item in catalog:
         print(
             f"- {item['id']} v{item['version']} | "
-            f"{item['candidate_count']} candidat(s) | "
+            f"{item['candidate_count']} candidate(s) | "
             f"{item['question_count']} question(s) | "
             f"{item['status']}"
         )
@@ -185,15 +185,15 @@ def main():
     )
     top = parser.add_subparsers(dest="area", required=True)
 
-    core = top.add_parser("core", help="Noyau de structuration multimodale")
+    core = top.add_parser("core", help="Multimodal structuring core")
     core_sub = core.add_subparsers(dest="core_cmd", required=True)
-    structure = core_sub.add_parser("structure", help="Bulk -> RadiologyCase structuré")
+    structure = core_sub.add_parser("structure", help="Bulk input -> structured RadiologyCase")
     structure.add_argument("--input", default="input")
     structure.add_argument("--output", default="output")
     structure.add_argument("--model", default=os.getenv("BULKINOUT_MODEL"))
     structure.set_defaults(func=cmd_core_structure)
 
-    request = top.add_parser("request", help="Workflow pré-examen")
+    request = top.add_parser("request", help="Pre-exam workflow")
     request_sub = request.add_subparsers(dest="request_cmd", required=True)
     run = request_sub.add_parser("run")
     run.add_argument("--input", default="input")
@@ -203,17 +203,17 @@ def main():
     run.add_argument("--model", default=os.getenv("BULKINOUT_MODEL"))
     run.set_defaults(func=cmd_request_run)
 
-    catalog = request_sub.add_parser("catalog", help="Lister les scénarios du référentiel")
+    catalog = request_sub.add_parser("catalog", help="List reference scenarios")
     catalog.add_argument("--reference", default="reference/scenarios")
     catalog.set_defaults(func=cmd_request_catalog)
 
-    golden = request_sub.add_parser("golden", help="Exécuter les golden cases sans LLM")
+    golden = request_sub.add_parser("golden", help="Run golden cases without an LLM")
     golden.add_argument("--cases", default="tests/golden")
     golden.add_argument("--reference", default="reference/scenarios")
     golden.set_defaults(func=cmd_request_golden)
 
-    report = top.add_parser("report", help="Workflow post-examen (standby)")
-    report.set_defaults(func=lambda args: print("BULKINOUT Report est réservé pour une étape ultérieure."))
+    report = top.add_parser("report", help="Post-exam workflow (standby)")
+    report.set_defaults(func=lambda args: print("BULKINOUT Report is reserved for a later phase."))
 
     args = parser.parse_args()
     args.func(args)

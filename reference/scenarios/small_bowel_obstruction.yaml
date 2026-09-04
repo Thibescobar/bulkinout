@@ -1,6 +1,6 @@
 id: small_bowel_obstruction
 version: 0.1.0
-title: Suspicion d'occlusion du grêle
+title: Suspected small bowel obstruction
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -9,26 +9,26 @@ sources:
 entry:
   any:
     - {field: current_problem.suspected_diagnosis, contains: "occlusion"}
-    - {field: current_problem.suspected_diagnosis, contains: "obstruction du grêle"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["obstruction du grêle", "small bowel obstruction"]}
 questions:
   - id: acute_vs_indolent
     field: current_problem.presentation_tempo
     question: "Présentation aiguë ou symptômes intermittents/indolents ?"
     priority: 1
     material: true
-    reason: "Distingue l'occlusion aiguë d'une obstruction intermittente ou de bas grade."
+    reason: "Distinguishes acute obstruction from intermittent or low-grade obstruction."
   - id: complication
     field: current_problem.suspected_complication
     question: "Existe-t-il des signes de strangulation, ischémie, perforation ou sepsis ?"
     priority: 1
     material: true
-    reason: "Précise l'urgence et la question diagnostique."
+    reason: "Clarifies urgency and the diagnostic question."
   - id: surgery
     field: history.abdominal_surgery
     question: "Antécédent de chirurgie abdominale ?"
     priority: 3
     material: false
-    reason: "Contexte étiologique utile."
+    reason: "Provides useful etiologic context."
 candidates:
   - id: ct_iv
     exam_name: TDM abdomino-pelvienne avec injection IV

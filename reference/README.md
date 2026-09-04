@@ -1,17 +1,18 @@
-# Référentiel radiologique V0.1
+# Radiology Reference v0.1
 
-Ce dossier contient une première série de scénarios encodés à partir de recommandations publiques,
-principalement les ACR Appropriateness Criteria.
+This directory contains an initial set of scenarios encoded from public guidance, primarily the ACR Appropriateness Criteria.
 
-**Statut : `needs_local_validation` partout.**
+**Status: `needs_local_validation` throughout.**
 
-Le but n'est pas de recopier les recommandations, mais d'en dériver une structure logicielle auditable :
-- critères d'entrée ;
-- données à rechercher ;
-- questions potentiellement discriminantes ;
-- examens candidats ;
-- règles simples ;
-- source/version.
+The goal is not to reproduce source guidance, but to derive an auditable software structure containing:
 
-Les paramètres techniques détaillés (dose, phases exactes, reconstruction, séquences IRM, etc.) doivent être
-ajoutés et validés localement par l'équipe radiologique.
+- entry criteria and multilingual matching terms;
+- data to retrieve;
+- potentially discriminating clinical questions;
+- candidate examinations;
+- simple rules;
+- source and version metadata.
+
+Scenario IDs, rule IDs, keys, titles, reasons, and notes use English. Questions and examination names displayed to current clinical users remain in French. Matching predicates may include French and English synonyms.
+
+Detailed technical parameters such as dose, exact phases, reconstruction, and MRI sequences must be added and validated locally by the radiology team.

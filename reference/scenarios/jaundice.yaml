@@ -1,6 +1,6 @@
 id: jaundice
 version: 0.1.0
-title: Ictère / suspicion d'obstruction biliaire
+title: Jaundice / suspected biliary obstruction
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,22 +8,22 @@ sources:
     url: https://acsearch.acr.org/docs/69497/Narrative/
 entry:
   any:
-    - {field: current_problem.symptoms, contains: "ictère"}
-    - {field: current_problem.indication, contains: "ictère"}
-    - {field: current_problem.suspected_diagnosis, contains: "obstruction biliaire"}
+    - {field: current_problem.symptoms, contains_any: ["ictère", "jaundice"]}
+    - {field: current_problem.indication, contains_any: ["ictère", "jaundice"]}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["obstruction biliaire", "biliary obstruction"]}
 questions:
   - id: known_obstruction
     field: current_problem.mechanical_obstruction_suspected
     question: "Une obstruction mécanique est-elle déjà suspectée sur la clinique, la biologie ou une première imagerie ?"
     priority: 1
     material: true
-    reason: "Distingue l'imagerie initiale de la caractérisation d'une obstruction."
+    reason: "Distinguishes initial imaging from characterization of an obstruction."
   - id: prior_us
     field: current_problem.prior_biliary_ultrasound_result
     question: "Une échographie biliaire récente est-elle disponible et quel en est le résultat ?"
     priority: 2
     material: true
-    reason: "Peut orienter vers cholangio-IRM ou scanner de caractérisation."
+    reason: "May direct characterization toward MRCP or CT."
 candidates:
   - id: us_abd
     exam_name: Échographie abdominale

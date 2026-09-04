@@ -1,41 +1,29 @@
-# Modèle de données
+# Data Model
 
-Les modèles Pydantic sont définis dans `src/bulkinout/core/models/case.py`.
+Pydantic models are defined in `src/bulkinout/core/models/case.py`.
 
-## Provenance : `ClinicalField`
+## Provenance: `ClinicalField`
 
-Une donnée clinique n'est pas stockée comme une valeur nue. Elle transporte :
+A clinical datum is not stored as a bare value. It carries:
 
-- `value` : valeur extraite ;
-- `status` : `observed`, `inferred`, `unknown` ou `conflicting` ;
-- `sources` : liste de `SourceRef` (`filename`, page éventuelle, extrait) ;
-- `confidence` : score entre 0 et 1 ;
-- `validated` : booléen de validation humaine, `False` par défaut.
+- `value`: the extracted value;
+- `status`: `observed`, `inferred`, `unknown`, or `conflicting`;
+- `sources`: `SourceRef` entries containing a filename, optional page, and excerpt;
+- `confidence`: a score from 0 to 1;
+- `validated`: human-validation state, `False` by default.
 
-L'absence de mention ne vaut donc jamais automatiquement `False`.
+Absence of mention must never be converted automatically to `False`. Provenance excerpts retain the source language.
 
 ## `ClinicalCase`
 
-Le contexte clinique est réparti en dictionnaires de `ClinicalField` : `patient`, `current_problem`, `history`, `medications`, `allergies`, `labs`, `imaging_safety`, plus `prior_imaging` et `metadata`.
-
-Les noms de champs internes sont extensibles : par exemple `current_problem.location` correspond à la clé `location` du dictionnaire `current_problem`.
+Clinical context is divided into dictionaries of `ClinicalField`: `patient`, `current_problem`, `history`, `medications`, `allergies`, `labs`, and `imaging_safety`, plus `prior_imaging` and `metadata`. Field paths use stable English identifiers such as `current_problem.location` and `imaging_safety.pregnancy`.
 
 ## `RadiologyCase`
 
-`RadiologyCase` est le conteneur longitudinal commun. Dans la v0, les zones principalement utilisées sont :
+`RadiologyCase` is the shared longitudinal container. v0 mainly uses `workflow`, `clinical`, `artifacts`, `referral`, and `audit`. `acquisition`, `ai_results`, `radiologist_observations`, `findings`, `impression`, and `final_report` are reserved for the future post-exam workflow.
 
-- `workflow` ;
-- `clinical` ;
-- `artifacts` ;
-- `referral` ;
-- `audit`.
+## Request Decision
 
-Les zones `acquisition`, `ai_results`, `radiologist_observations`, `findings`, `impression` et `final_report` sont réservées au futur workflow post-examen.
+`ImagingDecision` contains `decision_status`, candidates, discriminating questions, recommendations, clinician-call state, and human-approval readiness. Valid statuses are `selected`, `insufficient_information`, `no_imaging_recommended`, and `safety_blocked`.
 
-## Décision Request
-
-`ImagingDecision` contient : `decision_status`, `candidates`, `discriminating_questions`, `primary`, `secondary`, `clinician_call_required`, ses raisons et `decision_ready_for_human_approval`.
-
-Les statuts possibles sont `selected`, `insufficient_information`, `no_imaging_recommended` et `safety_blocked`.
-
-`TeleradiologyRequest.status` vaut `draft`, `ready_for_human_approval` ou `blocked`. Aucun de ces statuts ne signifie une prescription autonome : `validated_by_clinician` reste `False` tant qu'une validation externe n'est pas implémentée.
+`TeleradiologyRequest.status` is `draft`, `ready_for_human_approval`, or `blocked`. None represents an autonomous prescription: `validated_by_clinician` remains `False` until an external validation mechanism is implemented.
