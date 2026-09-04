@@ -1,10 +1,11 @@
 # BULKINOUT
 
-![version](https://img.shields.io/badge/version-v0-555555)
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
-![tests](https://img.shields.io/badge/tests-pytest-brightgreen)
-![status](https://img.shields.io/badge/status-clinical%20POC-orange)
-![workflow](https://img.shields.io/badge/workflow-Request%20implemented-6f42c1)
+[![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
+[![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
+![tests](https://img.shields.io/badge/tests-47%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
+![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** BULKINOUT transforme des documents cliniques hétérogènes en un dossier radiologique structuré, puis utilise un référentiel radiologique et un LLM pour préparer une proposition d'imagerie et un bon de téléradiologie.
 

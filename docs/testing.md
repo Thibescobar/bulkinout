@@ -6,7 +6,13 @@
 pytest -q
 ```
 
-La suite couvre les modèles, règles, garde de décision, moteur de référentiel, catalogue, golden cases et filtrage `when:` des candidats.
+La suite couvre les modèles, l'ingestion, l'extraction avec clients simulés, les règles, la garde de décision, le moteur de référentiel, le catalogue, la CLI et les golden cases. `pytest-cov` mesure automatiquement `bulkinout` et impose un minimum de 95 %.
+
+Vérifier également le lint avant chaque contribution :
+
+```bash
+ruff check src tests
+```
 
 ## Golden cases
 

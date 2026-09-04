@@ -213,7 +213,6 @@ def main():
     golden.set_defaults(func=cmd_request_golden)
 
     report = top.add_parser("report", help="Workflow post-examen (standby)")
-    report_sub = report.add_subparsers(dest="report_cmd")
     report.set_defaults(func=lambda args: print("BULKINOUT Report est réservé pour une étape ultérieure."))
 
     args = parser.parse_args()
