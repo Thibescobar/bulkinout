@@ -1,37 +1,162 @@
-# Request Reference
+# Request reference
 
-Scenarios are YAML files in `reference/scenarios/`. v0 contains 18 scenarios, all marked `needs_local_validation`.
+The reference is a versioned, auditable input to Request. Each YAML file describes when a clinical scenario applies, what information matters, which examinations are candidates, and which simple deterministic rules can fire.
 
-## Structure
+All 18 bundled scenarios are marked `needs_local_validation`. They are implementation examples derived from public guidance, primarily ACR Appropriateness Criteria; they are not a complete or locally approved protocol library.
+
+## Scenario anatomy
 
 ```yaml
-id: renal_colic
+id: renal_colic                         # Stable technical identifier
 version: 0.1.0
 title: Suspected renal colic / urinary stone disease
 status: needs_local_validation
-sources: [...]
+
+sources:
+  - organization: ACR
+    title: Acute Onset Flank Pain-Suspicion of Stone Disease
+    url: https://acsearch.acr.org/docs/69362/Narrative/
+
 entry:
   any:
-    - {field: current_problem.location, contains_any: ["flanc", "flank"]}
-questions: [...]
-candidates: [...]
-rules: [...]
+    - field: current_problem.suspected_diagnosis
+      contains_any: ["colique", "renal colic"]
+    - field: current_problem.location
+      contains_any: ["flanc", "flank"]
+
+questions:
+  - id: pregnancy
+    field: imaging_safety.pregnancy
+    question: "Une grossesse est-elle possible ou en cours ?"
+    priority: 1
+    material: true
+    reason: Pregnancy changes the modality hierarchy.
+
+candidates:
+  - id: ct_noncontrast
+    exam_name: TDM abdomen-pelvis sans injection
+    modality: CT
+    contrast: no
+    appropriateness: usually_appropriate
+    when:
+      all:
+        - field: imaging_safety.pregnancy
+          not_equals: true
+
+rules: []
+notes:
+  - The reference encodes modality hierarchy, not local dose parameters.
 ```
 
-Scenario titles, reasons, notes, and rule metadata are technical content and use English. Clinical questions and examination names presented to French users remain in French.
+### Language boundary
 
-## Matching
+| Content | Language rule |
+|---|---|
+| IDs, keys, titles, reasons, notes, statuses | Canonical technical English. |
+| Questions shown to clinicians | French for current users. |
+| Examination names shown in requests | French for current users. |
+| Matching terms | Multilingual; retain French and add English or other useful synonyms. |
+| Structured comparison values | Canonical English, such as `low`, `negative`, or boolean values. |
 
-`ReferenceEngine.match()` evaluates `entry.all` or `entry.any`. v0 supports `equals`, `not_equals`, `contains`, `contains_any`, and `in`. `contains_any` accepts a synonym list and succeeds when any term is present. An `unknown` or `conflicting` field satisfies no predicate. Matching terms may be multilingual; French terms are preserved and English synonyms are added rather than replacing them.
+Do not translate a French matching term away. Adding `"renal colic"` beside `"colique"` expands recognition; replacing `"colique"` would regress French input.
 
-## Material Questions and Candidates
+## Matching operators
 
-`unresolved_material_questions()` returns only `material: true` questions whose field is unknown, ordered by `priority`. `build_context()` includes only candidates whose optional `when` clause matches; candidates without `when` are always included.
+Predicates read known values from first-level `ClinicalCase` dictionary paths.
+
+| Operator | Behavior | Example |
+|---|---|---|
+| `equals` | Python equality with the supplied value. | `{field: imaging_safety.pregnancy, equals: true}` |
+| `not_equals` | Python inequality with the supplied value. | `{field: imaging_safety.pregnancy, not_equals: true}` |
+| `contains` | Case-insensitive substring search. Lists are joined as text first. | `{field: current_problem.indication, contains: "appendic"}` |
+| `contains_any` | Case-insensitive substring search for any synonym in a list. | `{field: current_problem.location, contains_any: ["flanc", "flank"]}` |
+| `in` | Exact membership in a supplied list. | `{field: labs.d_dimer, in: ["negative", "normal"]}` |
+
+Unknown and conflicting fields never satisfy a predicate. Matching is case-insensitive for `contains` and `contains_any`, but it does not currently remove accents, lemmatize words, expand abbreviations automatically, or use a terminology server.
+
+## `all`, `any`, and scoring
+
+An `entry.all` scenario qualifies only when every predicate matches. Its score is the number of hits divided by the number of predicates, so a qualifying `all` entry scores `1.0`.
+
+An `entry.any` scenario qualifies when at least one predicate matches. Its score uses the same fraction:
+
+```text
+match score = matching predicates / total entry predicates
+```
+
+For an `any` block with three predicates, one hit scores `0.33`, two score `0.67`, and three score `1.0`. Matches are sorted by descending score; equal scores retain scenario load order because Python sorting is stable and files are loaded alphabetically.
+
+`build_context()` keeps at most three scenarios by default. The score is a simple routing heuristic, not a clinical probability or calibrated confidence measure.
+
+## Material questions
+
+Questions connect a stable clinical field to French presentation text and English metadata.
+
+| Property | Meaning |
+|---|---|
+| `id` | Stable question identifier inside the scenario. |
+| `field` | `section.field` path inspected for an answer. |
+| `question` | Clinical text shown to the current French user. |
+| `priority` | Sort order; lower numbers appear first. |
+| `material` | Whether the unresolved question is included in reference context. |
+| `reason` | Developer-facing explanation of why the fact matters. |
+
+`unresolved_material_questions()` returns only questions with `material: true` whose field is absent, unknown, or conflicting. The LLM decides which of these become discriminating questions; deterministic guards then enforce any returned as `required_to_choose`.
+
+## Candidate filtering
+
+Every candidate has a stable ID and French examination name. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.
+
+This filtering is deterministic and happens before the context reaches the decision model. It is appropriate for explicit facts such as pregnancy-dependent modality eligibility, but it should not encode complex or locally disputed clinical reasoning without review and tests.
 
 ## Rules
 
-`evaluate_rules()` applies each `rules[].if` condition and returns its `result`. v0 can encode a preferred candidate or `no_imaging_recommended`; final interpretation is supplied to Request through `reference_context`.
+Rules express small deterministic consequences:
 
-## Field-Path Limitation
+```yaml
+rules:
+  - id: low_probability_negative_ddimer
+    if:
+      all:
+        - {field: current_problem.pe_pretest_probability, in: ["low", "intermediate"]}
+        - {field: labs.d_dimer, equals: "negative"}
+    result:
+      no_imaging_recommended: true
+      reason: ACR: initial imaging is generally not appropriate for this variant.
+```
 
-The rule engine reads first-level `ClinicalCase` dictionaries through `section.field` paths. It does not traverse arbitrary nested lists or objects. v0 scenarios therefore use fields that can be queried and completed within those sections.
+`evaluate_rules()` returns matching rule IDs and result dictionaries. It does not directly mutate `ImagingDecision`; the results become part of the LLM reference context. This distinction matters when debugging: a correctly triggered rule can still be interpreted incorrectly by the model.
+
+## Authoring a scenario
+
+Use this sequence to keep reference changes reviewable:
+
+1. **Choose a stable ID.** Use `snake_case`; do not rename an existing ID solely to improve wording.
+2. **Record the source.** Include organization, exact source title, and a durable URL.
+3. **Define narrow entry predicates.** Prefer recognizable clinical phrases over very broad fragments that create false positives.
+4. **Add multilingual synonyms.** Preserve existing French terms and add English equivalents in the same `contains_any` predicate so scoring does not change accidentally.
+5. **Separate material questions.** A question is material only when its answer can alter examination, protocol, urgency, contrast, or safety.
+6. **List candidates and explicit conditions.** Keep French presentation names separate from English IDs and values.
+7. **Use rules sparingly.** Encode only behavior that is clear enough to test deterministically.
+8. **Keep `needs_local_validation`.** Change validation status only through an explicit clinical governance process.
+9. **Add golden cases.** Cover a positive match, important rule branches, missing material fields, and both French and English terminology where relevant.
+10. **Regenerate or update the catalog.** Ensure title and counts agree with the YAML source.
+
+## Regression traps
+
+- Adding a second synonym as a separate `entry.any` predicate changes the score denominator. Use `contains_any` when the terms represent one concept.
+- Translating canonical values such as `negative` into display language breaks exact `equals` and `in` predicates.
+- Changing a question field path can prevent answer files and guards from finding the same fact.
+- Reusing a vague fragment such as `pain` across scenarios produces broad matches and unstable top-three selection.
+- Setting `material: false` removes the question from reference context even when its priority is high.
+- A candidate `when` condition on an unknown field evaluates false and hides that candidate.
+
+## Validation commands
+
+```bash
+pytest -q tests/test_reference_engine.py tests/test_reference_engine_v0.py
+bulkinout request catalog --reference reference/scenarios
+bulkinout request golden --cases tests/golden --reference reference/scenarios
+```
+
+Run the complete suite after any terminology, field-path, matching, candidate, or rule change. Golden cases validate deterministic behavior; manual E2E review remains necessary for model interpretation and French clinical output.

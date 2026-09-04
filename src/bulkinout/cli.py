@@ -55,7 +55,7 @@ def cmd_request_run(args):
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("[1/5] BULKINOUT Core...")
+    print("[1/5] Bulkinout Core...")
     radiology_case, extraction, _paths = build_radiology_case(Path(args.input), model=args.model)
     case = radiology_case.clinical
 
@@ -181,7 +181,7 @@ def cmd_request_catalog(args):
 def main():
     parser = argparse.ArgumentParser(
         prog="bulkinout",
-        description="BULKINOUT — Bulk in. Intelligence out."
+        description="Bulkinout — Bulk in. Intelligence out."
     )
     top = parser.add_subparsers(dest="area", required=True)
 
@@ -213,7 +213,7 @@ def main():
     golden.set_defaults(func=cmd_request_golden)
 
     report = top.add_parser("report", help="Post-exam workflow (standby)")
-    report.set_defaults(func=lambda args: print("BULKINOUT Report is reserved for a later phase."))
+    report.set_defaults(func=lambda args: print("Bulkinout Report is reserved for a later phase."))
 
     args = parser.parse_args()
     args.func(args)

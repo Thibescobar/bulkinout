@@ -1,4 +1,4 @@
-# BULKINOUT Report
+# Bulkinout Report
 
 `Report` is the future post-exam workflow. It will consume the same longitudinal `RadiologyCase` as Request.
 
