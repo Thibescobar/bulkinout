@@ -112,7 +112,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
     return questions
 
 
-def _pregnancy_is_relevant(case: ClinicalCase) -> bool:
+def pregnancy_is_relevant(case: ClinicalCase) -> bool:
     sex = case.patient.get("sex")
     relevant = not (
         sex
@@ -136,7 +136,7 @@ def _pregnancy_is_relevant(case: ClinicalCase) -> bool:
 
 
 def _ionizing_radiation_questions(case: ClinicalCase) -> list[MissingQuestion]:
-    if not _pregnancy_is_relevant(case) or not _unknown(case.imaging_safety, "pregnancy"):
+    if not pregnancy_is_relevant(case) or not _unknown(case.imaging_safety, "pregnancy"):
         return []
     return [
         MissingQuestion(

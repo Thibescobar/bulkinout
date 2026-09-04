@@ -137,6 +137,7 @@ def test_required_reference_question_cannot_be_omitted_or_weakened(
     assert required[0].required_to_choose is True
     assert result.imaging_decision.decision_status == "insufficient_information"
     assert result.imaging_decision.primary.recommended is False
+    assert "Quel est le fait requis ?" in result.imaging_decision.primary.missing_information
     assert result.imaging_decision.decision_ready_for_human_approval is False
 
 

@@ -1,31 +1,59 @@
 {
+  "schema_version": 1,
   "case_id": "case_001_rlq_complete",
   "purpose": "Sufficiently complete case: expect imaging selection without a clinician callback.",
   "core": {
-    "must_extract": [
-      "current_problem.location",
-      "current_problem.onset",
-      "current_problem.indication",
-      "imaging_safety.pregnancy",
-      "allergies.iodinated_contrast_reaction",
-      "labs.egfr_ml_min_1_73m2"
+    "required_facts": [
+      {
+        "field": "current_problem.location",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.onset",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.indication",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "imaging_safety.pregnancy",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "allergies.iodinated_contrast_reaction",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "labs.egfr_ml_min_1_73m2",
+        "status_in": ["observed", "inferred"],
+        "numeric": {
+          "target": 105,
+          "absolute_tolerance": 2
+        }
+      }
     ],
-    "must_not_invent": [
+    "forbidden_facts": [
       "history.oncology",
       "imaging_safety.pacemaker"
-    ]
+    ],
+    "forbidden_values": []
   },
   "request": {
-    "expected_scenario": "rlq_appendicitis",
-    "expected_decision_status": "selected",
-    "acceptable_exams": [
+    "matched_scenarios_all_of": ["rlq_appendicitis"],
+    "matched_scenarios_any_of": [],
+    "decision_status_in": ["selected"],
+    "primary_exam_name_in": [
       "TDM abdomino-pelvienne avec injection IV"
     ],
+    "primary_recommended": true,
     "clinician_call_required": false,
-    "must_not_ask": [
+    "required_question_fields": [],
+    "forbidden_question_fields": [
       "imaging_safety.pregnancy",
       "allergies.iodinated_contrast_reaction",
       "labs.egfr_ml_min_1_73m2"
-    ]
+    ],
+    "presentation_term_groups": []
   }
 }

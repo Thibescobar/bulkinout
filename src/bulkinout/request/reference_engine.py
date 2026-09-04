@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ from ..core.models import ClinicalCase, FieldStatus
 from ..errors import ReferenceDataError
 from ..types import JsonValue
 from .reference_resources import load_reference_documents
+from .rules import pregnancy_is_relevant
 from .types import (
     Condition,
     Predicate,
@@ -96,7 +98,13 @@ class ReferenceEngine:
     def __init__(self, reference_dir: Path | None = None):
         self.reference_dir = reference_dir
         self.scenarios: list[ReferenceScenario] = []
-        for source_name, document in load_reference_documents(reference_dir):
+        documents = load_reference_documents(reference_dir)
+        revision = hashlib.sha256()
+        for source_name, document in documents:
+            revision.update(source_name.encode("utf-8"))
+            revision.update(b"\0")
+            revision.update(document.encode("utf-8"))
+            revision.update(b"\0")
             try:
                 raw = yaml.safe_load(document)
             except yaml.YAMLError as error:
@@ -111,7 +119,9 @@ class ReferenceEngine:
                 )
             data = cast(ReferenceScenario, raw)
             data["_source_file"] = source_name
+            data["_source_sha256"] = hashlib.sha256(document.encode("utf-8")).hexdigest()
             self.scenarios.append(data)
+        self.reference_revision = revision.hexdigest()
 
     def match(self, case: ClinicalCase) -> list[ScenarioMatch]:
         matches: list[ScenarioMatch] = []
@@ -144,6 +154,8 @@ class ReferenceEngine:
     ) -> list[ReferenceQuestion]:
         out: list[ReferenceQuestion] = []
         for q in scenario.get("questions", []):
+            if q["field"] == "imaging_safety.pregnancy" and not pregnancy_is_relevant(case):
+                continue
             _, known = _raw(case, q["field"])
             is_relevant = (
                 q.get("material", False)

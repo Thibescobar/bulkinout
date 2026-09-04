@@ -64,9 +64,9 @@ Request owns pre-exam decision support. It:
 2. identifies generic missing information;
 3. matches up to three relevant reference scenarios;
 4. asks an LLM to compare candidate examinations;
-5. rejects a selected state when a required discriminator is unresolved;
-6. adds checks associated with the proposed modality;
-7. builds a French teleradiology request draft.
+5. merges generic, required reference, model-generated, and modality-specific questions;
+6. rejects a selected state when a required or blocking question is unresolved;
+7. builds a French teleradiology request draft and a reproducibility manifest.
 
 Request may import Core models. Core must never import Request. This one-way dependency prevents pre-exam rules from leaking into the shared clinical record.
 
@@ -115,15 +115,17 @@ sequenceDiagram
     Ref-->>Service: scenarios + questions + candidates + rules
     Service->>Model: case + reference context
     Model-->>Service: ImagingDecision JSON
-    Service->>Guard: enforce required discriminators
+    Service->>Guard: merge and enforce required questions
     Guard-->>Service: guarded decision
     Service->>Guard: add modality-specific checks
     Service->>Service: build_teleradiology_request()
     Service-->>CLI: RequestResult
-    CLI-->>Operator: JSON outputs + status
+    CLI-->>Operator: JSON outputs + manifest + status
 ```
 
 If clarification is necessary, the operator completes `answers.template.json` and starts a new run with `--answers`. v0 does not maintain an interactive server-side session; the answer file is the handoff between passes.
+
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The manifest makes runs comparable; the evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 
@@ -161,6 +163,7 @@ answer file            optional input for a later pass
 output directory       replaceable run snapshot
 radiology_case.json    aggregate record for that run
 intermediate JSON      evidence for debugging and review
+run_manifest.json      reproducibility fingerprints for that run
 ```
 
 There is no concurrency control, durable workflow engine, identity model, or persistence service in v0. Production integration would need to define ownership, retention, access control, idempotency, and audit durability around these files.

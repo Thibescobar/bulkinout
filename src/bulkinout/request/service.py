@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from .. import __version__
 from ..core.models import (
     ClinicalCase,
     FieldStatus,
@@ -17,6 +18,7 @@ from ..core.models import (
 )
 from ..core.interfaces import CoreExtractor
 from ..core.service import build_radiology_case
+from ..run_manifest import UNREPORTED, RunManifest, build_run_manifest
 from ..types import JsonObject
 from .answers import apply_answers, load_answers
 from .decision_guard import enforce_decision_guard
@@ -25,7 +27,7 @@ from .interfaces import RequestDecisionEngine
 from .reference_engine import ReferenceEngine
 from .request_builder import build_teleradiology_request
 from .rules import generic_missing_questions, recommendation_specific_questions
-from .types import ReferenceContext
+from .types import ReferenceContext, ReferenceScenario
 
 SAFETY_FIELDS = frozenset(
     {
@@ -50,10 +52,15 @@ class RequestResult:
     imaging_decision: ImagingDecision
     teleradiology_request: TeleradiologyRequest
     source_paths: list[Path]
+    run_manifest: RunManifest | None = None
 
 
-def _add_call_reasons(decision: ImagingDecision, questions: list[MissingQuestion]) -> None:
+def _record_missing_requirements(
+    decision: ImagingDecision, questions: list[MissingQuestion]
+) -> None:
     for question in questions:
+        if question.question not in decision.primary.missing_information:
+            decision.primary.missing_information.append(question.question)
         if question.question not in decision.clinician_call_reasons:
             decision.clinician_call_reasons.append(question.question)
 
@@ -164,7 +171,7 @@ def _apply_question_guards(
         decision.clinician_call_required = True
         decision.decision_ready_for_human_approval = False
         decision.primary.recommended = False
-        _add_call_reasons(decision, blocking)
+        _record_missing_requirements(decision, blocking)
 
     modality_required_fields = {
         question.field
@@ -185,7 +192,7 @@ def _apply_question_guards(
     decision.primary.recommended = False
     if decision.decision_status == "selected":
         decision.decision_status = "insufficient_information"
-    _add_call_reasons(decision, required)
+    _record_missing_requirements(decision, required)
 
 
 def run_request(
@@ -214,7 +221,8 @@ def run_request(
         radiology_case.clinical = case
 
     initial_questions = generic_missing_questions(case)
-    reference_context = ReferenceEngine(reference_dir).build_context(case)
+    reference_engine = ReferenceEngine(reference_dir)
+    reference_context = reference_engine.build_context(case)
     reference_questions = _reference_missing_questions(reference_context)
     selected_decision_engine = decision_engine or OpenAIRequestDecision(
         model=decision_model or model
@@ -245,6 +253,29 @@ def run_request(
     radiology_case.audit.append(
         {"event": "request_workflow_completed", "decision_status": decision.decision_status}
     )
+    recorded_core_model = case.metadata.get("model")
+    recorded_core_component = case.metadata.get("extractor_manifest")
+    recorded_reference_revision = getattr(reference_engine, "reference_revision", UNREPORTED)
+    loaded_scenarios = getattr(reference_engine, "scenarios", [])
+    manifest_inputs = core_result.source_paths + (
+        [answers_path] if answers_path is not None else []
+    )
+    run_manifest = build_run_manifest(
+        package_version=__version__,
+        source_paths=manifest_inputs,
+        core_component=(
+            recorded_core_component if isinstance(recorded_core_component, dict) else {}
+        ),
+        core_model=recorded_core_model if isinstance(recorded_core_model, str) else None,
+        request_component=selected_decision_engine,
+        reference_revision=(
+            recorded_reference_revision
+            if isinstance(recorded_reference_revision, str)
+            else UNREPORTED
+        ),
+        reference_scenarios=cast(list[ReferenceScenario], loaded_scenarios),
+        reference_context=reference_context,
+    )
 
     return RequestResult(
         radiology_case=radiology_case,
@@ -255,4 +286,5 @@ def run_request(
         imaging_decision=decision,
         teleradiology_request=request,
         source_paths=core_result.source_paths,
+        run_manifest=run_manifest,
     )

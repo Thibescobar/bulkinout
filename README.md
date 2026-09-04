@@ -3,8 +3,8 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-79%20passed-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-122%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
@@ -83,7 +83,8 @@ bulkinout
 ├── request
 │   ├── run           Run the complete pre-exam workflow
 │   ├── catalog       Inspect the configured scenarios
-│   └── golden        Validate scenarios without an LLM
+│   ├── golden        Validate scenarios without an LLM
+│   └── evaluate      Evaluate saved E2E artifacts without an LLM call
 └── report            Display the Report standby notice
 ```
 
@@ -104,6 +105,9 @@ bulkinout
 | `request catalog` | `--reference` | packaged reference | Optional reference directory to summarize instead. |
 | `request golden` | `--cases` | `tests/golden` | Directory containing deterministic golden cases. |
 |  | `--reference` | packaged reference | Optional reference override evaluated by the golden cases. |
+| `request evaluate` | `--case` | required | E2E fixture directory containing `expected.json`. |
+|  | `--run` | required | Directory containing saved Request artifacts. |
+|  | `--report` | none | Optional path for a machine-readable evaluation report. |
 
 The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then `BULKINOUT_MODEL`. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
@@ -125,7 +129,7 @@ result = run_request(
 print(result.imaging_decision.decision_status)
 print(result.teleradiology_request.model_dump(mode="json"))
 
-# Optional: write the same eight JSON files as the CLI.
+# Optional: write the same nine JSON files as the CLI.
 write_request_outputs(result, Path("output"))
 ```
 
@@ -143,6 +147,7 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
+| `run_manifest.json` | Input, component, model, prompt, schema, and reference fingerprints for comparison. |
 
 ## Tests and validation
 
@@ -155,7 +160,16 @@ bulkinout request golden --cases tests/golden --reference reference/scenarios
 python -m build
 ```
 
-Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing, package construction, Python 3.11 and 3.14, and golden cases. `tests/e2e/` contains synthetic multidocument records for manual testing with a real model; findings are recorded with the template in `review/`.
+Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing, package construction, Python 3.11 and 3.14, and golden cases. `tests/e2e/` contains synthetic multidocument records for manual runs with a real model. Evaluate a saved run without another model call:
+
+```bash
+bulkinout request evaluate \
+  --case tests/e2e/case_001_rlq_complete \
+  --run output_e2e/case_001 \
+  --report output_e2e/case_001/evaluation.json
+```
+
+The evaluator checks Core and Request independently with structured assertions and tolerances. It complements, but does not replace, radiologist review with the template in `review/`.
 
 ## Documentation
 
@@ -181,7 +195,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 
 ## Limitations
 
-- **LLM-dependent extraction and decision support:** results vary with the configured model and require representative evaluation; deterministic guards do not validate every clinical statement produced by the model.
+- **LLM-dependent extraction and decision support:** results vary with the configured model. The E2E evaluator makes saved runs comparable, but coverage remains synthetic and deterministic guards do not validate every clinical statement produced by the model.
 - **No dedicated terminology normalization:** canonical field names are defined, but free-text concepts are not yet mapped through a controlled clinical terminology service.
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.

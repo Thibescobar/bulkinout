@@ -24,7 +24,7 @@ Follow standard Python conventions: four-space indentation, `snake_case` for fun
 
 ## Testing Guidelines
 
-Name tests `test_<behavior>` in `tests/test_*.py`. Any reference-rule correction should first gain a focused YAML golden case. Extraction changes should retain or add an E2E fixture plus `expected.json`; these cases make real API calls and are reviewed manually, not run by pytest. Ensure `pytest -q` preserves at least 95% coverage before submitting.
+Name tests `test_<behavior>` in `tests/test_*.py`. Any reference-rule correction should first gain a focused YAML golden case. Extraction changes should retain or add an E2E fixture plus schema-v1 `expected.json`. Creating E2E runs makes real API calls and remains outside pytest; evaluate saved artifacts with `bulkinout request evaluate`, then complete manual review. Ensure `pytest -q` preserves at least 95% coverage before submitting.
 
 ## Commit & Pull Request Guidelines
 

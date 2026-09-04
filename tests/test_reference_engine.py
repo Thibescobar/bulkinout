@@ -107,6 +107,20 @@ def test_pregnancy_question_is_material_when_unknown():
     assert any(q["field"] == "imaging_safety.pregnancy" for q in qs)
 
 
+def test_reference_pregnancy_question_is_skipped_when_not_relevant():
+    case = ClinicalCase()
+    case.patient["sex"] = observed("male")
+    case.current_problem["location"] = observed("right lower quadrant")
+    engine = ReferenceEngine(reference_dir())
+    scenario = next(
+        match.scenario for match in engine.match(case) if match.scenario_id == "rlq_appendicitis"
+    )
+
+    questions = engine.unresolved_material_questions(case, scenario)
+
+    assert all(q["field"] != "imaging_safety.pregnancy" for q in questions)
+
+
 def test_renal_colic_pregnancy_candidate_rule():
     case = ClinicalCase()
     case.current_problem["location"] = observed("flanc droit")

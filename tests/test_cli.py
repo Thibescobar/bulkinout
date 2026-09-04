@@ -178,6 +178,60 @@ def test_request_catalog_uses_packaged_reference_by_default(monkeypatch, capsys)
     assert "0 scenario(s)" in capsys.readouterr().out
 
 
+def test_request_evaluate_prints_stages_and_writes_report(monkeypatch, tmp_path, capsys):
+    report = SimpleNamespace(
+        core=SimpleNamespace(passed=True, checks=3, failures=[]),
+        request=SimpleNamespace(passed=True, checks=4, failures=[]),
+        passed=True,
+        model_dump=lambda mode: {"passed": True},
+    )
+    monkeypatch.setattr(cli, "evaluate_e2e_case", lambda case, run: report)
+    report_path = tmp_path / "evaluation.json"
+
+    cli.main(
+        [
+            "request",
+            "evaluate",
+            "--case",
+            "tests/e2e/example",
+            "--run",
+            "output/example",
+            "--report",
+            str(report_path),
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert "[PASS] Core (3 checks)" in output
+    assert "[PASS] Request (4 checks)" in output
+    assert json.loads(report_path.read_text(encoding="utf-8")) == {"passed": True}
+
+
+def test_request_evaluate_exits_one_for_assertion_failures(monkeypatch, capsys):
+    failure = SimpleNamespace(assertion="request.decision_status", message="Unexpected status.")
+    report = SimpleNamespace(
+        core=SimpleNamespace(passed=True, checks=1, failures=[]),
+        request=SimpleNamespace(passed=False, checks=1, failures=[failure]),
+        passed=False,
+    )
+    monkeypatch.setattr(cli, "evaluate_e2e_case", lambda case, run: report)
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(
+            [
+                "request",
+                "evaluate",
+                "--case",
+                "tests/e2e/example",
+                "--run",
+                "output/example",
+            ]
+        )
+
+    assert error.value.code == 1
+    assert "[FAIL] Request" in capsys.readouterr().out
+
+
 def test_main_dispatches_report_and_renders_expected_errors(monkeypatch, capsys):
     cli.main(["report"])
     assert "Bulkinout Report is reserved" in capsys.readouterr().out

@@ -52,6 +52,12 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
         "extractor": "test_extractor",
         "documents_processed": 2,
         "model": "local-model",
+        "extractor_manifest": {
+            "provider": "unreported",
+            "name": "test_extractor",
+            "model": "local-model",
+            "prompt_sha256": "unreported",
+        },
     }
     assert [artifact.artifact_id for artifact in case.artifacts] == [
         "input:letter.txt",

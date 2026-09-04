@@ -22,7 +22,7 @@ if result.imaging_decision.decision_ready_for_human_approval:
 write_request_outputs(result, Path("output"))
 ```
 
-`run_request()` performs no local writes. It returns a slot-based `RequestResult`, then `write_request_outputs()` optionally creates the same eight snapshots as `bulkinout request run`.
+`run_request()` performs no local writes. It returns a slot-based `RequestResult`, then `write_request_outputs()` optionally creates the same nine snapshots as `bulkinout request run`.
 
 ```text
 run_request()
@@ -33,10 +33,13 @@ run_request()
 ├── missing_questions[]
 ├── imaging_decision
 ├── teleradiology_request
-└── source_paths[]
+├── source_paths[]
+└── run_manifest
 ```
 
 The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
+
+`run_manifest` contains hashes and technical identities rather than source contents: package version, input and optional answer fingerprints, component/provider/model names, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, and `prompt_sha256`; omitted metadata is recorded as `unreported` without changing the provider-neutral protocols.
 
 ## Core only
 

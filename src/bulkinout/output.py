@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from .core.models import DiscriminatingQuestion
+from .core.models import MissingQuestion
 from .types import JsonObject, JsonValue
 
 if TYPE_CHECKING:
@@ -21,15 +21,16 @@ def write_json(path: Path, payload: JsonValue) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _answer_template(questions: list[DiscriminatingQuestion]) -> JsonObject:
+def _answer_template(questions: list[MissingQuestion]) -> JsonObject:
+    importance = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     required = sorted(
-        (question for question in questions if question.required_to_choose),
-        key=lambda question: question.priority,
+        (question for question in questions if question.required_to_choose or question.blocking),
+        key=lambda question: (importance[question.importance], question.field),
     )
     return {
         "answers": [
             {
-                "question_id": question.question_id,
+                "question_id": question.question_id or question.field,
                 "field": question.field,
                 "value": None,
                 "note": question.question,
@@ -68,7 +69,11 @@ def write_request_outputs(result: RequestResult, output_dir: Path) -> None:
         "teleradiology_request.json": cast(
             JsonObject, result.teleradiology_request.model_dump(mode="json")
         ),
-        "answers.template.json": _answer_template(result.imaging_decision.discriminating_questions),
+        "answers.template.json": _answer_template(result.missing_questions),
     }
+    if result.run_manifest is not None:
+        payloads["run_manifest.json"] = cast(
+            JsonObject, result.run_manifest.model_dump(mode="json")
+        )
     for filename, payload in payloads.items():
         write_json(output_dir / filename, payload)

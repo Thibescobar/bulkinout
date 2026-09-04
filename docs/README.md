@@ -40,7 +40,7 @@ Three ideas are central:
 1. [CLI](cli.md) for commands, options, output files, and expected failures.
 2. [Python API](python-api.md) for public services, typed results, provider injection, persistence, and errors.
 3. [Operations and safety](operations.md) for configuration, data handling, and production gaps.
-4. [Testing](testing.md) for automated, golden, and manual validation.
+4. [Testing](testing.md) for automated, golden, and model-run evaluation.
 
 ### Change the software
 
@@ -73,7 +73,9 @@ bulkinout/
 │   ├── report/               post-exam placeholder
 │   ├── cli.py                command parsing and status display
 │   ├── errors.py             public application exception hierarchy
+│   ├── evaluation.py         offline Core and Request assertions
 │   ├── output.py             JSON snapshot writers
+│   ├── run_manifest.py       reproducibility fingerprints
 │   └── types.py              shared JSON-compatible types
 ├── reference/
 │   ├── scenarios/            18 versioned YAML scenarios
@@ -81,7 +83,7 @@ bulkinout/
 ├── tests/
 │   ├── test_*.py             deterministic pytest suite
 │   ├── golden/               reference behavior fixtures
-│   └── e2e/                  synthetic records for real-LLM manual review
+│   └── e2e/                  synthetic records and executable model expectations
 ├── review/                   radiologist review template
 └── docs/                     technical documentation
 ```

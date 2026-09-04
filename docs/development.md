@@ -48,6 +48,7 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 | Command interface | `src/bulkinout/cli.py` | Parses commands, invokes services, and displays concise results |
 | Request service | `src/bulkinout/request/service.py` | Owns the complete pre-exam execution order and safeguards |
 | Output writers | `src/bulkinout/output.py` | Serializes Core and Request results to the documented JSON files |
+| Model evaluation | `src/bulkinout/evaluation.py`, `run_manifest.py` | Fingerprints runs and checks saved Core/Request artifacts separately |
 | File ingestion | `src/bulkinout/core/ingestion/` | Discovers supported input files |
 | LLM contracts | `core/interfaces.py`, `request/interfaces.py` | Defines provider-neutral extraction and decision boundaries |
 | Extraction | `src/bulkinout/core/extraction/llm.py` | Builds multimodal LLM input and validates structured extraction |
@@ -90,6 +91,8 @@ pytest -q tests/test_reference_engine.py tests/test_golden.py
 
 Update the extraction schema or prompt only when the target representation is clear. Canonical field paths and structured values use English and must not depend on the document language. Preserve source wording in provenance excerpts. Add a simulated-client unit test for parsing or conversion logic, then retain a synthetic E2E fixture when the change depends on real multimodal model behavior.
 
+After a representative run, use `bulkinout request evaluate --case <fixture> --run <output>` and retain the generated evaluation report with its `run_manifest.json`. Compare stage-specific failures and fingerprints before accepting a model or prompt change. Do not widen an expectation merely to make a new run pass; document why the new behavior is acceptable.
+
 ### Add a safety question or decision guard
 
 Decide whether the rule is generic, scenario-specific, or modality-specific. Put generic and modality checks in `request/rules.py`, scenario facts in YAML, and selection invariants in `decision_guard.py`. Test at least the known, unknown, and conflicting states. Verify both `decision_status` and `decision_ready_for_human_approval`; testing only the displayed question is insufficient.
@@ -117,7 +120,7 @@ For an LLM-backed run, inspect artifacts in order:
 
 If no document is found, verify the supported suffix and the input directory. If the CLI reports a missing model, check the corresponding `--extraction-model` or `--decision-model` option and environment variable, then the shared `--model` / `BULKINOUT_MODEL` fallback. If it reports a missing key, check `OPENAI_API_KEY`. Do not paste real patient artifacts or secrets into issues, test output, or debug logs.
 
-LLM calls are not part of the default suite and may vary across models. A successful schema validation demonstrates structural compatibility, not clinical correctness. Record representative E2E findings with `review/radiologist_review_template.csv`.
+LLM calls are not part of the default suite and may vary across models. A successful schema validation demonstrates structural compatibility, not clinical correctness. Run the offline evaluator on saved artifacts, then record qualitative E2E findings with `review/radiologist_review_template.csv`.
 
 ## Apply style and language rules
 
@@ -139,4 +142,4 @@ python -m build
 git diff --check
 ```
 
-Confirm that coverage remains at least 95%, no secrets or generated patient artifacts are staged, and documentation matches the implemented behavior. For terminology, scenario, or clinical-content changes, explicitly exercise both French and English matching. For LLM-dependent changes, document the model used and the manual E2E evidence; do not represent those checks as deterministic CI results.
+Confirm that coverage remains at least 95%, no secrets or generated patient artifacts are staged, and documentation matches the implemented behavior. For terminology, scenario, or clinical-content changes, explicitly exercise both French and English matching. For LLM-dependent changes, retain the manifest, stage-specific evaluation, and manual review evidence; do not represent deterministic CI as a real-model result.

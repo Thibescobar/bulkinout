@@ -6,7 +6,7 @@ Bulkinout uses three complementary validation layers. They answer different ques
 flowchart TB
     A[Pytest unit and integration tests] --> B[Deterministic code behavior]
     C[Golden reference cases] --> D[Scenario matching and rule behavior]
-    E[Manual E2E cases with a real LLM] --> F[Extraction and decision quality]
+    E[Real-model E2E run + offline assertions] --> F[Comparable extraction and decision evidence]
     B --> G[Confidence for a code change]
     D --> G
     F --> G
@@ -29,6 +29,7 @@ pytest -q
 - multilingual scenario matching, filtering, and rules;
 - catalog generation;
 - golden-case evaluation;
+- offline E2E assertions and run-manifest fingerprints;
 - Request-service orchestration plus thin CLI delegation with test doubles.
 
 Tests must not call a real model unless they live in the explicit manual E2E layer. Inject small `CoreExtractor` and `RequestDecisionEngine` fakes to test service orchestration. Use a simulated SDK client only when testing the built-in OpenAI adapters themselves.
@@ -103,9 +104,9 @@ Add or update one before changing:
 
 Preserve French cases when adding English synonyms. For multilingual changes, cover both languages without replacing the original input fixture.
 
-## Manual end-to-end cases
+## Model end-to-end evaluation
 
-`tests/e2e/` contains synthetic patient records split across realistic documents. These cases exercise the full path through a configured model and therefore are not run by pytest or CI.
+`tests/e2e/` contains synthetic patient records split across realistic documents. Creating a run exercises the full path through a configured model and therefore remains manual and outside CI. Evaluating the saved artifacts is deterministic and makes model or prompt runs directly comparable.
 
 Each directory contains:
 
@@ -129,16 +130,27 @@ bulkinout request run \
   --output output_e2e/case_001
 ```
 
-Then compare the generated files against `expected.json` and record findings in `review/radiologist_review_template.csv`.
+The run writes `run_manifest.json` with input, answer, component, model, prompt, schema, and reference fingerprints. It stores hashes rather than prompts or document contents; filenames may still be sensitive.
+
+Evaluate the snapshots without another provider call:
+
+```bash
+bulkinout request evaluate \
+  --case tests/e2e/case_001_rlq_complete \
+  --run output_e2e/case_001 \
+  --report output_e2e/case_001/evaluation.json
+```
+
+The evaluator reports Core and Request independently. Expectations assert structured facts, forbidden inventions or values, numeric tolerances, matched scenarios, statuses, examinations, questions, and groups of acceptable French presentation terms. Omitted keys make no assertion; variable prose is never compared in full. See `tests/e2e/README.md` for the schema.
 
 ### Review order
 
-1. Confirm that required Core fields were extracted.
-2. Check that prohibited facts were not invented.
+1. Run the offline evaluator and inspect Core and Request failures separately.
+2. Confirm that required Core fields were extracted and prohibited facts were not invented.
 3. Inspect provenance and contradictions.
 4. Confirm scenario matching and decision status.
 5. Check questions, proposed examination, and safety surfaces.
-6. Review the French teleradiology draft for correctness and clarity.
+6. Review the complete French teleradiology draft for correctness and clarity.
 7. Record any error under the owning layer, not only under the final symptom.
 
 The review template recognizes `core_extraction`, `scenario_matching`, `reference_question`, `reference_rule`, `decision_llm`, `safety_guard`, `request_generation`, and `other`.
@@ -159,7 +171,7 @@ GitHub Actions
     └── golden-case CLI
 ```
 
-CI validates the deterministic repository and its installable package boundaries. The wheel smoke test changes to an unrelated directory and verifies that the packaged catalog still exposes all 18 scenarios. Quality and test jobs run in parallel, pip downloads are cached, superseded runs on the same ref are cancelled, and each job has a ten-minute timeout. CI does not require secrets or run E2E model calls. A green workflow means static checks, package construction, tests, coverage, and encoded golden behavior passed; it does not imply local reference validation or clinical approval.
+CI validates the deterministic repository and its installable package boundaries. The wheel smoke test changes to an unrelated directory and verifies that the packaged catalog still exposes all 18 scenarios. Quality and test jobs run in parallel, pip downloads are cached, superseded runs on the same ref are cancelled, and each job has a ten-minute timeout. CI tests the evaluator itself but does not require secrets, create real-model runs, or claim that fixture expectations passed against a provider. A green workflow means static checks, package construction, tests, coverage, and encoded golden behavior passed; it does not imply local reference validation or clinical approval.
 
 ## Turning failures into durable tests
 

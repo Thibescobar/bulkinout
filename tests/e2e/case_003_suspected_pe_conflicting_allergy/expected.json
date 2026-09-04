@@ -1,36 +1,64 @@
 {
+  "schema_version": 1,
   "case_id": "case_003_suspected_pe_conflicting_allergy",
   "purpose": "Test multidocument extraction, prior evidence, and conflict between no known allergy and a documented iodinated-contrast reaction.",
   "core": {
-    "must_extract": [
-      "current_problem.suspected_diagnosis",
-      "current_problem.pe_pretest_probability",
-      "labs.d_dimer",
-      "labs.egfr_ml_min_1_73m2",
-      "allergies.iodinated_contrast_reaction"
+    "required_facts": [
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.pe_pretest_probability",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "labs.d_dimer",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "labs.egfr_ml_min_1_73m2",
+        "status_in": ["observed", "inferred"],
+        "numeric": {
+          "target": 51,
+          "absolute_tolerance": 2
+        }
+      },
+      {
+        "field": "allergies.iodinated_contrast_reaction",
+        "status_in": ["observed", "conflicting"]
+      }
     ],
-    "must_detect_conflict_or_prefer_specific_evidence": [
-      "allergies.iodinated_contrast_reaction"
-    ],
-    "must_not_conclude": [
-      "iodinated_contrast_reaction=no"
+    "forbidden_facts": [],
+    "forbidden_values": [
+      {
+        "field": "allergies.iodinated_contrast_reaction",
+        "values": [false, "no"]
+      }
     ]
   },
   "request": {
-    "expected_scenario": "suspected_pulmonary_embolism",
-    "expected_decision_status": [
-      "selected",
-      "safety_blocked"
-    ],
-    "acceptable_exams": [
+    "matched_scenarios_all_of": ["suspected_pulmonary_embolism"],
+    "matched_scenarios_any_of": [],
+    "decision_status_in": ["selected", "safety_blocked"],
+    "primary_exam_name_in": [
       "Angioscanner des artères pulmonaires"
     ],
-    "clinician_call_required": "depends_on_local_contrast_policy",
-    "must_surface": [
-      "réaction iodée antérieure",
-      "DFG/eGFR 51",
-      "D-dimères positifs",
-      "probabilité pré-test intermédiaire"
+    "required_question_fields": [],
+    "forbidden_question_fields": [],
+    "presentation_term_groups": [
+      {
+        "any_of": ["réaction iodée antérieure", "réaction au contraste iodé"]
+      },
+      {
+        "any_of": ["DFG 51", "eGFR 51"]
+      },
+      {
+        "any_of": ["D-dimères positifs", "D-dimères 2 480", "D-dimères 2480"]
+      },
+      {
+        "any_of": ["probabilité pré-test intermédiaire", "probabilité clinique intermédiaire"]
+      }
     ]
   }
 }

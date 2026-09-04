@@ -25,7 +25,8 @@ bulkinout
 ├── request
 │   ├── run
 │   ├── catalog
-│   └── golden
+│   ├── golden
+│   └── evaluate
 └── report
 ```
 
@@ -162,6 +163,25 @@ bulkinout request golden \
 
 The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It exits with status 2 if no golden files are found. Use `--reference reference/scenarios` while authoring the canonical source reference and omit it to verify the installed default.
 
+## `bulkinout request evaluate`
+
+Evaluate one saved real-model run without making another provider call:
+
+```bash
+bulkinout request evaluate \
+  --case tests/e2e/case_001_rlq_complete \
+  --run output_e2e/case_001 \
+  --report output_e2e/case_001/evaluation.json
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--case` | required | Fixture directory containing the schema-v1 `expected.json`. |
+| `--run` | required | Directory containing `case.json`, Request artifacts, and the run manifest. |
+| `--report` | none | Optional JSON destination for the structured evaluation report. |
+
+Core and Request are reported separately. Exit status 0 means every encoded assertion passed, 1 means at least one assertion failed, and 2 means an expectation or generated artifact is missing or invalid. A pass is reproducible software evidence, not clinical validation.
+
 ## `bulkinout report`
 
 ```bash
@@ -172,7 +192,7 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
+JSON files are written directly with UTF-8 indentation. A Request run writes nine snapshots, including `run_manifest.json`, whose hashes identify its inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
 
 Use a fresh output directory for important runs:
 
@@ -194,5 +214,7 @@ Generated `output*/` directories are ignored by Git and may contain sensitive cl
 | No matched scenarios | Extracted field paths or terms do not satisfy any entry predicate. | Inspect `case.json` and `reference_context.json`; add tested synonyms when appropriate. |
 | `insufficient_information` | A required or high-impact fact remains unknown/conflicting. | Complete `answers.template.json` after clinical clarification. |
 | `safety_blocked` | A blocking safety fact is unresolved. | Obtain and record the missing safety information. |
+| Evaluation exits 1 | At least one encoded Core or Request assertion failed. | Read the stage-specific failures and inspect the named artifacts. |
+| Evaluation exits 2 | `expected.json` or a required run artifact is missing or invalid. | Correct the fixture or run directory before interpreting model quality. |
 
 See [Request](request.md) for state transitions and [Operations and safety](operations.md) for data-handling boundaries.

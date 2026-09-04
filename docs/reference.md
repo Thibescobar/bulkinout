@@ -107,6 +107,8 @@ Questions connect a stable clinical field to French presentation text and Englis
 
 `unresolved_material_questions()` returns relevant questions whose field is absent, unknown, or conflicting. A material question may inform comparison without being mandatory. Required and blocking questions are converted to deterministic `MissingQuestion` objects after matching; the LLM may add questions but cannot remove or weaken these constraints. Questions from all sources are deduplicated by canonical field while retaining the strongest requirement.
 
+Pregnancy questions use the same conservative relevance rule as modality checks: they are omitted only for an observed male sex or an observed age outside 10–60. Missing, conflicting, or invalid demographic data keeps the question relevant.
+
 ## Candidate filtering
 
 Every candidate has a stable ID and French examination name. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.

@@ -32,6 +32,10 @@ Runs golden cases and exits with a nonzero status when a case fails.
 
 Prints summarized scenario catalog metadata.
 
+### `cmd_request_evaluate(args)`
+
+Evaluates saved E2E artifacts, reports Core and Request independently, and optionally writes JSON results.
+
 ### `build_parser() -> argparse.ArgumentParser`
 
 Builds the parser independently for help rendering and tests.
@@ -54,7 +58,35 @@ Writes `radiology_case.json` and `llm_extraction.json`.
 
 ### `write_request_outputs(result: RequestResult, output_dir: Path)`
 
-Writes the eight documented Request snapshots, including the answer template.
+Writes the nine documented Request snapshots, including the answer template and run manifest.
+
+## `bulkinout.evaluation`
+
+Source: `src/bulkinout/evaluation.py`
+
+### `E2EExpectations`
+
+Strict schema-v1 model for Core and Request assertions stored in `tests/e2e/*/expected.json`.
+
+### `EvaluationReport`
+
+Contains separately attributed Core and Request check counts and assertion failures.
+
+### `evaluate_e2e_case(case_dir: Path, run_dir: Path) -> EvaluationReport`
+
+Validates saved artifacts and applies structured assertions without invoking an LLM.
+
+## `bulkinout.run_manifest`
+
+Source: `src/bulkinout/run_manifest.py`
+
+### `RunManifest`
+
+Typed technical fingerprints for one Request run: package, inputs, components, prompts, schemas, reference revision, and matched scenarios.
+
+### `build_run_manifest(...) -> RunManifest`
+
+Builds stable SHA-256 metadata without retaining prompt or source-document contents.
 
 ## `bulkinout.core.extraction.llm`
 
@@ -363,6 +395,10 @@ Source: `src/bulkinout/request/rules.py`
 ### `_unknown(section: dict[str, ClinicalField], key: str) -> bool`
 
 Checks whether a clinical field is absent, unknown, or conflicting.
+
+### `pregnancy_is_relevant(case: ClinicalCase) -> bool`
+
+Applies the shared conservative demographic rule used by reference and modality questions.
 
 ### `generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]`
 

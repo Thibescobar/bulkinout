@@ -24,7 +24,7 @@ The current implementation scope is R01–R04. R05 and R06 define gates for clin
 | R01 | Short acronyms can match unrelated substrings, such as `EP` in `sepsis` | Correctness defect | P0 | Completed | Reference integrity |
 | R02 | Material YAML questions can be omitted by the LLM and escape deterministic guards | Safety defect | P0 | Completed | Reference integrity |
 | R03 | Installed packages contain no default scenarios and accept an empty reference silently | Distribution defect | P0 | Completed | Package integrity |
-| R04 | Real-model behavior is assessed mainly through manual E2E review | Assurance limitation | P1 | Active | Evaluation and governance |
+| R04 | Real-model behavior lacked reproducible, stage-specific assertions | Assurance limitation | P1 | Completed | Evaluation and governance |
 | R05 | The 18 bundled scenarios are not locally validated or comprehensive | Clinical-governance limitation | P1 | Gate before clinical claims | Evaluation and governance |
 | R06 | OpenAI uploads have no application-managed deletion, pseudonymization, or retention policy | Data-governance gate | P1 | Gate before real patient data | Data lifecycle |
 | R07 | No ready-to-use local LLM adapter is included | Provider capability | P1 | Standby, optional | Provider evaluation |
@@ -76,6 +76,8 @@ Exit criteria:
 ## P1 — Establish evidence and governance
 
 ### Model evaluation
+
+The initial evaluation boundary is implemented: real-model execution remains an explicit manual action, while saved artifacts are checked offline and reproducibly.
 
 1. Build an evaluation runner that measures Core extraction and Request decision behavior separately.
 2. Record provider, model, prompt revision, schema revision, reference version, inputs, and structured outcomes for every run.
@@ -156,25 +158,24 @@ Until then, Report remains an explicitly documented architectural placeholder.
 ## Delivery sequence
 
 ```text
-P0  reference integrity
- └─ package integrity
-     └─ P1 model evaluation + reference governance
-         ├─ data lifecycle gate
-         └─ optional local-provider evaluation
-             └─ P2 terminology + reconciliation + timeline
-                 └─ P3 logging + persistence + HTTP + approval integration
-                     └─ P4 Report
+P0  reference integrity — completed
+ └─ package integrity — completed
+     └─ P1 model evaluation boundary — completed
+         ├─ reference-validation gate
+         ├─ real-patient data-lifecycle gate
+         └─ optional local-provider evaluation — standby
+             └─ P2 terminology + reconciliation + timeline — standby
+                 └─ P3 runtime and service foundations — standby
+                     └─ P4 Report — standby
 ```
 
-Suggested branch sequence:
+Suggested sequence for work that remains:
 
-1. `fix/reference_integrity`
-2. `fix/reference_packaging`
-3. `quality/llm_evaluation`
-4. `security/data_lifecycle`
-5. `feature/clinical_normalization`
-6. `feature/runtime_operations`
-7. `feature/report`
+1. `governance/reference_validation`
+2. `security/data_lifecycle`
+3. `feature/clinical_normalization`
+4. `feature/runtime_operations`
+5. `feature/report`
 
 ## Definition of done
 

@@ -66,6 +66,7 @@ class ReferenceScenario(TypedDict, total=False):
     rules: list[ReferenceRule]
     notes: list[str]
     _source_file: str
+    _source_sha256: str
 
 
 class TriggeredRule(TypedDict):

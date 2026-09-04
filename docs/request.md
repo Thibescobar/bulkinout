@@ -103,7 +103,7 @@ clinician_call_required          = true
 decision_ready_for_human_approval = false
 ```
 
-They also add clinician-call reasons. This prevents an LLM from selecting an examination while omitting or weakening a mandatory reference question. An unresolved blocking safety field produces `safety_blocked`; another required field produces `insufficient_information`.
+They also record the questions in primary missing information and clinician-call reasons. This prevents an LLM from selecting an examination while omitting or weakening a mandatory reference question. An unresolved blocking safety field produces `safety_blocked`; another required field produces `insufficient_information`.
 
 For `no_imaging_recommended`, the guard sets `primary.recommended=False` and permits readiness for human review. Readiness still does not constitute clinical approval.
 
@@ -164,7 +164,7 @@ Run 2 --answers answers.json
   └── guards evaluate the new state
 ```
 
-Each pass is a fresh run. v0 does not compare runs, guarantee idempotency, or persist a conversation state.
+Each pass is a fresh run. The manifest and offline evaluator support external comparison, but the workflow does not merge runs, guarantee idempotency, or persist a conversation state.
 
 ## Debugging order
 
@@ -174,7 +174,8 @@ When the final draft is wrong, inspect artifacts from earliest to latest:
 2. `case.json`: did conversion or answer application place it under the expected field?
 3. `reference_context.json`: did matching expose the expected scenario, questions, candidates, and rules?
 4. `imaging_decision.json`: what did the LLM propose, and which status survived the guard?
-5. `missing_questions.json`: which generic or modality checks remain?
+5. `missing_questions.json`: which merged generic, reference, model, or modality questions remain?
 6. `teleradiology_request.json`: was reliable information assembled correctly?
+7. `run_manifest.json`: which inputs, components, prompts, schemas, and reference revision produced the run?
 
 This artifact-by-artifact approach identifies the owning layer before code or reference data is changed.

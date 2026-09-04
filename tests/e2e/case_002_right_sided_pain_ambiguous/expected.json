@@ -1,29 +1,45 @@
 {
+  "schema_version": 1,
   "case_id": "case_002_right_sided_pain_ambiguous",
   "purpose": "The system must not force urinary or abdominal CT while the presentation remains ambiguous.",
   "core": {
-    "must_extract": [
-      "current_problem.indication",
-      "labs.egfr_ml_min_1_73m2"
+    "required_facts": [
+      {
+        "field": "current_problem.indication",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "labs.egfr_ml_min_1_73m2",
+        "status_in": ["observed", "inferred"],
+        "numeric": {
+          "target": 89,
+          "absolute_tolerance": 2
+        }
+      }
     ],
-    "must_not_invent": [
+    "forbidden_facts": [
       "current_problem.hematuria",
       "allergies.iodinated_contrast_reaction",
       "imaging_safety.pregnancy"
-    ]
+    ],
+    "forbidden_values": []
   },
   "request": {
-    "expected_decision_status": "insufficient_information",
-    "clinician_call_required": true,
-    "acceptable_candidate_scenarios": [
+    "matched_scenarios_all_of": [],
+    "matched_scenarios_any_of": [
       "renal_colic",
       "acute_abdominal_pain",
       "rlq_appendicitis"
     ],
-    "expected_discriminating_topics": [
-      "localisation précise",
-      "hématurie / données urinaires"
+    "decision_status_in": ["insufficient_information"],
+    "primary_exam_name_in": [],
+    "primary_recommended": false,
+    "clinician_call_required": true,
+    "required_question_fields": [
+      "current_problem.location",
+      "current_problem.hematuria"
     ],
-    "must_not_force_exam": true
+    "forbidden_question_fields": [],
+    "presentation_term_groups": []
   }
 }

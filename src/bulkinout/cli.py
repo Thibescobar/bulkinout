@@ -6,11 +6,14 @@ import argparse
 import os
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import cast
 
+from .evaluation import evaluate_e2e_case
 from .errors import BulkinoutError, ConfigurationError
-from .output import write_core_outputs, write_request_outputs
+from .output import write_core_outputs, write_json, write_request_outputs
 from .request.golden import discover_golden_cases, run_golden_case
 from .request.reference_catalog import build_catalog
+from .types import JsonObject
 
 Command = Callable[[argparse.Namespace], None]
 
@@ -91,6 +94,23 @@ def cmd_request_catalog(args: argparse.Namespace) -> None:
             f"{item['question_count']} question(s) | "
             f"{item['status']}"
         )
+
+
+def cmd_request_evaluate(args: argparse.Namespace) -> None:
+    """Evaluate saved Request artifacts against one E2E expectation file."""
+
+    report = evaluate_e2e_case(Path(args.case), Path(args.run))
+    for name, stage in (("Core", report.core), ("Request", report.request)):
+        print(f"[{'PASS' if stage.passed else 'FAIL'}] {name} ({stage.checks} checks)")
+        for failure in stage.failures:
+            print(f"  - {failure.assertion}: {failure.message}")
+    if args.report:
+        write_json(
+            Path(args.report),
+            cast(JsonObject, report.model_dump(mode="json")),
+        )
+    if not report.passed:
+        raise SystemExit(1)
 
 
 def cmd_report(_args: argparse.Namespace) -> None:
@@ -178,6 +198,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory containing scenario YAML files; overrides the packaged reference",
     )
     golden.set_defaults(func=cmd_request_golden)
+
+    evaluate = request_sub.add_parser(
+        "evaluate", help="Evaluate saved E2E artifacts without calling an LLM"
+    )
+    evaluate.add_argument(
+        "--case",
+        required=True,
+        help="E2E case directory containing expected.json",
+    )
+    evaluate.add_argument(
+        "--run",
+        required=True,
+        help="Run directory containing generated Request artifacts",
+    )
+    evaluate.add_argument(
+        "--report",
+        default=None,
+        help="Optional path receiving the machine-readable evaluation report",
+    )
+    evaluate.set_defaults(func=cmd_request_evaluate)
 
     report = top.add_parser("report", help="Post-exam workflow (standby)")
     report.set_defaults(func=cmd_report)

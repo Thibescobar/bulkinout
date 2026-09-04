@@ -36,6 +36,12 @@ def build_radiology_case(
     clinical.metadata["extractor"] = selected_extractor.name
     clinical.metadata["documents_processed"] = len(paths)
     clinical.metadata["model"] = selected_extractor.model
+    clinical.metadata["extractor_manifest"] = {
+        "provider": getattr(selected_extractor, "provider", "unreported"),
+        "name": selected_extractor.name,
+        "model": selected_extractor.model,
+        "prompt_sha256": getattr(selected_extractor, "prompt_sha256", "unreported"),
+    }
 
     case = RadiologyCase(
         workflow=WorkflowState(phase="pre_exam", status="active"),

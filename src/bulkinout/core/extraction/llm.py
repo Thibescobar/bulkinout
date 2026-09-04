@@ -10,6 +10,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from ...errors import ConfigurationError
+from ...run_manifest import sha256_text
 from ...types import JsonObject, JsonValue
 from ..models import (
     ClinicalCase,
@@ -95,7 +96,9 @@ def _extract_json(response: Any) -> str:
 
 
 class OpenAICoreExtractor:
+    provider = "openai"
     name = "bulkinout_core_openai_multimodal_v1"
+    prompt_sha256 = sha256_text(EXTRACTION_PROMPT)
 
     def __init__(self, model: str | None = None):
         self.model = (

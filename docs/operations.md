@@ -79,8 +79,9 @@ The extraction prompt prohibits invented facts and treats absent information as 
 | `imaging_decision.json` | LLM proposal after deterministic guards |
 | `teleradiology_request.json` | French clinical draft; never an automatically approved transmission |
 | `answers.template.json` | Required discriminating questions to complete before rerunning |
+| `run_manifest.json` | Technical fingerprints for the inputs, components, prompts, schemas, and reference used |
 
-Existing files with these names are overwritten. Writes are not atomic, versioned, or locked, so do not run two cases into the same directory concurrently. Use one private output directory per case and execution, then move validated artifacts into the organization’s controlled record system. Output JSON may contain clinical content, filenames, and source excerpts; protect it like the input documents. Generated `output*/` directories are intentionally excluded from Git.
+Existing files with these names are overwritten. Writes are not atomic, versioned, or locked, so do not run two cases into the same directory concurrently. Use one private output directory per case and execution, then move validated artifacts into the organization’s controlled record system. Output JSON may contain clinical content and source excerpts; the manifest stores hashes rather than contents but can still expose filenames. Protect every artifact like the input documents. Generated `output*/` directories are intentionally excluded from Git.
 
 ## Decision and approval states
 

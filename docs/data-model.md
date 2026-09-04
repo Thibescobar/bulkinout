@@ -163,7 +163,7 @@ stateDiagram-v2
 
 ## Clarification input
 
-The shared output writer writes required discriminators as `answers.template.json`:
+The shared output writer writes merged required or blocking questions as `answers.template.json`:
 
 ```json
 {
@@ -185,3 +185,9 @@ After a clinician supplies a value, `apply_answers()` stores it as an observed f
 `TeleradiologyRequest` is presentation output. It contains French clinical summaries and labels, unresolved items, examination rationale, and an explicit warning. Its status is `draft`, `ready_for_human_approval`, or `blocked`, and `validated_by_clinician` defaults to `False`.
 
 Do not treat serialization success as authorization to transmit the request. Identity, signature, persistence, and clinical-system integration are outside v0.
+
+## Evaluation and run metadata
+
+`RunManifest` is a separate technical model rather than clinical case data. It records SHA-256 fingerprints for inputs, prompts, Pydantic schemas, the complete reference revision, and matched scenario files, plus the package, provider, component, and model identities. Missing custom-provider metadata is explicit as `unreported`. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
+
+`E2EExpectations` and `EvaluationReport` define the offline model-evaluation boundary. Expectations use structured facts, tolerances, scenario/status sets, question fields, and acceptable presentation terms. Reports keep Core and Request results separate so a final-output failure is not automatically attributed to extraction.

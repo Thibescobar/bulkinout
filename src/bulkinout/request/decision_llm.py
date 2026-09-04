@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from ..core.models import ClinicalCase, ImagingDecision
 from ..errors import ConfigurationError
+from ..run_manifest import sha256_text
 from ..types import JsonObject, JsonValue
 from .types import ReferenceContext
 
@@ -65,6 +66,10 @@ def _extract_json(response: Any) -> str:
 
 
 class OpenAIRequestDecision:
+    provider = "openai"
+    name = "bulkinout_request_openai_decision_v1"
+    prompt_sha256 = sha256_text(DECISION_PROMPT)
+
     def __init__(self, model: str | None = None):
         self.model = model or os.getenv("BULKINOUT_DECISION_MODEL") or os.getenv("BULKINOUT_MODEL")
         if not self.model:
