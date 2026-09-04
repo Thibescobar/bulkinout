@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "case_id": "case_011_image_only_renal_colic_fr",
+  "purpose": "A mildly degraded image-only French referral should still yield a complete renal-colic case and a non-contrast CT proposal.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "patient.sex",
+        "status_in": ["observed"]
+      },
+      {
+        "field": "current_problem.location",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "imaging_safety.pregnancy",
+        "status_in": ["observed", "inferred"]
+      }
+    ],
+    "forbidden_facts": ["history.oncology"],
+    "forbidden_values": []
+  },
+  "request": {
+    "matched_scenarios_all_of": ["renal_colic"],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
+    "decision_status_in": ["selected"],
+    "primary_exam_name_in": ["TDM abdomen-pelvis sans injection"],
+    "primary_recommended": true,
+    "clinician_call_required": false,
+    "required_question_fields": [],
+    "forbidden_question_fields": ["imaging_safety.pregnancy"],
+    "presentation_term_groups": [
+      {
+        "any_of": ["colique néphrétique", "lithiase urinaire", "calcul urinaire"]
+      }
+    ]
+  }
+}

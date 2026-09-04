@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "case_id": "case_008_spine_infection_bilingual",
+  "purpose": "French and English documents jointly describe a lumbar spinal infection with complete MRI safety information.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.location",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "imaging_safety.pacemaker",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "imaging_safety.implant_or_metal",
+        "status_in": ["observed", "inferred"]
+      }
+    ],
+    "forbidden_facts": [],
+    "forbidden_values": []
+  },
+  "request": {
+    "matched_scenarios_all_of": ["suspected_spine_infection"],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
+    "decision_status_in": ["selected"],
+    "primary_exam_name_in": [
+      "IRM du rachis symptomatique sans et avec injection",
+      "IRM du rachis symptomatique sans injection"
+    ],
+    "primary_recommended": true,
+    "clinician_call_required": false,
+    "required_question_fields": [],
+    "forbidden_question_fields": [
+      "current_problem.location",
+      "imaging_safety.pacemaker",
+      "imaging_safety.implant_or_metal"
+    ],
+    "presentation_term_groups": [
+      {
+        "any_of": ["spondylodiscite", "infection rachidienne"]
+      },
+      {
+        "any_of": ["lombaire", "rachis lombaire"]
+      }
+    ]
+  }
+}

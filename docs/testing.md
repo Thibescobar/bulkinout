@@ -106,7 +106,7 @@ Preserve French cases when adding English synonyms. For multilingual changes, co
 
 ## Model end-to-end evaluation
 
-`tests/e2e/` contains synthetic patient records split across realistic documents. Creating a run exercises the full path through a configured model and therefore remains manual and outside CI. Evaluating the saved artifacts is deterministic and makes model or prompt runs directly comparable.
+`tests/e2e/` contains 12 synthetic records split across realistic French, English, bilingual, and image-based documents. Creating a run exercises the full path through a configured model and therefore remains manual and outside CI. Evaluating the saved artifacts is deterministic and makes model or prompt runs directly comparable. Use the [six-case quick smoke suite](../tests/e2e/README.md#suggested-manual-suites) during routine checks and all 12 cases before accepting a model, prompt, extraction-schema, or matching change.
 
 Each directory contains:
 
@@ -141,7 +141,7 @@ bulkinout request evaluate \
   --report output_e2e/case_001/evaluation.json
 ```
 
-The evaluator reports Core and Request independently. Expectations assert structured facts, forbidden inventions or values, numeric tolerances, matched scenarios, statuses, examinations, questions, and groups of acceptable French presentation terms. Omitted keys make no assertion; variable prose is never compared in full. See `tests/e2e/README.md` for the schema.
+The evaluator reports Core and Request independently. Expectations assert structured facts, forbidden inventions or values, required or forbidden scenarios, numeric tolerances, statuses, examinations, questions, and groups of acceptable French presentation terms. Omitted keys make no assertion; variable prose is never compared in full. See `tests/e2e/README.md` for the schema.
 
 ### Review order
 

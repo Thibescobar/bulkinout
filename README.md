@@ -160,7 +160,7 @@ bulkinout request golden --cases tests/golden --reference reference/scenarios
 python -m build
 ```
 
-Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing, package construction, Python 3.11 and 3.14, and golden cases. `tests/e2e/` contains synthetic multidocument records for manual runs with a real model. Evaluate a saved run without another model call:
+Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing, package construction, Python 3.11 and 3.14, and golden cases. `tests/e2e/` contains 12 synthetic French, English, bilingual, and image-based records for manual runs with a real model. Start with its [six-case quick smoke suite](tests/e2e/README.md#suggested-manual-suites), then evaluate each saved run without another model call:
 
 ```bash
 bulkinout request evaluate \

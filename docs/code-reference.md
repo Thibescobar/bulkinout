@@ -66,7 +66,7 @@ Source: `src/bulkinout/evaluation.py`
 
 ### `E2EExpectations`
 
-Strict schema-v1 model for Core and Request assertions stored in `tests/e2e/*/expected.json`.
+Strict schema-v1 model for Core and Request assertions stored in `tests/e2e/*/expected.json`. Request assertions can require all or any named scenarios and explicitly reject forbidden matches.
 
 ### `EvaluationReport`
 

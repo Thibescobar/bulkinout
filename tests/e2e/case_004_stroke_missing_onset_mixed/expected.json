@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "case_id": "case_004_stroke_missing_onset_mixed",
+  "purpose": "Bilingual stroke record with no usable onset time: Request must ask for onset and must not select imaging yet.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "patient.sex",
+        "status_in": ["observed"]
+      },
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.symptoms",
+        "status_in": ["observed", "inferred"]
+      }
+    ],
+    "forbidden_facts": ["current_problem.onset"],
+    "forbidden_values": []
+  },
+  "request": {
+    "matched_scenarios_all_of": ["acute_stroke"],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
+    "decision_status_in": ["insufficient_information"],
+    "primary_exam_name_in": [],
+    "primary_recommended": false,
+    "clinician_call_required": true,
+    "required_question_fields": ["current_problem.onset"],
+    "forbidden_question_fields": ["imaging_safety.pregnancy"],
+    "presentation_term_groups": []
+  }
+}

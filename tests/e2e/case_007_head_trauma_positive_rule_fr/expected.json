@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "case_id": "case_007_head_trauma_positive_rule_fr",
+  "purpose": "Explicitly positive validated head-CT rule: expect non-contrast head CT selection without another rule question.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "history.trauma",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.head_ct_rule_positive",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.gcs",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "medications.anticoagulation",
+        "status_in": ["observed", "inferred"]
+      }
+    ],
+    "forbidden_facts": [],
+    "forbidden_values": []
+  },
+  "request": {
+    "matched_scenarios_all_of": ["head_trauma"],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
+    "decision_status_in": ["selected"],
+    "primary_exam_name_in": ["TDM cérébrale sans injection"],
+    "primary_recommended": true,
+    "clinician_call_required": false,
+    "required_question_fields": [],
+    "forbidden_question_fields": [
+      "current_problem.head_ct_rule_positive",
+      "imaging_safety.pregnancy"
+    ],
+    "presentation_term_groups": [
+      {
+        "any_of": ["traumatisme crânien", "anticoagulant", "apixaban"]
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from bulkinout.core.ingestion import collect_files
 from bulkinout.core.models import (
     ClinicalCase,
     ClinicalField,
@@ -46,6 +47,7 @@ def _expectations():
         "request": {
             "matched_scenarios_all_of": ["rlq_appendicitis"],
             "matched_scenarios_any_of": ["rlq_appendicitis", "renal_colic"],
+            "forbidden_scenarios": ["unrelated"],
             "decision_status_in": ["selected"],
             "primary_exam_name_in": ["TDM abdomino-pelvienne avec injection IV"],
             "primary_recommended": True,
@@ -118,7 +120,7 @@ def test_evaluate_e2e_case_passes_typed_clinical_assertions(tmp_path):
     assert report.core.passed is True
     assert report.request.passed is True
     assert report.core.checks == 4
-    assert report.request.checks == 10
+    assert report.request.checks == 11
     assert report.core.failures == []
     assert report.request.failures == []
 
@@ -161,6 +163,9 @@ def test_evaluate_e2e_case_attributes_core_and_request_failures_separately(tmp_p
     }
     assert report.request.passed is False
     assert "request.scenario:rlq_appendicitis" in {
+        failure.assertion for failure in report.request.failures
+    }
+    assert "request.forbidden_scenario:unrelated" in {
         failure.assertion for failure in report.request.failures
     }
     assert "request.decision_status" in {failure.assertion for failure in report.request.failures}
@@ -249,6 +254,8 @@ def test_evaluate_e2e_case_reports_missing_or_invalid_artifacts(tmp_path):
 def test_repository_e2e_expectations_use_supported_schema():
     expected_files = sorted(Path("tests/e2e").glob("*/expected.json"))
 
-    assert len(expected_files) == 4
+    assert len(expected_files) == 12
     for path in expected_files:
-        E2EExpectations.model_validate_json(path.read_text(encoding="utf-8"))
+        expectations = E2EExpectations.model_validate_json(path.read_text(encoding="utf-8"))
+        assert expectations.case_id == path.parent.name
+        assert collect_files(path.parent)
