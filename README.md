@@ -163,6 +163,7 @@ Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing
 | Need | Document |
 |---|---|
 | Guided tour and reading paths | [`docs/README.md`](docs/README.md) |
+| Prioritized defects, limitations, and future milestones | [`docs/roadmap.md`](docs/roadmap.md) |
 | Components, data flow, boundaries, and invariants | [`docs/architecture.md`](docs/architecture.md) |
 | Ingestion, extraction, provenance, and case construction | [`docs/core.md`](docs/core.md) |
 | Models, statuses, and serialized data | [`docs/data-model.md`](docs/data-model.md) |
@@ -189,6 +190,8 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 - **No HTTP service:** the complete workflow has a public Python API, but authentication, transport, request isolation, persistence, and HTTP error contracts are not implemented.
 - **No post-exam workflow:** `Report`, image-analysis integration, findings, impression, and final-report generation are placeholders.
 - **Human approval is external:** v0 records readiness and warnings but does not implement authentication, signatures, persistent approval, or clinical-system integration.
+
+The prioritized remediation sequence and exit criteria are maintained in the [`roadmap`](docs/roadmap.md).
 
 ## License
 

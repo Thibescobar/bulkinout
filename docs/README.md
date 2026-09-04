@@ -44,9 +44,10 @@ Three ideas are central:
 
 ### Change the software
 
-1. [Development](development.md) for setup, code ownership, common change recipes, and validation.
-2. [Code reference](code-reference.md) for the module and function inventory.
-3. The repository-level [`AGENTS.md`](../AGENTS.md) for contribution and language rules.
+1. [Roadmap and remediation plan](roadmap.md) for prioritized defects, limitations, gates, and future milestones.
+2. [Development](development.md) for setup, code ownership, common change recipes, and validation.
+3. [Code reference](code-reference.md) for the module and function inventory.
+4. The repository-level [`AGENTS.md`](../AGENTS.md) for contribution and language rules.
 
 ## Vocabulary
 
@@ -87,4 +88,4 @@ bulkinout/
 
 ## v0 boundaries
 
-`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` reserve architectural boundaries but contain no substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service.
+`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` reserve architectural boundaries but contain no substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service. The ordered path beyond these boundaries is maintained in the [roadmap](roadmap.md).
