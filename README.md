@@ -7,7 +7,7 @@
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
-**Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology record, then combines a versioned reference, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request.
+**Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
 
 ![Bulkinout workflow overview](docs/images/bulkinout-overview.svg)
 
@@ -15,7 +15,14 @@
 
 ## Why Bulkinout
 
-Clinical information arrives across letters, emergency notes, laboratory results, prior reports, and images. Bulkinout creates one structured case while retaining the status and source of each fact. The Request workflow then:
+Clinical information arrives across letters, emergency notes, laboratory results, prior reports, and images. Bulkinout consolidates these inputs into one structured case while preserving the status, provenance, and uncertainty of each fact.
+
+This shared case is designed to support two complementary workflows:
+
+- **Request — available in v0:** prepares an imaging proposal and a French teleradiology request for human approval.
+- **Report — planned:** will support assisted radiological and clinical reporting after image acquisition.
+
+The current Request workflow:
 
 - identifies matching radiology scenarios;
 - asks only questions that may change the decision;
