@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 import yaml
+
 
 def build_catalog(reference_dir: Path) -> list[dict]:
     out = []

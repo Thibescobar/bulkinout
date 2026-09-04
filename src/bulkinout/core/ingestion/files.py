@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 SUPPORTED = {".pdf", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp"}

@@ -1,6 +1,9 @@
 from bulkinout.core.models import (
-    ClinicalCase, ClinicalField, FieldStatus,
-    ImagingDecision, ImagingRecommendation
+    ClinicalCase,
+    ClinicalField,
+    FieldStatus,
+    ImagingDecision,
+    ImagingRecommendation,
 )
 from bulkinout.request.rules import generic_missing_questions, recommendation_specific_questions
 

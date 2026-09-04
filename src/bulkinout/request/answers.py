@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ..core.models import AnswerFile, ClinicalCase, ClinicalField, FieldStatus, SourceRef
 
-
 SECTION_NAMES = {
     "patient",
     "current_problem",

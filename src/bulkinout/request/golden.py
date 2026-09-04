@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 import yaml
 
 from ..core.models import ClinicalCase, ClinicalField, FieldStatus
 from .reference_engine import ReferenceEngine
+
 
 def _observed(value):
     return ClinicalField(value=value, status=FieldStatus.observed, confidence=1.0, validated=False)

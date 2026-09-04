@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..core.models import ImagingDecision, FieldStatus, ClinicalCase
+from ..core.models import ClinicalCase, FieldStatus, ImagingDecision
 
 
 def _get_case_value(case: ClinicalCase, field_path: str):

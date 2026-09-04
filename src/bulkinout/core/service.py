@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .ingestion import collect_files
 from .extraction import OpenAICoreExtractor, extraction_to_case
-from .models import RadiologyCase, WorkflowState, ArtifactRef
+from .ingestion import collect_files
+from .models import ArtifactRef, RadiologyCase, WorkflowState
+
 
 def build_radiology_case(input_dir: Path, model: str | None = None):
     paths = collect_files(input_dir)

@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from bulkinout.core.models import ClinicalCase, ClinicalField, FieldStatus
 from bulkinout.request.reference_engine import ReferenceEngine
 

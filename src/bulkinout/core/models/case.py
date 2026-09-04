@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -15,8 +16,8 @@ class FieldStatus(str, Enum):
 class SourceRef(BaseModel):
     document_id: str
     filename: str
-    page: Optional[int] = None
-    excerpt: Optional[str] = None
+    page: int | None = None
+    excerpt: str | None = None
 
 
 class ClinicalField(BaseModel):
@@ -32,7 +33,7 @@ class PriorImaging(BaseModel):
     region: ClinicalField = Field(default_factory=ClinicalField)
     date: ClinicalField = Field(default_factory=ClinicalField)
     result: ClinicalField = Field(default_factory=ClinicalField)
-    source_document: Optional[str] = None
+    source_document: str | None = None
 
 
 class ClinicalCase(BaseModel):
@@ -50,7 +51,7 @@ class ClinicalCase(BaseModel):
 class ArtifactRef(BaseModel):
     artifact_id: str
     artifact_type: str
-    source: Optional[str] = None
+    source: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -64,7 +65,7 @@ class RadiologyCase(BaseModel):
     Longitudinal container shared by all BULKINOUT radiology workflows.
     Pre-exam Request is implemented now; post-exam Report is reserved for later.
     """
-    case_id: Optional[str] = None
+    case_id: str | None = None
     workflow: WorkflowState = Field(default_factory=WorkflowState)
     clinical: ClinicalCase = Field(default_factory=ClinicalCase)
     artifacts: list[ArtifactRef] = Field(default_factory=list)
@@ -93,7 +94,7 @@ class CandidateExam(BaseModel):
     modality: str
     body_region: str
     contrast: Literal["yes", "no", "conditional", "unknown"] = "unknown"
-    protocol: Optional[str] = None
+    protocol: str | None = None
     fit_score: float = Field(ge=0.0, le=1.0)
     arguments_for: list[str] = Field(default_factory=list)
     arguments_against: list[str] = Field(default_factory=list)
@@ -113,16 +114,16 @@ class DiscriminatingQuestion(BaseModel):
 
 class ImagingRecommendation(BaseModel):
     recommended: bool = True
-    modality: Optional[str] = None
-    body_region: Optional[str] = None
-    exam_name: Optional[str] = None
-    protocol: Optional[str] = None
+    modality: str | None = None
+    body_region: str | None = None
+    exam_name: str | None = None
+    protocol: str | None = None
     contrast: Literal["yes", "no", "conditional", "unknown"] = "unknown"
-    contrast_phase_or_sequence: Optional[str] = None
+    contrast_phase_or_sequence: str | None = None
     urgency: Literal["emergent", "urgent", "routine", "unknown"] = "unknown"
-    clinical_question_for_radiologist: Optional[str] = None
+    clinical_question_for_radiologist: str | None = None
     rationale: list[str] = Field(default_factory=list)
-    expected_diagnostic_value: Optional[str] = None
+    expected_diagnostic_value: str | None = None
     alternatives: list[str] = Field(default_factory=list)
     relevant_prior_imaging: list[str] = Field(default_factory=list)
     safety_considerations: list[str] = Field(default_factory=list)
@@ -142,7 +143,7 @@ class ImagingDecision(BaseModel):
     discriminating_questions: list[DiscriminatingQuestion] = Field(default_factory=list)
     primary: ImagingRecommendation
     secondary: list[ImagingRecommendation] = Field(default_factory=list)
-    no_imaging_reason: Optional[str] = None
+    no_imaging_reason: str | None = None
     clinician_call_required: bool = True
     clinician_call_reasons: list[str] = Field(default_factory=list)
     decision_ready_for_human_approval: bool = False
@@ -153,13 +154,13 @@ class ImagingDecision(BaseModel):
 
 class TeleradiologyRequest(BaseModel):
     status: Literal["draft", "ready_for_human_approval", "blocked"] = "draft"
-    patient_summary: Optional[str] = None
-    indication: Optional[str] = None
-    requested_exam: Optional[str] = None
-    protocol_requested: Optional[str] = None
-    contrast: Optional[str] = None
-    urgency: Optional[str] = None
-    clinical_question: Optional[str] = None
+    patient_summary: str | None = None
+    indication: str | None = None
+    requested_exam: str | None = None
+    protocol_requested: str | None = None
+    contrast: str | None = None
+    urgency: str | None = None
+    clinical_question: str | None = None
     relevant_history: list[str] = Field(default_factory=list)
     medications_and_allergies: list[str] = Field(default_factory=list)
     relevant_labs: list[str] = Field(default_factory=list)
@@ -173,8 +174,8 @@ class TeleradiologyRequest(BaseModel):
 
 class LLMSource(BaseModel):
     filename: str
-    page: Optional[int] = None
-    excerpt: Optional[str] = None
+    page: int | None = None
+    excerpt: str | None = None
 
 
 class LLMFact(BaseModel):
@@ -193,10 +194,10 @@ class LLMExtraction(BaseModel):
 
 
 class AnswerItem(BaseModel):
-    question_id: Optional[str] = None
+    question_id: str | None = None
     field: str
     value: Any
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class AnswerFile(BaseModel):

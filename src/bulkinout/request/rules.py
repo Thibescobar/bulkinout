@@ -94,8 +94,8 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 a = int(age.value)
                 if a < 10 or a > 60:
                     relevant = False
-            except Exception:
-                pass
+            except (TypeError, ValueError):
+                relevant = True
         if relevant and _unknown(case.imaging_safety, "pregnancy"):
             out.append(MissingQuestion(
                 field="imaging_safety.pregnancy",

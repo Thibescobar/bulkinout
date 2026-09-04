@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from bulkinout.request.reference_catalog import build_catalog
+
 
 def test_reference_has_at_least_16_scenarios():
     ref = Path(__file__).parents[1] / "reference" / "scenarios"

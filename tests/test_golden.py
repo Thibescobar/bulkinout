@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from bulkinout.request.golden import discover_golden_cases, run_golden_case
 
 ROOT = Path(__file__).parents[1]

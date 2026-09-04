@@ -1,5 +1,6 @@
 from bulkinout.core.models import ImagingDecision, ImagingRecommendation
 
+
 def test_decision_model():
     d = ImagingDecision(
         decision_status="selected",

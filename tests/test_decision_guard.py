@@ -1,8 +1,13 @@
-from bulkinout.request.decision_guard import enforce_decision_guard
 from bulkinout.core.models import (
-    ClinicalCase, ClinicalField, FieldStatus, CandidateExam,
-    DiscriminatingQuestion, ImagingDecision, ImagingRecommendation
+    CandidateExam,
+    ClinicalCase,
+    ClinicalField,
+    DiscriminatingQuestion,
+    FieldStatus,
+    ImagingDecision,
+    ImagingRecommendation,
 )
+from bulkinout.request.decision_guard import enforce_decision_guard
 
 
 def test_unanswered_required_discriminator_blocks_selection():

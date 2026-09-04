@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TypeVar, Type
+from typing import TypeVar
+
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -32,7 +33,7 @@ Process:
 Do not fabricate contraindications, lab values, allergies, pregnancy status or device compatibility.
 """
 
-def _schema_format(model: Type[T]) -> dict:
+def _schema_format(model: type[T]) -> dict:
     return {
         "type": "json_schema",
         "name": model.__name__,

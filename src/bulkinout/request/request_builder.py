@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from ..core.models import ClinicalCase, FieldStatus, ImagingDecision, MissingQuestion, TeleradiologyRequest
+from ..core.models import (
+    ClinicalCase,
+    FieldStatus,
+    ImagingDecision,
+    MissingQuestion,
+    TeleradiologyRequest,
+)
 
 
 def _clean_value(section, key):

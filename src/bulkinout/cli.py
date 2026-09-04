@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 
 from .request.answers import apply_answers, load_answers
-from .request.reference_engine import ReferenceEngine
 from .request.decision_guard import enforce_decision_guard
-from .request.rules import generic_missing_questions, recommendation_specific_questions
-from .request.request_builder import build_teleradiology_request
-from .request.reference_catalog import build_catalog
 from .request.golden import discover_golden_cases, run_golden_case
+from .request.reference_catalog import build_catalog
+from .request.reference_engine import ReferenceEngine
+from .request.request_builder import build_teleradiology_request
+from .request.rules import generic_missing_questions, recommendation_specific_questions
 
 
 def _dump(path: Path, payload):
@@ -56,7 +56,7 @@ def cmd_request_run(args):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("[1/5] BULKINOUT Core...")
-    radiology_case, extraction, paths = build_radiology_case(Path(args.input), model=args.model)
+    radiology_case, extraction, _paths = build_radiology_case(Path(args.input), model=args.model)
     case = radiology_case.clinical
 
     if args.answers:

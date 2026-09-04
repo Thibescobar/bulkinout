@@ -4,14 +4,18 @@ import base64
 import mimetypes
 import os
 from pathlib import Path
-from typing import TypeVar, Type
+from typing import TypeVar
 
 from openai import OpenAI
 from pydantic import BaseModel
 
 from ..models import (
-    ClinicalCase, ClinicalField, FieldStatus,
-    LLMExtraction, SourceRef, PriorImaging
+    ClinicalCase,
+    ClinicalField,
+    FieldStatus,
+    LLMExtraction,
+    PriorImaging,
+    SourceRef,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -61,7 +65,7 @@ imaging_safety.mri_compatibility
 imaging_safety.claustrophobia
 """
 
-def _schema_format(model: Type[T]) -> dict:
+def _schema_format(model: type[T]) -> dict:
     return {
         "type": "json_schema",
         "name": model.__name__,
@@ -86,7 +90,7 @@ class OpenAICoreExtractor:
         if not self.model:
             raise ValueError("Aucun modèle configuré. Utilisez --model ou BULKINOUT_MODEL.")
 
-    def _call_structured(self, prompt: str, content: list[dict], model_cls: Type[T]) -> T:
+    def _call_structured(self, prompt: str, content: list[dict], model_cls: type[T]) -> T:
         response = self.client.responses.create(
             model=self.model,
             reasoning={"effort": "medium"},

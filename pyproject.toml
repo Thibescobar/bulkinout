@@ -22,7 +22,7 @@ ocr = [
 dev = [
   "pytest>=8,<9",
   "pytest-cov>=5,<8",
-  "ruff>=0.15,<1",
+  "ruff==0.16.6",
 ]
 
 [project.scripts]
