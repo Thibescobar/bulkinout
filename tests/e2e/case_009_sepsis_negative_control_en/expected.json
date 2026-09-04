@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "case_id": "case_009_sepsis_negative_control_en",
+  "purpose": "The word sepsis must never trigger the pulmonary-embolism scenario through acronym substring matching.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "current_problem.known_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "current_problem.symptoms",
+        "status_in": ["observed", "inferred"]
+      }
+    ],
+    "forbidden_facts": [],
+    "forbidden_values": [
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "values": ["pulmonary embolism", "embolie pulmonaire", "EP"]
+      }
+    ]
+  },
+  "request": {
+    "matched_scenarios_all_of": [],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": ["suspected_pulmonary_embolism"],
+    "decision_status_in": [],
+    "primary_exam_name_in": [],
+    "required_question_fields": [],
+    "forbidden_question_fields": [],
+    "presentation_term_groups": []
+  }
+}

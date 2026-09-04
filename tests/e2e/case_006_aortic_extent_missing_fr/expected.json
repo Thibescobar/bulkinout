@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "case_id": "case_006_aortic_extent_missing_fr",
+  "purpose": "Suspected acute aortic syndrome without documented pain extent: anatomical coverage must be clarified before selection.",
+  "core": {
+    "required_facts": [
+      {
+        "field": "patient.sex",
+        "status_in": ["observed"]
+      },
+      {
+        "field": "current_problem.suspected_diagnosis",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "allergies.iodinated_contrast_reaction",
+        "status_in": ["observed", "inferred"]
+      },
+      {
+        "field": "labs.egfr_ml_min_1_73m2",
+        "status_in": ["observed", "inferred"],
+        "numeric": {
+          "target": 82,
+          "absolute_tolerance": 2
+        }
+      }
+    ],
+    "forbidden_facts": ["current_problem.pain_extent"],
+    "forbidden_values": []
+  },
+  "request": {
+    "matched_scenarios_all_of": ["acute_aortic_syndrome"],
+    "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
+    "decision_status_in": ["insufficient_information"],
+    "primary_exam_name_in": [],
+    "primary_recommended": false,
+    "clinician_call_required": true,
+    "required_question_fields": ["current_problem.pain_extent"],
+    "forbidden_question_fields": [
+      "imaging_safety.pregnancy",
+      "allergies.iodinated_contrast_reaction",
+      "labs.egfr_ml_min_1_73m2"
+    ],
+    "presentation_term_groups": []
+  }
+}

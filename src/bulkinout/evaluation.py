@@ -53,6 +53,7 @@ class PresentationTermGroup(_StrictModel):
 class RequestExpectations(_StrictModel):
     matched_scenarios_all_of: list[str] = Field(default_factory=list)
     matched_scenarios_any_of: list[str] = Field(default_factory=list)
+    forbidden_scenarios: list[str] = Field(default_factory=list)
     decision_status_in: list[str] = Field(default_factory=list)
     primary_exam_name_in: list[str] = Field(default_factory=list)
     primary_recommended: bool | None = None
@@ -270,10 +271,8 @@ def _request_scalar_failures(
     return checks, failures
 
 
-def _request_choice_failures(
-    expected: RequestExpectations,
-    scenario_ids: set[str],
-    decision: ImagingDecision,
+def _request_scenario_failures(
+    expected: RequestExpectations, scenario_ids: set[str]
 ) -> tuple[int, list[AssertionFailure]]:
     checks = 0
     failures: list[AssertionFailure] = []
@@ -285,6 +284,23 @@ def _request_choice_failures(
         checks += 1
         if scenario_ids.isdisjoint(expected.matched_scenarios_any_of):
             failures.append(_failure("request.scenario_any_of", "No acceptable scenario matched."))
+    for scenario_id in expected.forbidden_scenarios:
+        checks += 1
+        if scenario_id in scenario_ids:
+            failures.append(
+                _failure(
+                    f"request.forbidden_scenario:{scenario_id}",
+                    "Forbidden scenario matched.",
+                )
+            )
+    return checks, failures
+
+
+def _request_choice_failures(
+    expected: RequestExpectations, decision: ImagingDecision
+) -> tuple[int, list[AssertionFailure]]:
+    checks = 0
+    failures: list[AssertionFailure] = []
     if expected.decision_status_in:
         checks += 1
         if decision.decision_status not in expected.decision_status_in:
@@ -346,7 +362,8 @@ def _evaluate_request(
 ) -> StageEvaluation:
     groups = [
         _request_scalar_failures(expected, decision),
-        _request_choice_failures(expected, scenario_ids, decision),
+        _request_scenario_failures(expected, scenario_ids),
+        _request_choice_failures(expected, decision),
         _request_question_failures(expected, questions),
         _request_presentation_failures(expected, request),
     ]

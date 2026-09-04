@@ -10,8 +10,31 @@ These synthetic records test the complete **documents → Core → Request** pat
 | `case_002_right_sided_pain_ambiguous` | Ambiguous record: Bulkinout should request discriminating information instead of forcing an exam. |
 | `case_003_suspected_pe_conflicting_allergy` | Distributed data and contradictory evidence about a prior iodinated-contrast reaction. |
 | `renal_colic_001` | Minimal renal-colic record: undocumented pregnancy status must remain unknown and block selection. |
+| `case_004_stroke_missing_onset_mixed` | Bilingual stroke record with no usable onset time: Request must ask for it. |
+| `case_005_low_back_no_red_flags_en` | Complete English low-back-pain record: no initial imaging should be recommended. |
+| `case_006_aortic_extent_missing_fr` | Suspected aortic syndrome with insufficient anatomical coverage information. |
+| `case_007_head_trauma_positive_rule_fr` | Explicit positive head-CT rule with the decision inputs already documented. |
+| `case_008_spine_infection_bilingual` | French and English evidence combined into one lumbar spinal-infection case. |
+| `case_009_sepsis_negative_control_en` | Negative control: `sepsis` must not match the pulmonary-embolism scenario. |
+| `case_010_conflicting_renal_function_fr` | Same-day contradictory eGFR results that must prevent contrast approval. |
+| `case_011_image_only_renal_colic_fr` | Mildly degraded image-only French referral exercising multimodal extraction. |
 
-Patient source documents remain in French because they are clinical input fixtures. `expected.json` keys and developer-facing metadata use English; expected French presentation strings remain French.
+Clinical source documents intentionally include French, English, and mixed-language records. `expected.json` keys and developer-facing metadata use English; expected French presentation strings remain French. Every record is synthetic and explicitly labelled; never substitute real patient material.
+
+## Suggested manual suites
+
+Run cases one at a time so model calls and failures remain visible. A Request run normally makes one extraction call and one decision call, in addition to any provider-side file upload.
+
+The **quick smoke suite** covers one successful selection, ambiguity, a safety block, mixed-language extraction, negative matching, and image input:
+
+1. `case_001_rlq_complete`
+2. `case_002_right_sided_pain_ambiguous`
+3. `renal_colic_001`
+4. `case_004_stroke_missing_onset_mixed`
+5. `case_009_sepsis_negative_control_en`
+6. `case_011_image_only_renal_colic_fr`
+
+The **extended suite** comprises all 12 cases. Run it before accepting a model, prompt, extraction-schema, or clinical-matching change. The deterministic golden suite remains the authoritative fast check for all reference rules; manual E2E cases sample cross-cutting model behavior rather than duplicating every scenario.
 
 ## Run a case
 
@@ -75,6 +98,7 @@ Every `expected.json` has the required top-level keys `schema_version`, `case_id
   "request": {
     "matched_scenarios_all_of": ["suspected_pulmonary_embolism"],
     "matched_scenarios_any_of": [],
+    "forbidden_scenarios": [],
     "decision_status_in": ["selected", "safety_blocked"],
     "primary_exam_name_in": ["Angioscanner des artères pulmonaires"],
     "primary_recommended": false,
@@ -92,4 +116,4 @@ Every `expected.json` has the required top-level keys `schema_version`, `case_id
 
 `core.required_facts` asserts that a canonical field is present and known. `status_in` optionally restricts its evidence status. `numeric` optionally checks the extracted numeric value within an absolute tolerance. `forbidden_facts` rejects invented known facts, while `forbidden_values` rejects specific unsafe values without forbidding a supported alternative or a conflict status.
 
-For Request assertions, `matched_scenarios_all_of` requires every listed scenario and `matched_scenarios_any_of` requires at least one listed scenario. The remaining scalar and list assertions constrain decision status, primary examination, recommendation and call flags, and canonical missing-question fields. Each `presentation_term_groups` entry passes when at least one of its `any_of` clinical terms appears in the teleradiology request.
+For Request assertions, `matched_scenarios_all_of` requires every listed scenario, `matched_scenarios_any_of` requires at least one listed scenario, and `forbidden_scenarios` rejects every listed scenario. The remaining scalar and list assertions constrain decision status, primary examination, recommendation and call flags, and canonical missing-question fields. Each `presentation_term_groups` entry passes when at least one of its `any_of` clinical terms appears in the teleradiology request.
