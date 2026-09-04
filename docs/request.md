@@ -20,7 +20,7 @@ flowchart TD
     K --> L[Write outputs and audit event]
 ```
 
-The current orchestration lives in `cmd_request_run()` in `src/bulkinout/cli.py`. The individual components are importable, but there is no dedicated high-level Request service yet.
+The orchestration lives in `run_request()` in `src/bulkinout/request/service.py`. Both the CLI and Python integrations use this service, so answer handling, guard order, and clinical behavior have one implementation.
 
 ## 1. Optional clarification answers
 
@@ -119,7 +119,7 @@ Checks are generated only after a primary modality exists, avoiding irrelevant q
 
 Pregnancy relevance is intentionally broad. It is skipped only for an observed male sex (`M`, `MALE`, or `HOMME`) or an observed age below 10 or above 60. Invalid age values restore the conservative default.
 
-The CLI treats all new `critical` or `high` modality questions as material for readiness, even when their `blocking` property is false. Explicitly blocking safety questions select `safety_blocked`; other material gaps normally select `insufficient_information`.
+The Request service treats all new `critical` or `high` modality questions as material for readiness, even when their `blocking` property is false. Explicitly blocking safety questions select `safety_blocked`; other material gaps normally select `insufficient_information`.
 
 ## 7. Request construction
 

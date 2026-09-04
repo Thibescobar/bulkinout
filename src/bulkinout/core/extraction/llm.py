@@ -4,11 +4,13 @@ import base64
 import mimetypes
 import os
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 from openai import OpenAI
 from pydantic import BaseModel
 
+from ...errors import ConfigurationError
+from ...types import JsonObject, JsonValue
 from ..models import (
     ClinicalCase,
     ClinicalField,
@@ -69,7 +71,8 @@ imaging_safety.mri_compatibility
 imaging_safety.claustrophobia
 """
 
-def _schema_format(model: type[T]) -> dict:
+
+def _schema_format(model: type[T]) -> JsonObject:
     return {
         "type": "json_schema",
         "name": model.__name__,
@@ -77,25 +80,30 @@ def _schema_format(model: type[T]) -> dict:
         "schema": model.model_json_schema(),
     }
 
-def _extract_json(response) -> str:
-    if getattr(response, "output_text", None):
-        return response.output_text
-    chunks = []
+
+def _extract_json(response: Any) -> str:
+    output_text = getattr(response, "output_text", None)
+    if isinstance(output_text, str) and output_text:
+        return output_text
+    chunks: list[str] = []
     for item in getattr(response, "output", []) or []:
         for c in getattr(item, "content", []) or []:
-            if getattr(c, "text", None):
-                chunks.append(c.text)
+            text = getattr(c, "text", None)
+            if isinstance(text, str):
+                chunks.append(text)
     return "".join(chunks)
+
 
 class OpenAICoreExtractor:
     def __init__(self, model: str | None = None):
-        self.client = OpenAI()
         self.model = model or os.getenv("BULKINOUT_MODEL")
         if not self.model:
-            raise ValueError("No model configured. Use --model or BULKINOUT_MODEL.")
+            raise ConfigurationError("No model configured. Use --model or BULKINOUT_MODEL.")
+        self.client = OpenAI()
 
-    def _call_structured(self, prompt: str, content: list[dict], model_cls: type[T]) -> T:
-        response = self.client.responses.create(
+    def _call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T:
+        responses = cast(Any, self.client.responses)
+        response = responses.create(
             model=self.model,
             reasoning={"effort": "medium"},
             input=[
@@ -106,7 +114,7 @@ class OpenAICoreExtractor:
         )
         return model_cls.model_validate_json(_extract_json(response))
 
-    def _upload_or_inline(self, path: Path) -> dict:
+    def _upload_or_inline(self, path: Path) -> JsonObject:
         suffix = path.suffix.lower()
         if suffix in {".png", ".jpg", ".jpeg", ".webp"}:
             mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
@@ -120,10 +128,12 @@ class OpenAICoreExtractor:
         return {"type": "input_file", "file_id": uploaded.id}
 
     def extract(self, paths: list[Path]) -> LLMExtraction:
-        content = [{
-            "type": "input_text",
-            "text": "Extract and reconcile clinical facts across all supplied documents."
-        }]
+        content: list[JsonObject] = [
+            {
+                "type": "input_text",
+                "text": "Extract and reconcile clinical facts across all supplied documents.",
+            }
+        ]
         for path in paths:
             if path.suffix.lower() in {".txt", ".md"}:
                 text = path.read_text(encoding="utf-8", errors="replace")
@@ -132,6 +142,7 @@ class OpenAICoreExtractor:
                 content.append({"type": "input_text", "text": f"Next file: {path.name}"})
                 content.append(self._upload_or_inline(path))
         return self._call_structured(EXTRACTION_PROMPT, content, LLMExtraction)
+
 
 def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
     case = ClinicalCase()
@@ -169,20 +180,24 @@ def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
             validated=False,
         )
 
-    for pi in extraction.prior_imaging:
-        def cf(v):
-            if v in (None, "", []):
-                return ClinicalField()
-            return ClinicalField(value=v, status=FieldStatus.observed, confidence=0.75)
-        case.prior_imaging.append(PriorImaging(
-            modality=cf(pi.get("modality")),
-            region=cf(pi.get("region")),
-            date=cf(pi.get("date")),
-            result=cf(pi.get("result") or pi.get("summary")),
-            source_document=pi.get("source_document") or pi.get("filename"),
-        ))
+    def clinical_field(value: JsonValue) -> ClinicalField:
+        if value in (None, "", []):
+            return ClinicalField()
+        return ClinicalField(value=value, status=FieldStatus.observed, confidence=0.75)
+
+    for prior in extraction.prior_imaging:
+        case.prior_imaging.append(
+            PriorImaging(
+                modality=clinical_field(prior.get("modality")),
+                region=clinical_field(prior.get("region")),
+                date=clinical_field(prior.get("date")),
+                result=clinical_field(prior.get("result") or prior.get("summary")),
+                source_document=str(prior.get("source_document") or prior.get("filename") or "")
+                or None,
+            )
+        )
 
     case.metadata["extractor"] = "bulkinout_core_openai_multimodal_v1"
-    case.metadata["contradictions"] = extraction.contradictions
-    case.metadata["document_notes"] = extraction.document_notes
+    case.metadata["contradictions"] = cast(list[JsonValue], extraction.contradictions)
+    case.metadata["document_notes"] = cast(list[JsonValue], extraction.document_notes)
     return case

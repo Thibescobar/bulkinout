@@ -3,8 +3,8 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-65%20passed-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-73%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology record, then combines a versioned reference, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request.
@@ -100,27 +100,27 @@ bulkinout
 
 ## Python integration
 
-Bulkinout components can be imported from Python. The current component API is useful for experimentation and embedding Core or the reference engine, but it is not yet a stable public facade and there is no HTTP API.
+Bulkinout exposes the same complete Request workflow through a small public Python API. Computation and file output are separate, so applications can inspect the typed result in memory before deciding whether to persist it. There is no HTTP API.
 
 ```python
 from pathlib import Path
 
-from bulkinout.core.service import build_radiology_case
-from bulkinout.request.reference_engine import ReferenceEngine
+from bulkinout import run_request, write_request_outputs
 
-record, extraction, documents = build_radiology_case(
+result = run_request(
     Path("input"),
+    reference_dir=Path("reference/scenarios"),
     model="<compatible-model>",
 )
 
-reference = ReferenceEngine(Path("reference/scenarios"))
-reference_context = reference.build_context(record.clinical)
+print(result.imaging_decision.decision_status)
+print(result.teleradiology_request.model_dump(mode="json"))
 
-print(record.clinical.model_dump(mode="json"))
-print(reference_context["matched_scenarios"])
+# Optional: write the same eight JSON files as the CLI.
+write_request_outputs(result, Path("output"))
 ```
 
-This path requires `OPENAI_API_KEY` because Core calls the configured LLM. The complete Request orchestration currently lives in the CLI; applications that reproduce it manually must preserve the same decision guard and modality-specific safety checks.
+This path requires `OPENAI_API_KEY`. `run_request()` executes Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
 
 ## Generated outputs
 
@@ -139,11 +139,14 @@ This path requires `OPENAI_API_KEY` because Core calls the configured LLM. The c
 
 ```bash
 ruff check src tests
+ruff format --check src tests
+mypy
 pytest -q
 bulkinout request golden --cases tests/golden --reference reference/scenarios
+python -m build
 ```
 
-Pytest enforces at least 95% coverage. Golden cases exercise the reference deterministically without an LLM. `tests/e2e/` contains synthetic multidocument records for manual testing with a real model; findings are recorded with the template in `review/`.
+Pytest enforces at least 95% coverage. CI checks lint, formatting, strict typing, package construction, Python 3.11 and 3.14, and golden cases. `tests/e2e/` contains synthetic multidocument records for manual testing with a real model; findings are recorded with the template in `review/`.
 
 ## Documentation
 
@@ -156,6 +159,7 @@ Pytest enforces at least 95% coverage. Golden cases exercise the reference deter
 | Decision sequence, clarification, and safeguards | [`docs/request.md`](docs/request.md) |
 | Scenario YAML, matching, rules, and authoring | [`docs/reference.md`](docs/reference.md) |
 | Complete CLI behavior and troubleshooting | [`docs/cli.md`](docs/cli.md) |
+| Python services, results, persistence, and errors | [`docs/python-api.md`](docs/python-api.md) |
 | Development workflow and common change paths | [`docs/development.md`](docs/development.md) |
 | Configuration, data handling, and safety boundaries | [`docs/operations.md`](docs/operations.md) |
 | Automated, golden, and end-to-end testing | [`docs/testing.md`](docs/testing.md) |
@@ -172,7 +176,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
 - **Simple reference paths:** matching reads first-level `section.field` values and does not traverse arbitrary nested clinical structures.
-- **No stable application API:** Python components are importable, but the complete Request service is not exposed as a versioned facade and no HTTP API is provided.
+- **No HTTP service:** the complete workflow has a public Python API, but authentication, transport, request isolation, persistence, and HTTP error contracts are not implemented.
 - **No post-exam workflow:** `Report`, image-analysis integration, findings, impression, and final-report generation are placeholders.
 - **Human approval is external:** v0 records readiness and warnings but does not implement authentication, signatures, persistent approval, or clinical-system integration.
 

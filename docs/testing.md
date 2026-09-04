@@ -29,7 +29,7 @@ pytest -q
 - multilingual scenario matching, filtering, and rules;
 - catalog generation;
 - golden-case evaluation;
-- CLI orchestration with dependencies replaced by test doubles.
+- Request-service orchestration plus thin CLI delegation with test doubles.
 
 Tests must not call a real model unless they live in the explicit manual E2E layer. Use monkeypatching or a small fake client to test provider-bound code deterministically.
 
@@ -48,9 +48,11 @@ The global coverage threshold still applies to focused runs because it is config
 
 ```bash
 ruff check src tests
+ruff format --check src tests
+mypy
 ```
 
-Ruff is pinned in the development extra and CI. It checks source and test code; documentation is currently reviewed through link/content inspection rather than a Markdown linter.
+Ruff is pinned in the development extra and owns linting, formatting, and a maximum cyclomatic complexity of 10. Mypy runs in strict mode over `src/`; dynamic provider responses are the only intentional `Any` boundary. Documentation is reviewed through link/content inspection rather than a Markdown linter.
 
 ## Golden cases
 
@@ -143,17 +145,21 @@ The review template recognizes `core_extraction`, `scenario_matching`, `referenc
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on pushes and pull requests with Python 3.11:
+`.github/workflows/ci.yml` runs two parallel validation paths on pushes and pull requests:
 
 ```text
-checkout
-└── setup Python 3.11 with pip cache
-    └── pip install -e ".[dev]"
-        ├── ruff check src tests
-        └── pytest -q
+GitHub Actions
+├── quality and package — Python 3.11
+│   ├── Ruff lint + format check
+│   ├── strict mypy
+│   ├── wheel and source distribution build
+│   └── installed-wheel CLI smoke test
+└── tests — Python 3.11 and 3.14
+    ├── pytest with ≥95% coverage
+    └── golden-case CLI
 ```
 
-CI validates the deterministic repository. It does not require secrets and does not run E2E model calls. A green workflow means lint, tests, and coverage passed in that environment; it does not imply reference validation or clinical approval.
+CI validates the deterministic repository and its installable package boundaries. Quality and test jobs run in parallel, pip downloads are cached, superseded runs on the same ref are cancelled, and each job has a ten-minute timeout. CI does not require secrets or run E2E model calls. A green workflow means static checks, package construction, tests, coverage, and encoded golden behavior passed; it does not imply local reference validation or clinical approval.
 
 ## Turning failures into durable tests
 
@@ -163,15 +169,18 @@ CI validates the deterministic repository. It does not require secrets and does 
 | Fact stored under wrong path | `case.json` | `test_extraction.py` conversion case. |
 | Scenario not matched | `reference_context.json` | French and English reference-engine tests plus a golden case. |
 | Wrong rule triggered | `reference_context.json` | Focused golden case. |
-| Unsafe selected state | `imaging_decision.json` | Decision-guard or CLI orchestration test. |
+| Unsafe selected state | `imaging_decision.json` | Decision-guard or Request-service test. |
 | Incorrect clinical draft | `teleradiology_request.json` | Request-builder test and manual E2E review. |
 
 ## Pre-merge checklist
 
 ```bash
 ruff check src tests
+ruff format --check src tests
+mypy
 pytest -q
 bulkinout request golden --cases tests/golden --reference reference/scenarios
+python -m build
 git diff --check
 ```
 

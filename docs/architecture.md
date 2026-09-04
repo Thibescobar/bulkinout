@@ -80,27 +80,30 @@ Request may import Core models. Core must never import Request. This one-way dep
 sequenceDiagram
     actor Operator
     participant CLI
+    participant Service as Request service
     participant Core
     participant Model as LLM provider
     participant Ref as ReferenceEngine
     participant Guard as Deterministic guards
 
     Operator->>CLI: request run --input ...
-    CLI->>Core: build_radiology_case()
+    CLI->>Service: run_request()
+    Service->>Core: build_radiology_case()
     Core->>Model: documents + extraction schema
     Model-->>Core: LLMExtraction JSON
-    Core-->>CLI: RadiologyCase
+    Core-->>Service: CoreResult
     opt Answer file supplied
-        CLI->>CLI: apply_answers()
+        Service->>Service: apply_answers()
     end
-    CLI->>Ref: build_context(ClinicalCase)
-    Ref-->>CLI: scenarios + questions + candidates + rules
-    CLI->>Model: case + reference context
-    Model-->>CLI: ImagingDecision JSON
-    CLI->>Guard: enforce required discriminators
-    Guard-->>CLI: guarded decision
-    CLI->>Guard: add modality-specific checks
-    CLI->>CLI: build_teleradiology_request()
+    Service->>Ref: build_context(ClinicalCase)
+    Ref-->>Service: scenarios + questions + candidates + rules
+    Service->>Model: case + reference context
+    Model-->>Service: ImagingDecision JSON
+    Service->>Guard: enforce required discriminators
+    Guard-->>Service: guarded decision
+    Service->>Guard: add modality-specific checks
+    Service->>Service: build_teleradiology_request()
+    Service-->>CLI: RequestResult
     CLI-->>Operator: JSON outputs + status
 ```
 
@@ -134,7 +137,7 @@ The following rules should remain true across refactors:
 
 ## State and persistence
 
-The CLI writes snapshots rather than using a database. `radiology_case.json` is the most complete object; the other JSON files expose intermediate stages for inspection and debugging.
+The shared output writer creates snapshots rather than using a database. The CLI calls it automatically; Python integrations may keep `RequestResult` in memory or call `write_request_outputs()`. `radiology_case.json` is the most complete object, while the other files expose intermediate stages for inspection and debugging.
 
 ```text
 source documents       immutable input supplied by the operator
@@ -152,5 +155,5 @@ There is no concurrency control, durable workflow engine, identity model, or per
 - Add evidence reconciliation behind `core/reconciliation/` while preserving original provenance.
 - Build a chronological view behind `core/timeline/` from dated facts and prior imaging.
 - Add scenarios under `reference/scenarios/` with golden cases before changing matching behavior.
-- Extract Request orchestration from `cli.py` into a typed service before promising a stable Python or HTTP API.
+- Add an authenticated HTTP boundary around the public Python service only after defining request isolation, persistence, and operational error contracts.
 - Implement Report against `RadiologyCase` without importing Request-specific behavior into Core.

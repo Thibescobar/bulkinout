@@ -21,8 +21,7 @@ def load_answers(path: Path) -> AnswerFile:
     # Accept ergonomic {"answers": {"field": value}} as well as full list form.
     if isinstance(raw.get("answers"), dict):
         raw["answers"] = [
-            {"field": field, "value": value}
-            for field, value in raw["answers"].items()
+            {"field": field, "value": value} for field, value in raw["answers"].items()
         ]
     return AnswerFile.model_validate(raw)
 
@@ -48,5 +47,9 @@ def apply_answers(case: ClinicalCase, answer_file: AnswerFile, filename: str) ->
             confidence=1.0,
             validated=False,
         )
-    case.metadata.setdefault("answer_files", []).append(filename)
+    answer_files = case.metadata.get("answer_files")
+    if not isinstance(answer_files, list):
+        answer_files = []
+        case.metadata["answer_files"] = answer_files
+    answer_files.append(filename)
     return case

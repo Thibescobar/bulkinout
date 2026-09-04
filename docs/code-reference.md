@@ -1,26 +1,28 @@
 # Code Reference
 
-This inventory was generated from the v0 AST and then annotated. Private functions (`_...`) are documented when they contribute to the proof-of-concept behavior.
+This inventory describes the public services and the private helpers that define workflow behavior.
+
+## `bulkinout`
+
+Source: `src/bulkinout/__init__.py`
+
+The public Python facade exports `build_radiology_case()`, `run_request()`, JSON output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
+
+## `bulkinout.errors` and `bulkinout.types`
+
+`errors.py` defines expected configuration, input, and reference-data failures under `BulkinoutError`. `types.py` defines recursive JSON-compatible values used instead of unconstrained application dictionaries. Provider response objects remain an explicit dynamic boundary.
 
 ## `bulkinout.cli`
 
 Source: `src/bulkinout/cli.py`
 
-### `_dump(path: Path, payload)`
-
-Serializes a Python payload as indented UTF-8 JSON and creates the parent directory.
-
 ### `cmd_core_structure(args)`
 
 Runs only Core and writes its two JSON outputs.
 
-### `_write_answer_template(output_dir: Path, decision)`
-
-Writes required discriminating questions to `answers.template.json`.
-
 ### `cmd_request_run(args)`
 
-Orchestrates the Core and Request pipeline and writes every request output.
+Calls the Request service, writes every request output, and displays the final statuses.
 
 ### `cmd_request_golden(args)`
 
@@ -30,15 +32,35 @@ Runs golden cases and exits with a nonzero status when a case fails.
 
 Prints summarized scenario catalog metadata.
 
-### `main()`
+### `build_parser() -> argparse.ArgumentParser`
 
-Builds the argparse parser and dispatches subcommands.
+Builds the parser independently for help rendering and tests.
+
+### `main(argv: Sequence[str] | None = None)`
+
+Dispatches subcommands and renders expected `BulkinoutError` failures without a traceback.
+
+## `bulkinout.output`
+
+Source: `src/bulkinout/output.py`
+
+### `write_json(path: Path, payload: JsonValue)`
+
+Writes one indented UTF-8 JSON value, creating parent directories.
+
+### `write_core_outputs(result: CoreResult, output_dir: Path)`
+
+Writes `radiology_case.json` and `llm_extraction.json`.
+
+### `write_request_outputs(result: RequestResult, output_dir: Path)`
+
+Writes the eight documented Request snapshots, including the answer template.
 
 ## `bulkinout.core.extraction.llm`
 
 Source: `src/bulkinout/core/extraction/llm.py`
 
-### `_schema_format(model: type[T]) -> dict`
+### `_schema_format(model: type[T]) -> JsonObject`
 
 Builds the `json_schema` configuration used for structured output.
 
@@ -54,11 +76,11 @@ Service class whose methods are documented below.
 
 Initializes the OpenAI client and resolves the configured model.
 
-### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[dict], model_cls: type[T]) -> T`
+### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T`
 
 Calls the Responses API with a strict Pydantic schema and validates the response.
 
-### `OpenAICoreExtractor._upload_or_inline(self, path: Path) -> dict`
+### `OpenAICoreExtractor._upload_or_inline(self, path: Path) -> JsonObject`
 
 Encodes images as data URLs and uploads other files as `input_file` content.
 
@@ -162,7 +184,11 @@ Pydantic model or enum described in [Data Model](data-model.md).
 
 Source: `src/bulkinout/core/service.py`
 
-### `build_radiology_case(input_dir: Path, model: str | None = None)`
+### `CoreResult`
+
+Typed, tuple-compatible Core result containing the radiology case, extraction, and source paths.
+
+### `build_radiology_case(input_dir: Path, model: str | None = None) -> CoreResult`
 
 Builds a `RadiologyCase` from a document directory through the Core extractor.
 
@@ -194,7 +220,7 @@ Blocks a selection when a required discriminating question remains unanswered.
 
 Source: `src/bulkinout/request/decision_llm.py`
 
-### `_schema_format(model: type[T]) -> dict`
+### `_schema_format(model: type[T]) -> JsonObject`
 
 Builds the structured output format for `ImagingDecision`.
 
@@ -210,7 +236,7 @@ Service class whose methods are documented below.
 
 Initializes the OpenAI client and resolves the decision model.
 
-### `OpenAIRequestDecision.decide(self, case: ClinicalCase, missing_questions: list[dict], reference_context: dict | None = None) -> ImagingDecision`
+### `OpenAIRequestDecision.decide(self, case: ClinicalCase, missing_questions: list[JsonObject], reference_context: ReferenceContext | None = None) -> ImagingDecision`
 
 Sends the case, questions, and reference data to the LLM and validates an `ImagingDecision`.
 
@@ -222,7 +248,7 @@ Source: `src/bulkinout/request/golden.py`
 
 Creates an observed `ClinicalField` with confidence 1 for tests.
 
-### `case_from_facts(facts: dict[str, Any]) -> ClinicalCase`
+### `case_from_facts(facts: JsonObject) -> ClinicalCase`
 
 Converts YAML `section.field` facts into a `ClinicalCase`.
 
@@ -242,7 +268,7 @@ Recursively discovers golden-case YAML files.
 
 Source: `src/bulkinout/request/reference_catalog.py`
 
-### `build_catalog(reference_dir: Path) -> list[dict]`
+### `build_catalog(reference_dir: Path) -> list[CatalogEntry]`
 
 Produces summarized metadata for every scenario YAML file.
 
@@ -258,15 +284,15 @@ Dataclass representing a matched scenario and its score.
 
 Reads a known `ClinicalField` from a `section.field` path.
 
-### `_predicate(case: ClinicalCase, pred: dict) -> bool`
+### `_predicate(case: ClinicalCase, pred: Predicate) -> bool`
 
 Evaluates a YAML predicate against a known clinical value. Supported operators include `equals`, `contains`, `contains_any`, and `in`.
 
-### `_condition(case: ClinicalCase, node: dict) -> bool`
+### `_condition(case: ClinicalCase, node: Condition) -> bool`
 
 Evaluates an `all` or `any` predicate group.
 
-### `_candidate_applicable(case: ClinicalCase, candidate: dict) -> bool`
+### `_candidate_applicable(case: ClinicalCase, candidate: ReferenceCandidate) -> bool`
 
 Evaluates a candidate's optional `when` clause.
 
@@ -282,15 +308,15 @@ Loads all scenario YAML files from the reference directory.
 
 Returns scenarios whose entry criteria match, ordered by score.
 
-### `ReferenceEngine.unresolved_material_questions(self, case: ClinicalCase, scenario: dict) -> list[dict]`
+### `ReferenceEngine.unresolved_material_questions(self, case: ClinicalCase, scenario: ReferenceScenario) -> list[ReferenceQuestion]`
 
 Returns material questions whose field is still unknown.
 
-### `ReferenceEngine.evaluate_rules(self, case: ClinicalCase, scenario: dict) -> list[dict]`
+### `ReferenceEngine.evaluate_rules(self, case: ClinicalCase, scenario: ReferenceScenario) -> list[TriggeredRule]`
 
 Evaluates a scenario's conditional rules.
 
-### `ReferenceEngine.build_context(self, case: ClinicalCase, max_scenarios: int = 3) -> dict`
+### `ReferenceEngine.build_context(self, case: ClinicalCase, max_scenarios: int = 3) -> ReferenceContext`
 
 Builds the decision-engine context from scenarios, filtered candidates, questions, and rules.
 
@@ -302,10 +328,6 @@ Source: `src/bulkinout/request/request_builder.py`
 
 Returns only the value of a known, nonconflicting field.
 
-### `_fmt(label, value)`
-
-Formats `label: value`; this helper is currently unused by the builder.
-
 ### `build_teleradiology_request(case: ClinicalCase, decision: ImagingDecision, questions: list[MissingQuestion]) -> TeleradiologyRequest`
 
 Assembles the request draft from the case, decision, and questions.
@@ -314,7 +336,7 @@ Assembles the request draft from the case, decision, and questions.
 
 Source: `src/bulkinout/request/rules.py`
 
-### `_unknown(section: dict, key: str) -> bool`
+### `_unknown(section: dict[str, ClinicalField], key: str) -> bool`
 
 Checks whether a clinical field is absent, unknown, or conflicting.
 
@@ -322,6 +344,18 @@ Checks whether a clinical field is absent, unknown, or conflicting.
 
 Generates generic indication and symptom checks.
 
-### `recommendation_specific_questions(case: ClinicalCase, decision) -> list[MissingQuestion]`
+### `recommendation_specific_questions(case: ClinicalCase, decision: ImagingDecision) -> list[MissingQuestion]`
 
 Adds safety and completeness checks specific to the proposed modality.
+
+## `bulkinout.request.service`
+
+Source: `src/bulkinout/request/service.py`
+
+### `RequestResult`
+
+Slot-based dataclass containing every in-memory artifact of one Request run.
+
+### `run_request(input_dir: Path, *, reference_dir: Path, model: str | None = None, answers_path: Path | None = None) -> RequestResult`
+
+Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. It performs no output writes.

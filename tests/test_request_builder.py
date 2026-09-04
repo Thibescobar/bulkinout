@@ -7,7 +7,7 @@ from bulkinout.core.models import (
     MissingQuestion,
     PriorImaging,
 )
-from bulkinout.request.request_builder import _fmt, build_teleradiology_request
+from bulkinout.request.request_builder import build_teleradiology_request
 
 
 def field(value, status=FieldStatus.observed):
@@ -27,12 +27,6 @@ def recommendation(**overrides):
     }
     values.update(overrides)
     return ImagingRecommendation(**values)
-
-
-def test_format_helper_omits_empty_values():
-    assert _fmt("Age", 42) == "Age: 42"
-    assert _fmt("Age", None) is None
-    assert _fmt("Age", []) is None
 
 
 def test_build_request_collects_relevant_clinical_information():

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+from ...types import JsonObject, JsonValue
 
 
 class FieldStatus(str, Enum):
@@ -21,7 +23,7 @@ class SourceRef(BaseModel):
 
 
 class ClinicalField(BaseModel):
-    value: Any = None
+    value: JsonValue = None
     status: FieldStatus = FieldStatus.unknown
     sources: list[SourceRef] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -45,14 +47,14 @@ class ClinicalCase(BaseModel):
     labs: dict[str, ClinicalField] = Field(default_factory=dict)
     imaging_safety: dict[str, ClinicalField] = Field(default_factory=dict)
     prior_imaging: list[PriorImaging] = Field(default_factory=list)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: JsonObject = Field(default_factory=dict)
 
 
 class ArtifactRef(BaseModel):
     artifact_id: str
     artifact_type: str
     source: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: JsonObject = Field(default_factory=dict)
 
 
 class WorkflowState(BaseModel):
@@ -65,18 +67,19 @@ class RadiologyCase(BaseModel):
     Longitudinal container shared by all Bulkinout radiology workflows.
     Pre-exam Request is implemented now; post-exam Report is reserved for later.
     """
+
     case_id: str | None = None
     workflow: WorkflowState = Field(default_factory=WorkflowState)
     clinical: ClinicalCase = Field(default_factory=ClinicalCase)
     artifacts: list[ArtifactRef] = Field(default_factory=list)
-    referral: dict[str, Any] = Field(default_factory=dict)
-    acquisition: dict[str, Any] = Field(default_factory=dict)
-    ai_results: list[dict[str, Any]] = Field(default_factory=list)
-    radiologist_observations: list[dict[str, Any]] = Field(default_factory=list)
-    findings: list[dict[str, Any]] = Field(default_factory=list)
-    impression: dict[str, Any] = Field(default_factory=dict)
-    final_report: dict[str, Any] = Field(default_factory=dict)
-    audit: list[dict[str, Any]] = Field(default_factory=list)
+    referral: JsonObject = Field(default_factory=dict)
+    acquisition: JsonObject = Field(default_factory=dict)
+    ai_results: list[JsonObject] = Field(default_factory=list)
+    radiologist_observations: list[JsonObject] = Field(default_factory=list)
+    findings: list[JsonObject] = Field(default_factory=list)
+    impression: JsonObject = Field(default_factory=dict)
+    final_report: JsonObject = Field(default_factory=dict)
+    audit: list[JsonObject] = Field(default_factory=list)
 
 
 class MissingQuestion(BaseModel):
@@ -134,10 +137,7 @@ class ImagingRecommendation(BaseModel):
 
 class ImagingDecision(BaseModel):
     decision_status: Literal[
-        "selected",
-        "insufficient_information",
-        "no_imaging_recommended",
-        "safety_blocked"
+        "selected", "insufficient_information", "no_imaging_recommended", "safety_blocked"
     ] = "insufficient_information"
     candidates: list[CandidateExam] = Field(default_factory=list)
     discriminating_questions: list[DiscriminatingQuestion] = Field(default_factory=list)
@@ -147,9 +147,7 @@ class ImagingDecision(BaseModel):
     clinician_call_required: bool = True
     clinician_call_reasons: list[str] = Field(default_factory=list)
     decision_ready_for_human_approval: bool = False
-    validation_warning: str = (
-        "Aide à la décision. Une validation clinique humaine est requise avant prescription/transmission."
-    )
+    validation_warning: str = "Aide à la décision. Une validation clinique humaine est requise avant prescription/transmission."
 
 
 class TeleradiologyRequest(BaseModel):
@@ -180,7 +178,7 @@ class LLMSource(BaseModel):
 
 class LLMFact(BaseModel):
     field: str
-    value: Any
+    value: JsonValue
     status: Literal["observed", "inferred", "unknown", "conflicting"]
     confidence: float = Field(ge=0.0, le=1.0)
     sources: list[LLMSource] = Field(default_factory=list)
@@ -188,7 +186,7 @@ class LLMFact(BaseModel):
 
 class LLMExtraction(BaseModel):
     facts: list[LLMFact] = Field(default_factory=list)
-    prior_imaging: list[dict[str, Any]] = Field(default_factory=list)
+    prior_imaging: list[JsonObject] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     document_notes: list[str] = Field(default_factory=list)
 
@@ -196,7 +194,7 @@ class LLMExtraction(BaseModel):
 class AnswerItem(BaseModel):
     question_id: str | None = None
     field: str
-    value: Any
+    value: JsonValue
     note: str | None = None
 
 

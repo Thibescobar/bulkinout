@@ -32,7 +32,7 @@ The important separation is between the model response and the application recor
 | `.png`, `.jpg`, `.jpeg`, `.webp` | Base64-encoded as an `input_image` data URL. |
 | `.pdf` | Uploaded through the OpenAI Files API, then referenced as `input_file`. |
 
-Unsupported files, including test oracle JSON, are ignored. An empty supported-file set causes `build_radiology_case()` to raise `ValueError` before any model call.
+Unsupported files, including test oracle JSON, are ignored. An empty supported-file set causes `build_radiology_case()` to raise `InputError` before any model call.
 
 ### Consequences
 
@@ -98,7 +98,7 @@ The canonical value can be English while the evidence excerpt remains exactly as
 
 ## Step 4: aggregate record
 
-`build_radiology_case(input_dir, model)` coordinates discovery, extraction, and conversion. It returns:
+`build_radiology_case(input_dir, model)` coordinates discovery, extraction, and conversion. It returns a typed `CoreResult`, which remains tuple-unpackable:
 
 ```python
 record, extraction, source_paths = build_radiology_case(...)
@@ -131,7 +131,7 @@ Request construction excludes unknown and conflicting fields from its reliable c
 |---|---|---|
 | No supported files | Before extraction | Input directory and supported extensions. |
 | Missing model | Extractor construction | `--model` or `BULKINOUT_MODEL`. |
-| Missing API key | CLI preflight | `OPENAI_API_KEY`. |
+| Missing API key | CLI or Core service preflight | `OPENAI_API_KEY`. |
 | Upload or API error | Provider call | Connectivity, credentials, provider status, file support. |
 | Invalid structured response | Pydantic validation | Model compatibility, schema, raw provider response. |
 | Missing expected fact | Extraction or conversion | `llm_extraction.json`, field path, status, and provenance. |

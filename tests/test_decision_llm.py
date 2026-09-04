@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from bulkinout.core.models import ClinicalCase, ImagingDecision, ImagingRecommendation
+from bulkinout.errors import ConfigurationError
 from bulkinout.request import decision_llm
 
 
@@ -17,7 +18,9 @@ def decision_json():
 
 
 def test_extract_json_supports_output_text_chunks_and_empty_output():
-    assert decision_llm._extract_json(SimpleNamespace(output_text=decision_json())) == decision_json()
+    assert (
+        decision_llm._extract_json(SimpleNamespace(output_text=decision_json())) == decision_json()
+    )
     response = SimpleNamespace(
         output_text="",
         output=[SimpleNamespace(content=[SimpleNamespace(text="a"), SimpleNamespace(text="b")])],
@@ -37,7 +40,7 @@ def test_decision_engine_requires_model(monkeypatch):
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(decision_llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ValueError, match="No model configured"):
+    with pytest.raises(ConfigurationError, match="No model configured"):
         decision_llm.OpenAIRequestDecision()
 
 
@@ -69,7 +72,9 @@ def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):
     calls = []
     client = SimpleNamespace(
         responses=SimpleNamespace(
-            create=lambda **kwargs: calls.append(kwargs) or SimpleNamespace(output_text=decision_json())
+            create=lambda **kwargs: (
+                calls.append(kwargs) or SimpleNamespace(output_text=decision_json())
+            )
         )
     )
     monkeypatch.setattr(decision_llm, "OpenAI", lambda: client)
