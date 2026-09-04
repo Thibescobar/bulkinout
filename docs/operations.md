@@ -23,7 +23,7 @@ export BULKINOUT_MODEL="<compatible-model>"
 bulkinout request run --input input --output output
 ```
 
-Input, output, answer, golden-case, and reference paths are interpreted relative to the current working directory unless absolute paths are supplied. Defaults are `input/`, `output/`, `tests/golden/`, and `reference/scenarios/`.
+Input, output, answer, and golden-case paths are interpreted relative to the current working directory unless absolute paths are supplied. Their defaults are `input/`, `output/`, and `tests/golden/`. The reference defaults to the 18 scenarios shipped in the package; an explicit `--reference` path is resolved from the current directory unless absolute.
 
 ## Execution and data flow
 
@@ -48,7 +48,7 @@ generic questions --> YAML reference --> LLM decision
 
 `core structure` stops after the first LLM call and writes the structured longitudinal container. `request run` executes the entire diagram. When `--answers` is supplied, Bulkinout starts again from the source documents, repeats extraction, applies the answer file, and then repeats the Request phase. It does not resume from an earlier `radiology_case.json`.
 
-The deterministic reference engine loads every `*.yaml` file directly inside the reference directory. It matches multilingual keywords, selects applicable candidate exams, reports unresolved material questions, and evaluates rules. The LLM receives this result as local decision-support context; deterministic guards then override unsafe or insufficiently supported selections.
+The deterministic reference engine loads every packaged scenario, or every `*.yaml` file directly inside an explicit reference directory. It matches multilingual terms, selects applicable candidate exams, reports unresolved questions, and evaluates rules. Required or blocking reference questions are enforced after the LLM response, so the model may add context but cannot remove those constraints.
 
 ## LLM and clinical data handling
 
@@ -114,7 +114,7 @@ For deterministic reference diagnostics, run:
 
 ```bash
 bulkinout request catalog
-bulkinout request golden --cases tests/golden --reference reference/scenarios
+bulkinout request golden --cases tests/golden
 ```
 
 ## Production readiness gaps

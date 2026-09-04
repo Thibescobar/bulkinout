@@ -11,7 +11,6 @@ from bulkinout import run_request, write_request_outputs
 
 result = run_request(
     Path("input"),
-    reference_dir=Path("reference/scenarios"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
     answers_path=None,
@@ -37,7 +36,7 @@ run_request()
 └── source_paths[]
 ```
 
-The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. Do not reproduce that sequence in an integration.
+The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
 ## Core only
 
@@ -81,7 +80,6 @@ decision_engine: RequestDecisionEngine = MyLocalDecisionEngine(model="local-deci
 
 result = run_request(
     Path("input"),
-    reference_dir=Path("reference/scenarios"),
     extractor=extractor,
     decision_engine=decision_engine,
 )

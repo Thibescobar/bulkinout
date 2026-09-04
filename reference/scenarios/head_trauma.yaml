@@ -16,6 +16,7 @@ questions:
     question: "Une règle clinique validée indique-t-elle une TDM cérébrale ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "ACR explicitly stratifies mild head trauma by validated clinical decision rules."
   - id: gcs
     field: current_problem.gcs

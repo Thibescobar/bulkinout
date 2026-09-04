@@ -23,6 +23,7 @@ questions:
     question: "La douleur ou les signes cliniques font-ils suspecter une extension abdomino-pelvienne ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Determines the anatomical extent to cover."
   - id: neuro_malperfusion
     field: current_problem.malperfusion_signs

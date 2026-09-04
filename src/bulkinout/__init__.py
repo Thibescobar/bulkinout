@@ -45,7 +45,7 @@ def build_radiology_case(
 def run_request(
     input_dir: Path,
     *,
-    reference_dir: Path = Path("reference/scenarios"),
+    reference_dir: Path | None = None,
     model: str | None = None,
     extraction_model: str | None = None,
     decision_model: str | None = None,

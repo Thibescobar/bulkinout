@@ -81,8 +81,7 @@ Run Core and the complete pre-exam Request workflow:
 ```bash
 bulkinout request run \
   --input input \
-  --output output \
-  --reference reference/scenarios
+  --output output
 ```
 
 | Option | Default | Meaning |
@@ -90,7 +89,7 @@ bulkinout request run \
 | `--input` | `input` | Clinical document directory processed by Core. |
 | `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
 | `--answers` | none | Optional answer JSON from a previous clarification pass. |
-| `--reference` | `reference/scenarios` | Scenario YAML directory. |
+| `--reference` | packaged reference | Optional scenario-directory override. |
 | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
 | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
 | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
@@ -143,7 +142,7 @@ bulkinout request catalog --reference reference/scenarios
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--reference` | `reference/scenarios` | Directory of YAML scenarios to summarize. |
+| `--reference` | packaged reference | Optional directory of YAML scenarios to summarize instead. |
 
 Each output line includes ID, version, candidate count, question count, and validation status. This is a structural inventory; it does not test clinical behavior or compare against `reference/catalog.json`.
 
@@ -153,16 +152,15 @@ Run deterministic reference cases without an LLM:
 
 ```bash
 bulkinout request golden \
-  --cases tests/golden \
-  --reference reference/scenarios
+  --cases tests/golden
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `--cases` | `tests/golden` | Directory recursively searched for YAML golden cases. |
-| `--reference` | `reference/scenarios` | Scenarios evaluated for every case. |
+| `--reference` | packaged reference | Optional scenario-directory override. |
 
-The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It exits with status 2 if no golden files are found.
+The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It exits with status 2 if no golden files are found. Use `--reference reference/scenarios` while authoring the canonical source reference and omit it to verify the installed default.
 
 ## `bulkinout report`
 

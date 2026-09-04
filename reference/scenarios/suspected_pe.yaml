@@ -9,25 +9,29 @@ sources:
 entry:
   any:
     - {field: current_problem.suspected_diagnosis, contains_any: ["embolie pulmonaire", "pulmonary embol"]}
-    - {field: current_problem.suspected_diagnosis, contains: "EP"}
+    - {field: current_problem.suspected_diagnosis, contains_token: "EP"}
 questions:
   - id: pretest_probability
     field: current_problem.pe_pretest_probability
     question: "Quelle est la probabilité clinique pré-test d'EP (faible/intermédiaire/élevée ou score utilisé) ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Determines D-dimer interpretation and whether imaging is necessary."
   - id: d_dimer
     field: labs.d_dimer
     question: "D-dimères disponibles et interprétables dans ce contexte ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "A negative result with low or intermediate pretest probability may avoid imaging."
   - id: pregnancy
     field: imaging_safety.pregnancy
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
+    required_to_choose: true
+    blocking: true
     reason: "May change the diagnostic strategy."
 candidates:
   - id: ctp_a

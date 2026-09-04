@@ -17,6 +17,8 @@ questions:
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
+    required_to_choose: true
+    blocking: true
     reason: "Pregnancy changes the modality hierarchy."
   - id: prior_stone
     field: history.prior_urolithiasis

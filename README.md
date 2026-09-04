@@ -97,13 +97,13 @@ bulkinout
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
-|  | `--reference` | `reference/scenarios` | Directory containing scenario YAML files. |
+|  | `--reference` | packaged reference | Optional scenario-directory override. |
 |  | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used by Core. |
 |  | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used by Request. |
 |  | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
-| `request catalog` | `--reference` | `reference/scenarios` | Reference directory to summarize. |
+| `request catalog` | `--reference` | packaged reference | Optional reference directory to summarize instead. |
 | `request golden` | `--cases` | `tests/golden` | Directory containing deterministic golden cases. |
-|  | `--reference` | `reference/scenarios` | Reference evaluated by the golden cases. |
+|  | `--reference` | packaged reference | Optional reference override evaluated by the golden cases. |
 
 The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then `BULKINOUT_MODEL`. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
@@ -118,7 +118,6 @@ from bulkinout import run_request, write_request_outputs
 
 result = run_request(
     Path("input"),
-    reference_dir=Path("reference/scenarios"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
 )
@@ -130,7 +129,7 @@ print(result.teleradiology_request.model_dump(mode="json"))
 write_request_outputs(result, Path("output"))
 ```
 
-With its defaults, this path requires `OPENAI_API_KEY`. Python callers can instead inject provider-neutral extraction and decision components, including local implementations; see the [Python API guide](docs/python-api.md#custom-and-local-llm-components). `run_request()` still owns Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
+With its defaults, this path uses the packaged 18-scenario reference and requires `OPENAI_API_KEY`. Pass `reference_dir=Path("reference/scenarios")` only to select an explicit override. Python callers can instead inject provider-neutral extraction and decision components, including local implementations; see the [Python API guide](docs/python-api.md#custom-and-local-llm-components). `run_request()` still owns Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
 
 ## Generated outputs
 
@@ -140,7 +139,7 @@ With its defaults, this path requires `OPENAI_API_KEY`. Python callers can inste
 | `llm_extraction.json` | Raw structured extraction returned by Core. |
 | `case.json` | Current structured `ClinicalCase` view used by Request. |
 | `reference_context.json` | Matched scenarios, candidate examinations, questions, and triggered rules. |
-| `missing_questions.json` | Generic and modality-specific questions still requiring an answer. |
+| `missing_questions.json` | Deduplicated generic, reference, model-generated, and modality-specific questions. |
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |

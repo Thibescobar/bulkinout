@@ -41,7 +41,7 @@ def cmd_request_run(args: argparse.Namespace) -> None:
     print("Running the Core and Request workflow...")
     result = run_request(
         Path(args.input),
-        reference_dir=Path(args.reference),
+        reference_dir=Path(args.reference) if args.reference else None,
         model=args.model,
         extraction_model=args.extraction_model,
         decision_model=args.decision_model,
@@ -61,7 +61,7 @@ def cmd_request_run(args: argparse.Namespace) -> None:
 def cmd_request_golden(args: argparse.Namespace) -> None:
     """Run deterministic golden cases against the local reference."""
 
-    reference_dir = Path(args.reference)
+    reference_dir = Path(args.reference) if args.reference else None
     cases = discover_golden_cases(Path(args.cases))
     if not cases:
         raise ConfigurationError("No golden cases found.")
@@ -82,7 +82,7 @@ def cmd_request_golden(args: argparse.Namespace) -> None:
 def cmd_request_catalog(args: argparse.Namespace) -> None:
     """Print a compact inventory of configured reference scenarios."""
 
-    catalog = build_catalog(Path(args.reference))
+    catalog = build_catalog(Path(args.reference) if args.reference else None)
     print(f"{len(catalog)} scenario(s)")
     for item in catalog:
         print(
@@ -138,8 +138,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--answers", default=None, help="Optional JSON file of clinician answers")
     run.add_argument(
         "--reference",
-        default="reference/scenarios",
-        help="Directory containing scenario YAML files (default: reference/scenarios)",
+        default=None,
+        help="Directory containing scenario YAML files; overrides the packaged reference",
     )
     run.add_argument(
         "--model",
@@ -161,8 +161,8 @@ def build_parser() -> argparse.ArgumentParser:
     catalog = request_sub.add_parser("catalog", help="List reference scenarios")
     catalog.add_argument(
         "--reference",
-        default="reference/scenarios",
-        help="Directory containing scenario YAML files (default: reference/scenarios)",
+        default=None,
+        help="Directory containing scenario YAML files; overrides the packaged reference",
     )
     catalog.set_defaults(func=cmd_request_catalog)
 
@@ -174,8 +174,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     golden.add_argument(
         "--reference",
-        default="reference/scenarios",
-        help="Directory containing scenario YAML files (default: reference/scenarios)",
+        default=None,
+        help="Directory containing scenario YAML files; overrides the packaged reference",
     )
     golden.set_defaults(func=cmd_request_golden)
 

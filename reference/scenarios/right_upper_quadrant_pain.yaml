@@ -9,7 +9,7 @@ sources:
 entry:
   any:
     - {field: current_problem.location, contains_any: ["hypochondre droit", "right hypochondrium"]}
-    - {field: current_problem.location, contains_any: ["quadrant supérieur droit", "right upper quadrant", "RUQ"]}
+    - {field: current_problem.location, contains_any_term: ["quadrant supérieur droit", "right upper quadrant", "RUQ"]}
     - {field: current_problem.suspected_diagnosis, contains_any: ["cholécystite", "cholecystitis"]}
 questions:
   - id: biliary_suspicion
@@ -17,12 +17,14 @@ questions:
     question: "La présentation oriente-t-elle vers une pathologie biliaire ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Ultrasound is the preferred initial examination when biliary disease is suspected."
   - id: prior_us
     field: current_problem.ultrasound_equivocal_or_negative
     question: "Une échographie a-t-elle déjà été réalisée et est-elle négative/équivoque ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Determines the next imaging step."
   - id: fever_wbc
     field: current_problem.fever_or_leukocytosis

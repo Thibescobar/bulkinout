@@ -70,9 +70,11 @@ Predicates read known values from first-level `ClinicalCase` dictionary paths.
 | `not_equals` | Python inequality with the supplied value. | `{field: imaging_safety.pregnancy, not_equals: true}` |
 | `contains` | Case-insensitive substring search. Lists are joined as text first. | `{field: current_problem.indication, contains: "appendic"}` |
 | `contains_any` | Case-insensitive substring search for any synonym in a list. | `{field: current_problem.location, contains_any: ["flanc", "flank"]}` |
+| `contains_token` | Case-insensitive whole-term search for one acronym or term. | `{field: current_problem.suspected_diagnosis, contains_token: "EP"}` |
+| `contains_any_term` | Whole-term search for any synonym without changing the predicate count. | `{field: current_problem.location, contains_any_term: ["RLQ", "right lower quadrant"]}` |
 | `in` | Exact membership in a supplied list. | `{field: labs.d_dimer, in: ["negative", "normal"]}` |
 
-Unknown and conflicting fields never satisfy a predicate. Matching is case-insensitive for `contains` and `contains_any`, but it does not currently remove accents, lemmatize words, expand abbreviations automatically, or use a terminology server.
+Unknown and conflicting fields never satisfy a predicate. Use substring operators for intentional roots such as `appendic`; use boundary-aware term operators for short acronyms so `EP` does not match `sepsis`. Matching does not currently remove accents, lemmatize words, expand abbreviations automatically, or use a terminology server.
 
 ## `all`, `any`, and scoring
 
@@ -99,9 +101,11 @@ Questions connect a stable clinical field to French presentation text and Englis
 | `question` | Clinical text shown to the current French user. |
 | `priority` | Sort order; lower numbers appear first. |
 | `material` | Whether the unresolved question is included in reference context. |
+| `required_to_choose` | Whether an unresolved answer deterministically prevents examination selection. |
+| `blocking` | Whether an unresolved constraint blocks the workflow; safety fields produce `safety_blocked`. |
 | `reason` | Developer-facing explanation of why the fact matters. |
 
-`unresolved_material_questions()` returns only questions with `material: true` whose field is absent, unknown, or conflicting. The LLM decides which of these become discriminating questions; deterministic guards then enforce any returned as `required_to_choose`.
+`unresolved_material_questions()` returns relevant questions whose field is absent, unknown, or conflicting. A material question may inform comparison without being mandatory. Required and blocking questions are converted to deterministic `MissingQuestion` objects after matching; the LLM may add questions but cannot remove or weaken these constraints. Questions from all sources are deduplicated by canonical field while retaining the strongest requirement.
 
 ## Candidate filtering
 
@@ -134,8 +138,8 @@ Use this sequence to keep reference changes reviewable:
 1. **Choose a stable ID.** Use `snake_case`; do not rename an existing ID solely to improve wording.
 2. **Record the source.** Include organization, exact source title, and a durable URL.
 3. **Define narrow entry predicates.** Prefer recognizable clinical phrases over very broad fragments that create false positives.
-4. **Add multilingual synonyms.** Preserve existing French terms and add English equivalents in the same `contains_any` predicate so scoring does not change accidentally.
-5. **Separate material questions.** A question is material only when its answer can alter examination, protocol, urgency, contrast, or safety.
+4. **Add multilingual synonyms.** Preserve existing French terms and add English equivalents in one `contains_any` or `contains_any_term` predicate so scoring does not change accidentally.
+5. **Classify questions explicitly.** Use `material` for decision-relevant context, `required_to_choose` only when selection is invalid without the answer, and `blocking` for an unresolved workflow or safety constraint.
 6. **List candidates and explicit conditions.** Keep French presentation names separate from English IDs and values.
 7. **Use rules sparingly.** Encode only behavior that is clear enough to test deterministically.
 8. **Keep `needs_local_validation`.** Change validation status only through an explicit clinical governance process.
@@ -144,7 +148,7 @@ Use this sequence to keep reference changes reviewable:
 
 ## Regression traps
 
-- Adding a second synonym as a separate `entry.any` predicate changes the score denominator. Use `contains_any` when the terms represent one concept.
+- Adding a second synonym as a separate `entry.any` predicate changes the score denominator. Use one `contains_any` or `contains_any_term` predicate when the terms represent one concept.
 - Translating canonical values such as `negative` into display language breaks exact `equals` and `in` predicates.
 - Changing a question field path can prevent answer files and guards from finding the same fact.
 - Reusing a vague fragment such as `pain` across scenarios produces broad matches and unstable top-three selection.

@@ -70,6 +70,7 @@ def _contrast_ct_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 question="Antécédent de réaction au produit de contraste iodé ? Si oui, préciser le type et la gravité.",
                 importance="high",
                 reason="May change contrast administration or the protocol.",
+                required_to_choose=True,
             )
         )
     if _unknown(case.labs, "egfr_ml_min_1_73m2"):
@@ -79,6 +80,7 @@ def _contrast_ct_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 question="Fonction rénale récente (DFG/eGFR) disponible si nécessaire selon le contexte/protocole local ?",
                 importance="high",
                 reason="May change the injection strategy under local procedures and clinical context.",
+                required_to_choose=True,
             )
         )
     return questions
@@ -93,6 +95,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 question="Pacemaker/stimulateur ou défibrillateur implantable ?",
                 importance="critical",
                 reason="May require a specific procedure or change MRI feasibility.",
+                required_to_choose=True,
                 blocking=True,
             )
         )
@@ -103,6 +106,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 question="Implant, matériel métallique, clip, stent ou autre dispositif à caractériser avant IRM ?",
                 importance="high",
                 reason="MRI compatibility must be verified, not assumed.",
+                required_to_choose=True,
             )
         )
     return questions
@@ -140,5 +144,6 @@ def _ionizing_radiation_questions(case: ClinicalCase) -> list[MissingQuestion]:
             question="Une grossesse est-elle possible ou en cours ?",
             importance="high",
             reason="Safety information for an examination using ionizing radiation.",
+            required_to_choose=True,
         )
     ]

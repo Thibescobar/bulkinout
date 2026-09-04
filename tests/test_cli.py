@@ -168,6 +168,16 @@ def test_request_catalog_prints_scenarios(monkeypatch, tmp_path, capsys):
     assert "renal_colic v1" in output
 
 
+def test_request_catalog_uses_packaged_reference_by_default(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(cli, "build_catalog", lambda path: calls.append(path) or [])
+
+    cli.main(["request", "catalog"])
+
+    assert calls == [None]
+    assert "0 scenario(s)" in capsys.readouterr().out
+
+
 def test_main_dispatches_report_and_renders_expected_errors(monkeypatch, capsys):
     cli.main(["report"])
     assert "Bulkinout Report is reserved" in capsys.readouterr().out

@@ -6,7 +6,7 @@ from .reference_engine import ReferenceEngine
 from .types import CatalogEntry
 
 
-def build_catalog(reference_dir: Path) -> list[CatalogEntry]:
+def build_catalog(reference_dir: Path | None = None) -> list[CatalogEntry]:
     """Build lightweight catalog metadata from validated scenario mappings."""
 
     out: list[CatalogEntry] = []

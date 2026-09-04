@@ -1,0 +1,6 @@
+id: sepsis_not_pe
+facts:
+  current_problem.suspected_diagnosis: "Sepsis with shock"
+expected:
+  must_not_match:
+    - suspected_pulmonary_embolism

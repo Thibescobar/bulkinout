@@ -16,6 +16,7 @@ questions:
     question: "Présentation aiguë ou symptômes intermittents/indolents ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Distinguishes acute obstruction from intermittent or low-grade obstruction."
   - id: complication
     field: current_problem.suspected_complication

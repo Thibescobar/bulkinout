@@ -23,6 +23,81 @@ def test_matches_renal_colic():
     assert matches[0].scenario_id == "renal_colic"
 
 
+@pytest.mark.parametrize(
+    "diagnosis",
+    ["Suspicion d'EP aiguë", "Suspected EP"],
+)
+def test_pulmonary_embolism_acronym_matches_as_a_token(diagnosis):
+    case = ClinicalCase()
+    case.current_problem["suspected_diagnosis"] = observed(diagnosis)
+
+    matches = ReferenceEngine(reference_dir()).match(case)
+
+    assert "suspected_pulmonary_embolism" in {match.scenario_id for match in matches}
+
+
+@pytest.mark.parametrize(
+    "diagnosis",
+    ["Sepsis d'origine pulmonaire", "Sepsis with shock"],
+)
+def test_pulmonary_embolism_acronym_does_not_match_inside_a_word(diagnosis):
+    case = ClinicalCase()
+    case.current_problem["suspected_diagnosis"] = observed(diagnosis)
+
+    matches = ReferenceEngine(reference_dir()).match(case)
+
+    assert "suspected_pulmonary_embolism" not in {match.scenario_id for match in matches}
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value", "expected_scenario"),
+    [
+        ("current_problem.suspected_diagnosis", "AVC aigu", "acute_stroke"),
+        ("current_problem.location", "pain in RLQ", "rlq_appendicitis"),
+        ("current_problem.location", "pain in LLQ", "llq_diverticulitis"),
+        ("current_problem.location", "pain in RUQ", "right_upper_quadrant_pain"),
+    ],
+)
+def test_other_clinical_acronyms_match_as_tokens(field_name, value, expected_scenario):
+    case = ClinicalCase()
+    section_name, key = field_name.split(".", 1)
+    getattr(case, section_name)[key] = observed(value)
+
+    matches = ReferenceEngine(reference_dir()).match(case)
+
+    assert expected_scenario in {match.scenario_id for match in matches}
+
+
+@pytest.mark.parametrize(
+    ("field_name", "term", "expanded_term", "scenario_id"),
+    [
+        ("current_problem.suspected_diagnosis", "AVC", "stroke", "acute_stroke"),
+        ("current_problem.location", "RLQ", "right lower quadrant", "rlq_appendicitis"),
+        ("current_problem.location", "LLQ", "left lower quadrant", "llq_diverticulitis"),
+        (
+            "current_problem.location",
+            "RUQ",
+            "right upper quadrant",
+            "right_upper_quadrant_pain",
+        ),
+    ],
+)
+def test_acronym_and_expanded_term_keep_the_same_scenario_score(
+    field_name, term, expanded_term, scenario_id
+):
+    def score_for(value):
+        case = ClinicalCase()
+        section_name, key = field_name.split(".", 1)
+        getattr(case, section_name)[key] = observed(value)
+        return next(
+            match.score
+            for match in ReferenceEngine(reference_dir()).match(case)
+            if match.scenario_id == scenario_id
+        )
+
+    assert score_for(term) == score_for(expanded_term)
+
+
 def test_pregnancy_question_is_material_when_unknown():
     case = ClinicalCase()
     case.current_problem["location"] = observed("flanc gauche")

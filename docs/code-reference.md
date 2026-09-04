@@ -272,7 +272,7 @@ Converts YAML `section.field` facts into a `ClinicalCase`.
 
 Dataclass containing a golden-case result.
 
-### `run_golden_case(path: Path, reference_dir: Path) -> GoldenResult`
+### `run_golden_case(path: Path, reference_dir: Path | None = None) -> GoldenResult`
 
 Runs one golden case against the `ReferenceEngine` and returns the differences.
 
@@ -284,9 +284,17 @@ Recursively discovers golden-case YAML files.
 
 Source: `src/bulkinout/request/reference_catalog.py`
 
-### `build_catalog(reference_dir: Path) -> list[CatalogEntry]`
+### `build_catalog(reference_dir: Path | None = None) -> list[CatalogEntry]`
 
 Produces summarized metadata for every scenario YAML file.
+
+## `bulkinout.request.reference_resources`
+
+Source: `src/bulkinout/request/reference_resources.py`
+
+### `load_reference_documents(reference_dir: Path | None) -> list[tuple[str, str]]`
+
+Reads an explicit scenario directory or the packaged default as named YAML documents. Missing, empty, or unreadable references raise `ReferenceDataError`.
 
 ## `bulkinout.request.reference_engine`
 
@@ -302,7 +310,7 @@ Reads a known `ClinicalField` from a `section.field` path.
 
 ### `_predicate(case: ClinicalCase, pred: Predicate) -> bool`
 
-Evaluates a YAML predicate against a known clinical value. Supported operators include `equals`, `contains`, `contains_any`, and `in`.
+Evaluates a YAML predicate against a known clinical value. Supported operators include equality, substring, boundary-aware term, and membership checks.
 
 ### `_condition(case: ClinicalCase, node: Condition) -> bool`
 
@@ -316,9 +324,9 @@ Evaluates a candidate's optional `when` clause.
 
 Service class whose methods are documented below.
 
-### `ReferenceEngine.__init__(self, reference_dir: Path)`
+### `ReferenceEngine.__init__(self, reference_dir: Path | None = None)`
 
-Loads all scenario YAML files from the reference directory.
+Loads all scenario YAML files from an explicit directory or from the packaged reference by default. Missing, unreadable, invalid, or empty references raise `ReferenceDataError`.
 
 ### `ReferenceEngine.match(self, case: ClinicalCase) -> list[ScenarioMatch]`
 
@@ -326,7 +334,7 @@ Returns scenarios whose entry criteria match, ordered by score.
 
 ### `ReferenceEngine.unresolved_material_questions(self, case: ClinicalCase, scenario: ReferenceScenario) -> list[ReferenceQuestion]`
 
-Returns material questions whose field is still unknown.
+Returns material, required, or blocking questions whose field is still unknown.
 
 ### `ReferenceEngine.evaluate_rules(self, case: ClinicalCase, scenario: ReferenceScenario) -> list[TriggeredRule]`
 
@@ -372,6 +380,6 @@ Source: `src/bulkinout/request/service.py`
 
 Slot-based dataclass containing every in-memory artifact of one Request run.
 
-### `run_request(input_dir: Path, *, reference_dir: Path, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+### `run_request(input_dir: Path, *, reference_dir: Path | None = None, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
 
-Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.
+Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. The packaged reference is used when no override is supplied. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.

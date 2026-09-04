@@ -1,6 +1,6 @@
 # Bulkinout Request
 
-Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, uses the local YAML reference to constrain an LLM comparison, applies deterministic guards, and builds a French teleradiology request draft.
+Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, uses the packaged or explicitly overridden YAML reference to constrain an LLM comparison, applies deterministic guards, and builds a French teleradiology request draft.
 
 ## Complete execution order
 
@@ -13,9 +13,9 @@ flowchart TD
     D --> E[Match reference scenarios]
     E --> F[Build reference context]
     F --> G[LLM returns ImagingDecision]
-    G --> H[Enforce required discriminators]
+    G --> H[Merge reference and model questions]
     H --> I[Generate modality-specific questions]
-    I --> J[Apply conservative readiness checks]
+    I --> J[Deduplicate and enforce strongest constraints]
     J --> K[Build TeleradiologyRequest]
     K --> L[Write outputs and audit event]
 ```
@@ -69,7 +69,7 @@ These checks are not a protocol matrix. Scenario-specific questions belong in th
 - stable scenario ID, English title, version, and validation status;
 - source guidance metadata;
 - candidates whose optional `when` condition applies;
-- unanswered material questions ordered by priority;
+- unanswered material, required, and blocking questions ordered by priority;
 - deterministic rules triggered by the current facts.
 
 This object is saved as `reference_context.json` and sent to the decision model. It is the best starting point when a scenario or candidate appears wrong.
@@ -92,7 +92,9 @@ The model is still a variable component. Its schema constrains shape, not clinic
 
 ## 5. Deterministic decision guard
 
-`enforce_decision_guard()` inspects every LLM-generated discriminating question marked `required_to_choose=True`. If its target field is absent, unknown, conflicting, malformed, or outside a dictionary section, the guard forces:
+The first guard inspects every LLM-generated discriminating question marked `required_to_choose=True`. The service then converts matched YAML questions marked `required_to_choose` or `blocking` into `MissingQuestion` objects independently of the model output. Generic, reference, model-generated, and modality-specific questions are deduplicated by canonical field while retaining the strongest requirement.
+
+If a required target field is absent, unknown, conflicting, malformed, or outside a dictionary section, the guards force:
 
 ```text
 decision_status                  = insufficient_information
@@ -101,7 +103,7 @@ clinician_call_required          = true
 decision_ready_for_human_approval = false
 ```
 
-It also records the question in `primary.missing_information` and adds a clinician-call reason. This prevents an LLM from simultaneously selecting an examination and declaring an unanswered discriminator necessary.
+They also add clinician-call reasons. This prevents an LLM from selecting an examination while omitting or weakening a mandatory reference question. An unresolved blocking safety field produces `safety_blocked`; another required field produces `insufficient_information`.
 
 For `no_imaging_recommended`, the guard sets `primary.recommended=False` and permits readiness for human review. Readiness still does not constitute clinical approval.
 
@@ -119,7 +121,7 @@ Checks are generated only after a primary modality exists, avoiding irrelevant q
 
 Pregnancy relevance is intentionally broad. It is skipped only for an observed male sex (`M`, `MALE`, or `HOMME`) or an observed age below 10 or above 60. Invalid age values restore the conservative default.
 
-The Request service treats all new `critical` or `high` modality questions as material for readiness, even when their `blocking` property is false. Explicitly blocking safety questions select `safety_blocked`; other material gaps normally select `insufficient_information`.
+The Request service marks high- and critical-priority modality questions as required for readiness. Explicitly blocking safety questions select `safety_blocked`; other required gaps normally select `insufficient_information`.
 
 ## 7. Request construction
 

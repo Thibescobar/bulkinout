@@ -14,6 +14,8 @@ Predicate = TypedDict(
         "not_equals": JsonValue,
         "contains": JsonValue,
         "contains_any": list[JsonValue],
+        "contains_token": JsonValue,
+        "contains_any_term": list[JsonValue],
         "in": list[JsonValue],
     },
     total=False,
@@ -31,6 +33,8 @@ class ReferenceQuestion(TypedDict, total=False):
     question: Required[str]
     priority: int
     material: bool
+    required_to_choose: bool
+    blocking: bool
     reason: str
 
 

@@ -8,7 +8,7 @@ sources:
     url: https://acsearch.acr.org/docs/69357/Narrative/
 entry:
   any:
-    - {field: current_problem.location, contains_any: ["fosse iliaque droite", "right lower quadrant", "RLQ"]}
+    - {field: current_problem.location, contains_any_term: ["fosse iliaque droite", "right lower quadrant", "RLQ"]}
     - {field: current_problem.suspected_diagnosis, contains: "appendic"}
 questions:
   - id: pregnancy
@@ -16,6 +16,8 @@ questions:
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
+    required_to_choose: true
+    blocking: true
     reason: "May change the imaging strategy."
   - id: fever
     field: current_problem.fever

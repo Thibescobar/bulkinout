@@ -15,6 +15,7 @@ questions:
     question: "La céphalée a-t-elle atteint son intensité maximale en moins d'une heure ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Defines the thunderclap headache variant."
 candidates:
   - id: ct_head_nc

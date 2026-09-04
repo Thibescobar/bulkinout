@@ -1,0 +1,2 @@
+include reference/catalog.json
+recursive-include reference/scenarios *.yaml

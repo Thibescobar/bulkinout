@@ -151,6 +151,11 @@ def test_run_request_accepts_custom_components_without_openai_configuration(monk
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     source = tmp_path / "note.txt"
     source.write_text("synthetic clinical input", encoding="utf-8")
+    reference_dir = tmp_path / "reference"
+    reference_dir.mkdir()
+    (reference_dir / "unmatched.yaml").write_text(
+        "id: unmatched\ntitle: Unmatched\nentry:\n  any: []\n", encoding="utf-8"
+    )
 
     class LocalExtractor:
         name = "test_local_extractor"
@@ -169,7 +174,7 @@ def test_run_request_accepts_custom_components_without_openai_configuration(monk
 
     result = service.run_request(
         tmp_path,
-        reference_dir=tmp_path / "reference",
+        reference_dir=reference_dir,
         extractor=LocalExtractor(),
         decision_engine=LocalDecisionEngine(),
     )

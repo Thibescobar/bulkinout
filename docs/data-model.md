@@ -138,6 +138,8 @@ The current JSON file is a run snapshot, not a database record. Nothing enforces
 
 A `DiscriminatingQuestion` names a stable field and records why its answer affects candidates. When `required_to_choose=True`, an unknown or conflicting target field must prevent a selected decision.
 
+`MissingQuestion` is the merged workflow representation. `question_id` retains a stable source identifier when available; `material` marks decision relevance; `required_to_choose` prevents selection while unresolved; and `blocking` represents the strongest workflow or safety constraint. Questions from several sources with the same field collapse to one item while preserving the strongest flags and importance.
+
 ### Decision states
 
 ```mermaid

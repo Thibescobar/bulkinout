@@ -8,6 +8,7 @@ from typing import cast
 
 from ..core.models import (
     ClinicalCase,
+    FieldStatus,
     ImagingDecision,
     LLMExtraction,
     MissingQuestion,
@@ -57,6 +58,97 @@ def _add_call_reasons(decision: ImagingDecision, questions: list[MissingQuestion
             decision.clinician_call_reasons.append(question.question)
 
 
+def _reference_missing_questions(reference_context: ReferenceContext) -> list[MissingQuestion]:
+    questions: list[MissingQuestion] = []
+    for scenario in reference_context["matched_scenarios"]:
+        for reference_question in scenario["unresolved_material_questions"]:
+            blocking = reference_question.get("blocking", False)
+            required = reference_question.get("required_to_choose", False) or blocking
+            if not required:
+                continue
+            questions.append(
+                MissingQuestion(
+                    question_id=reference_question["id"],
+                    field=reference_question["field"],
+                    question=reference_question["question"],
+                    importance="critical" if blocking else "high",
+                    reason=reference_question.get(
+                        "reason", "Required by the matched reference scenario."
+                    ),
+                    material=reference_question.get("material", False),
+                    required_to_choose=required,
+                    blocking=blocking,
+                )
+            )
+    return questions
+
+
+def _llm_missing_questions(case: ClinicalCase, decision: ImagingDecision) -> list[MissingQuestion]:
+    questions: list[MissingQuestion] = []
+    for question in decision.discriminating_questions:
+        section_name, separator, key = question.field.partition(".")
+        section = getattr(case, section_name, None)
+        field = section.get(key) if separator and isinstance(section, dict) else None
+        if field is not None and field.status not in {FieldStatus.unknown, FieldStatus.conflicting}:
+            continue
+        questions.append(
+            MissingQuestion(
+                question_id=question.question_id,
+                field=question.field,
+                question=question.question,
+                importance="high" if question.required_to_choose else "medium",
+                reason=question.why_it_matters,
+                material=True,
+                required_to_choose=question.required_to_choose,
+            )
+        )
+    return questions
+
+
+_IMPORTANCE = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+
+def _merge_questions(*groups: list[MissingQuestion]) -> list[MissingQuestion]:
+    """Deduplicate by canonical field while retaining the strongest constraints."""
+
+    merged: dict[str, MissingQuestion] = {}
+    for question in (question for group in groups for question in group):
+        existing = merged.get(question.field)
+        if existing is None:
+            merged[question.field] = question.model_copy(
+                update={"required_to_choose": question.required_to_choose or question.blocking}
+            )
+            continue
+        strongest = max(
+            (existing, question),
+            key=lambda item: (
+                item.blocking,
+                item.required_to_choose,
+                item.material,
+                _IMPORTANCE[item.importance],
+            ),
+        )
+        merged[question.field] = strongest.model_copy(
+            update={
+                "importance": max(
+                    (existing.importance, question.importance), key=_IMPORTANCE.__getitem__
+                ),
+                "material": existing.material or question.material,
+                "required_to_choose": (
+                    existing.required_to_choose
+                    or question.required_to_choose
+                    or existing.blocking
+                    or question.blocking
+                ),
+                "blocking": existing.blocking or question.blocking,
+                "answerable_from_existing_docs": (
+                    existing.answerable_from_existing_docs or question.answerable_from_existing_docs
+                ),
+            }
+        )
+    return list(merged.values())
+
+
 def _apply_question_guards(
     decision: ImagingDecision,
     all_questions: list[MissingQuestion],
@@ -71,27 +163,35 @@ def _apply_question_guards(
         )
         decision.clinician_call_required = True
         decision.decision_ready_for_human_approval = False
+        decision.primary.recommended = False
         _add_call_reasons(decision, blocking)
 
-    material = [
-        question for question in specific_questions if question.importance in {"critical", "high"}
+    modality_required_fields = {
+        question.field
+        for question in specific_questions
+        if question.importance in {"critical", "high"}
+    }
+    required = [
+        question
+        for question in all_questions
+        if (question.required_to_choose or question.field in modality_required_fields)
+        and not question.blocking
     ]
-    if not material:
+    if not required:
         return
 
     decision.clinician_call_required = True
     decision.decision_ready_for_human_approval = False
-    if any(question.blocking for question in material):
-        decision.decision_status = "safety_blocked"
-    elif decision.decision_status == "selected":
+    decision.primary.recommended = False
+    if decision.decision_status == "selected":
         decision.decision_status = "insufficient_information"
-    _add_call_reasons(decision, material)
+    _add_call_reasons(decision, required)
 
 
 def run_request(
     input_dir: Path,
     *,
-    reference_dir: Path = Path("reference/scenarios"),
+    reference_dir: Path | None = None,
     model: str | None = None,
     extraction_model: str | None = None,
     decision_model: str | None = None,
@@ -115,6 +215,7 @@ def run_request(
 
     initial_questions = generic_missing_questions(case)
     reference_context = ReferenceEngine(reference_dir).build_context(case)
+    reference_questions = _reference_missing_questions(reference_context)
     selected_decision_engine = decision_engine or OpenAIRequestDecision(
         model=decision_model or model
     )
@@ -125,11 +226,14 @@ def run_request(
     )
     decision = enforce_decision_guard(case, decision)
 
+    llm_questions = _llm_missing_questions(case, decision)
     specific_questions = recommendation_specific_questions(case, decision)
-    questions_by_field = {
-        question.field: question for question in initial_questions + specific_questions
-    }
-    all_questions = list(questions_by_field.values())
+    all_questions = _merge_questions(
+        initial_questions,
+        reference_questions,
+        llm_questions,
+        specific_questions,
+    )
     _apply_question_guards(decision, all_questions, specific_questions)
 
     request = build_teleradiology_request(case, decision, all_questions)

@@ -15,6 +15,7 @@ questions:
     question: "La douleur est-elle localisée à un quadrant ou une région précise ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Localization may select a more specific scenario."
   - id: fever
     field: current_problem.fever

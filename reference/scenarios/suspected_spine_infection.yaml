@@ -17,6 +17,7 @@ questions:
     question: "Quelle région rachidienne est symptomatique ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Determines the spinal region to cover with MRI."
   - id: neuro_deficit
     field: current_problem.neurologic_deficit

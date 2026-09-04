@@ -1,0 +1,5 @@
+id: pe_acronym_token
+facts:
+  current_problem.suspected_diagnosis: "Suspicion d'EP aiguë"
+expected:
+  scenario: suspected_pulmonary_embolism

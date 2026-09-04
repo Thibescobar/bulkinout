@@ -9,6 +9,7 @@ The following foundations are already in place and should be preserved: strict t
 ## Scope and status
 
 - **Active**: required to correct or distribute the current Request proof of concept.
+- **Completed**: implemented and checked against the milestone exit criteria.
 - **Next**: follows the active work and provides minimum evidence for model-backed behavior.
 - **Gate**: required before the named use, but not necessarily implemented during the current synthetic-data proof of concept.
 - **Standby**: deliberately deferred until Request correctness and evaluation are established.
@@ -20,10 +21,10 @@ The current implementation scope is R01–R04. R05 and R06 define gates for clin
 
 | ID | Issue | Category | Priority | Status | Planned milestone |
 |---|---|---|---|---|---|
-| R01 | Short acronyms can match unrelated substrings, such as `EP` in `sepsis` | Correctness defect | P0 | Active | Reference integrity |
-| R02 | Material YAML questions can be omitted by the LLM and escape deterministic guards | Safety defect | P0 | Active | Reference integrity |
-| R03 | Installed packages contain no default scenarios and accept an empty reference silently | Distribution defect | P0 | Active | Package integrity |
-| R04 | Real-model behavior is assessed mainly through manual E2E review | Assurance limitation | P1 | Next | Evaluation and governance |
+| R01 | Short acronyms can match unrelated substrings, such as `EP` in `sepsis` | Correctness defect | P0 | Completed | Reference integrity |
+| R02 | Material YAML questions can be omitted by the LLM and escape deterministic guards | Safety defect | P0 | Completed | Reference integrity |
+| R03 | Installed packages contain no default scenarios and accept an empty reference silently | Distribution defect | P0 | Completed | Package integrity |
+| R04 | Real-model behavior is assessed mainly through manual E2E review | Assurance limitation | P1 | Active | Evaluation and governance |
 | R05 | The 18 bundled scenarios are not locally validated or comprehensive | Clinical-governance limitation | P1 | Gate before clinical claims | Evaluation and governance |
 | R06 | OpenAI uploads have no application-managed deletion, pseudonymization, or retention policy | Data-governance gate | P1 | Gate before real patient data | Data lifecycle |
 | R07 | No ready-to-use local LLM adapter is included | Provider capability | P1 | Standby, optional | Provider evaluation |

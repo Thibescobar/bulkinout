@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -9,6 +10,7 @@ import yaml
 from ..core.models import ClinicalCase, FieldStatus
 from ..errors import ReferenceDataError
 from ..types import JsonValue
+from .reference_resources import load_reference_documents
 from .types import (
     Condition,
     Predicate,
@@ -42,6 +44,17 @@ def _raw(case: ClinicalCase, field: str) -> tuple[JsonValue, bool]:
     return cf.value, True
 
 
+def _searchable_text(value: JsonValue) -> str:
+    if isinstance(value, list):
+        return " ".join(map(str, value)).lower()
+    return str(value).lower()
+
+
+def _contains_term(haystack: str, needle: JsonValue) -> bool:
+    term = re.escape(str(needle).lower())
+    return re.search(rf"(?<!\w){term}(?!\w)", haystack) is not None
+
+
 def _predicate(case: ClinicalCase, pred: Predicate) -> bool:
     value, known = _raw(case, pred["field"])
     if not known:
@@ -50,19 +63,15 @@ def _predicate(case: ClinicalCase, pred: Predicate) -> bool:
         return value == pred["equals"]
     if "not_equals" in pred:
         return value != pred["not_equals"]
+    haystack = _searchable_text(value)
     if "contains" in pred:
-        needle = str(pred["contains"]).lower()
-        if isinstance(value, list):
-            hay = " ".join(map(str, value)).lower()
-        else:
-            hay = str(value).lower()
-        return needle.lower() in hay
+        return str(pred["contains"]).lower() in haystack
     if "contains_any" in pred:
-        if isinstance(value, list):
-            hay = " ".join(map(str, value)).lower()
-        else:
-            hay = str(value).lower()
-        return any(str(needle).lower() in hay for needle in pred["contains_any"])
+        return any(str(needle).lower() in haystack for needle in pred["contains_any"])
+    if "contains_token" in pred:
+        return _contains_term(haystack, pred["contains_token"])
+    if "contains_any_term" in pred:
+        return any(_contains_term(haystack, needle) for needle in pred["contains_any_term"])
     if "in" in pred:
         return value in pred["in"]
     return False
@@ -84,17 +93,24 @@ def _candidate_applicable(case: ClinicalCase, candidate: ReferenceCandidate) -> 
 
 
 class ReferenceEngine:
-    def __init__(self, reference_dir: Path):
+    def __init__(self, reference_dir: Path | None = None):
         self.reference_dir = reference_dir
         self.scenarios: list[ReferenceScenario] = []
-        for path in sorted(reference_dir.glob("*.yaml")):
-            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for source_name, document in load_reference_documents(reference_dir):
+            try:
+                raw = yaml.safe_load(document)
+            except yaml.YAMLError as error:
+                raise ReferenceDataError(
+                    f"Reference file contains invalid YAML: {source_name}: {error}"
+                ) from error
             if not isinstance(raw, dict):
-                raise ReferenceDataError(f"Reference file must contain a mapping: {path}")
+                raise ReferenceDataError(f"Reference file must contain a mapping: {source_name}")
             if not isinstance(raw.get("id"), str) or not isinstance(raw.get("title"), str):
-                raise ReferenceDataError(f"Reference file requires string id and title: {path}")
+                raise ReferenceDataError(
+                    f"Reference file requires string id and title: {source_name}"
+                )
             data = cast(ReferenceScenario, raw)
-            data["_source_file"] = path.name
+            data["_source_file"] = source_name
             self.scenarios.append(data)
 
     def match(self, case: ClinicalCase) -> list[ScenarioMatch]:
@@ -129,7 +145,12 @@ class ReferenceEngine:
         out: list[ReferenceQuestion] = []
         for q in scenario.get("questions", []):
             _, known = _raw(case, q["field"])
-            if not known and q.get("material", False):
+            is_relevant = (
+                q.get("material", False)
+                or q.get("required_to_choose", False)
+                or q.get("blocking", False)
+            )
+            if not known and is_relevant:
                 out.append(q)
         return sorted(out, key=lambda q: q.get("priority", 99))
 

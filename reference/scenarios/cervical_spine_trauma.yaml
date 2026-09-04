@@ -16,6 +16,7 @@ questions:
     question: "Les critères CCR ou NEXUS indiquent-ils une imagerie ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "ACR imaging selection depends on these criteria."
   - id: neurologic_deficit
     field: current_problem.neurologic_deficit

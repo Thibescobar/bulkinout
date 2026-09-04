@@ -126,7 +126,7 @@ def _expectation_errors(
     return errors
 
 
-def run_golden_case(path: Path, reference_dir: Path) -> GoldenResult:
+def run_golden_case(path: Path, reference_dir: Path | None = None) -> GoldenResult:
     spec = cast(GoldenSpec, yaml.safe_load(path.read_text(encoding="utf-8")))
     case = case_from_facts(spec.get("facts", {}))
     expected = spec.get("expected", {})

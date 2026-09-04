@@ -4,7 +4,7 @@
 
 Application code uses a `src` layout under `src/bulkinout/`. `core/` ingests documents and builds the shared `RadiologyCase`; `request/` applies the radiology reference workflow; `report/` is reserved for future post-exam work. Keep the dependency direction one-way: Request may import Core models, but Core must not depend on Request.
 
-Clinical scenarios live in `reference/scenarios/*.yaml`, with catalog metadata in `reference/catalog.json`. Unit and deterministic integration tests are in `tests/test_*.py`; reference golden cases are in `tests/golden/`; manual, LLM-backed cases and their expected results are under `tests/e2e/`. Architecture and behavior documentation belongs in `docs/`, while radiologist review materials live in `review/`.
+Canonical clinical scenarios live in `reference/scenarios/*.yaml`, with catalog metadata in `reference/catalog.json`; the build copies them into the installable package. Unit and deterministic integration tests are in `tests/test_*.py`; reference golden cases are in `tests/golden/`; manual, LLM-backed cases and their expected results are under `tests/e2e/`. Architecture and behavior documentation belongs in `docs/`, while radiologist review materials live in `review/`.
 
 ## Build, Test, and Development Commands
 
@@ -16,7 +16,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden --reference reference/scenarios` to validate scenario rules without an LLM. Use `bulkinout request catalog` to inspect loaded scenarios. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific model settings or the shared `BULKINOUT_MODEL` fallback; for example, `bulkinout request run --input input --output output`. Python integrations may inject provider-neutral components instead.
+Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden` to validate scenario rules without an LLM; add `--reference reference/scenarios` when intentionally testing the source override. Use `bulkinout request catalog` to inspect the packaged scenarios. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific model settings or the shared `BULKINOUT_MODEL` fallback; for example, `bulkinout request run --input input --output output`. Python integrations may inject provider-neutral components instead.
 
 ## Coding Style & Naming Conventions
 

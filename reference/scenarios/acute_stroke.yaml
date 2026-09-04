@@ -8,7 +8,7 @@ sources:
     url: https://acsearch.acr.org/docs/3149012/Narrative
 entry:
   any:
-    - {field: current_problem.suspected_diagnosis, contains_any: ["AVC", "stroke"]}
+    - {field: current_problem.suspected_diagnosis, contains_any_term: ["AVC", "stroke"]}
     - {field: current_problem.symptoms, contains_any: ["déficit neurologique", "neurologic deficit", "neurological deficit"]}
 questions:
   - id: onset
@@ -16,6 +16,7 @@ questions:
     question: "Heure de début des symptômes ou dernière heure connue sans déficit ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Critical information for urgency and neurovascular strategy."
   - id: resolved
     field: current_problem.symptoms_resolved

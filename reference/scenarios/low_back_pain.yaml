@@ -16,6 +16,7 @@ questions:
     question: "Existe-t-il un red flag (cancer, infection, traumatisme, déficit neurologique, syndrome de la queue de cheval, immunodépression, etc.) ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Acute low back pain without red flags generally does not warrant initial imaging."
   - id: trauma_osteoporosis
     field: current_problem.fracture_risk

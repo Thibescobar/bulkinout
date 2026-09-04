@@ -16,6 +16,7 @@ questions:
     question: "Des radiographies de hanche ont-elles déjà été réalisées et sont-elles négatives/indéterminées ?"
     priority: 1
     material: true
+    required_to_choose: true
     reason: "Initial imaging and the next step differ."
   - id: suspected_fracture
     field: current_problem.suspected_fracture

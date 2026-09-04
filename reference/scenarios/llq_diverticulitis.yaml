@@ -8,7 +8,7 @@ sources:
     url: https://acsearch.acr.org/docs/69356/Narrative/
 entry:
   any:
-    - {field: current_problem.location, contains_any: ["fosse iliaque gauche", "left lower quadrant", "LLQ"]}
+    - {field: current_problem.location, contains_any_term: ["fosse iliaque gauche", "left lower quadrant", "LLQ"]}
     - {field: current_problem.suspected_diagnosis, contains: "diverticul"}
 questions:
   - id: complication
@@ -22,6 +22,8 @@ questions:
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
+    required_to_choose: true
+    blocking: true
     reason: "May change the imaging strategy."
 candidates:
   - id: ct_iv

@@ -83,10 +83,13 @@ class RadiologyCase(BaseModel):
 
 
 class MissingQuestion(BaseModel):
+    question_id: str | None = None
     field: str
     question: str
     importance: Literal["critical", "high", "medium", "low"]
     reason: str
+    material: bool = True
+    required_to_choose: bool = False
     blocking: bool = False
     answerable_from_existing_docs: bool = False
 

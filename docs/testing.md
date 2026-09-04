@@ -153,13 +153,13 @@ GitHub Actions
 │   ├── Ruff lint + format check
 │   ├── strict mypy
 │   ├── wheel and source distribution build
-│   └── installed-wheel CLI smoke test
+│   └── installed-wheel catalog smoke test from outside the repository
 └── tests — Python 3.11 and 3.14
     ├── pytest with ≥95% coverage
     └── golden-case CLI
 ```
 
-CI validates the deterministic repository and its installable package boundaries. Quality and test jobs run in parallel, pip downloads are cached, superseded runs on the same ref are cancelled, and each job has a ten-minute timeout. CI does not require secrets or run E2E model calls. A green workflow means static checks, package construction, tests, coverage, and encoded golden behavior passed; it does not imply local reference validation or clinical approval.
+CI validates the deterministic repository and its installable package boundaries. The wheel smoke test changes to an unrelated directory and verifies that the packaged catalog still exposes all 18 scenarios. Quality and test jobs run in parallel, pip downloads are cached, superseded runs on the same ref are cancelled, and each job has a ten-minute timeout. CI does not require secrets or run E2E model calls. A green workflow means static checks, package construction, tests, coverage, and encoded golden behavior passed; it does not imply local reference validation or clinical approval.
 
 ## Turning failures into durable tests
 
