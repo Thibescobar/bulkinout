@@ -54,10 +54,9 @@
     <text x="405" y="307" fill="#70767a" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14">Canonical data · provenance · audit</text>
   </g>
 
-  <path d="M713 250H735" stroke="#45aaa4" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="735" cy="250" r="4" fill="#45aaa4"/>
-  <path d="M735 250V238 Q735 218 755 218" stroke="#45aaa4" stroke-width="3" fill="none" stroke-linecap="round" marker-end="url(#arrow)"/>
-  <path d="M735 250V377 Q735 397 755 397H1065" stroke="#45aaa4" stroke-width="3" fill="none" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M713 300H735" stroke="#45aaa4" stroke-width="3" stroke-linecap="round"/>
+  <path d="M735 300V238 Q735 218 755 218" stroke="#45aaa4" stroke-width="3" fill="none" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M735 300V362 Q735 382 755 382H1065" stroke="#45aaa4" stroke-width="3" fill="none" stroke-linecap="round" marker-end="url(#arrow)"/>
 
   <g filter="url(#shadow)">
     <rect x="775" y="155" width="270" height="125" rx="16" fill="#ffffff" stroke="#e2e7e8" stroke-width="1.5"/>
