@@ -7,7 +7,7 @@ These synthetic records test the complete **documents → Core → Request** pat
 | Case | Test intent |
 |---|---|
 | `case_001_rlq_complete` | Complete record: an imaging proposal should be prepared without a clinician callback. |
-| `case_002_right_sided_pain_ambiguous` | Ambiguous record: BULKINOUT should request discriminating information instead of forcing an exam. |
+| `case_002_right_sided_pain_ambiguous` | Ambiguous record: Bulkinout should request discriminating information instead of forcing an exam. |
 | `case_003_suspected_pe_conflicting_allergy` | Distributed data and contradictory evidence about a prior iodinated-contrast reaction. |
 
 Patient source documents remain in French because they are clinical input fixtures. `expected.json` keys and developer-facing metadata use English; expected French presentation strings remain French.

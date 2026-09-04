@@ -1,23 +1,194 @@
-# CLI
+# Command-line interface
 
-The entry point is declared as `bulkinout = "bulkinout.cli:main"` in `pyproject.toml`. CLI help, progress output, and technical errors are in English; clinical questions and generated clinical request content remain in French.
+The console entry point is declared in `pyproject.toml`:
+
+```toml
+[project.scripts]
+bulkinout = "bulkinout.cli:main"
+```
+
+Install the package in editable mode before using the command:
+
+```bash
+pip install -e ".[dev]"
+bulkinout --help
+```
+
+Technical help, progress, and error text are in English. Questions and generated request content intended for current clinical users remain in French.
+
+## Command tree
+
+```text
+bulkinout
+├── core
+│   └── structure
+├── request
+│   ├── run
+│   ├── catalog
+│   └── golden
+└── report
+```
+
+## Configuration precedence
+
+Commands that call an LLM need both:
+
+- `OPENAI_API_KEY` in the process environment;
+- a model from `--model` or `BULKINOUT_MODEL`.
+
+The explicit `--model` argument wins. `.env.example` documents variable names, but Bulkinout does not load `.env` files itself. Export the values in the shell or use an external environment loader.
+
+```bash
+export OPENAI_API_KEY="..."
+export BULKINOUT_MODEL="<compatible-model>"
+```
 
 ## `bulkinout core structure`
 
-Arguments: `--input`, `--output`, and `--model`. Requires `OPENAI_API_KEY` and a model supplied through `--model` or `BULKINOUT_MODEL`. Writes `radiology_case.json` and `llm_extraction.json`.
+Run ingestion and extraction without the Request workflow:
+
+```bash
+bulkinout core structure \
+  --input input \
+  --output output_core \
+  --model "$BULKINOUT_MODEL"
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--input` | `input` | Directory recursively scanned for PDF, TXT, Markdown, JPEG, PNG, and WebP files. |
+| `--output` | `output` | Destination directory. Parent directories are created when outputs are written. |
+| `--model` | `BULKINOUT_MODEL` | Model used by `OpenAICoreExtractor`. |
+
+Outputs:
+
+- `radiology_case.json` — aggregate record with artifacts and Core audit state;
+- `llm_extraction.json` — direct validated structured model response.
+
+The command rejects a missing API key before file discovery. It then rejects an empty supported input set or an unspecified model.
 
 ## `bulkinout request run`
 
-Arguments: `--input`, `--output`, `--answers`, `--reference`, and `--model`. Requires the same LLM configuration. Writes `radiology_case.json`, `llm_extraction.json`, `case.json`, `reference_context.json`, `missing_questions.json`, `imaging_decision.json`, `teleradiology_request.json`, and `answers.template.json`.
+Run Core and the complete pre-exam Request workflow:
+
+```bash
+bulkinout request run \
+  --input input \
+  --output output \
+  --reference reference/scenarios
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--input` | `input` | Clinical document directory processed by Core. |
+| `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
+| `--answers` | none | Optional answer JSON from a previous clarification pass. |
+| `--reference` | `reference/scenarios` | Scenario YAML directory. |
+| `--model` | `BULKINOUT_MODEL` | Model used for both extraction and decision support. |
+
+The command prints five progress phases:
+
+```text
+[1/5] Bulkinout Core...
+[2/5] Applying answers: ...       # or no answer file
+[3/5] Reference data and Request decision...
+[4/5] Applying modality-specific safeguards...
+[5/5] Writing outputs...
+```
+
+It finishes with the guarded decision status, whether a clinician call is required, and the request status.
+
+### Clarification pass
+
+The first run may write `answers.template.json`:
+
+```json
+{
+  "answers": [
+    {
+      "question_id": "pregnancy",
+      "field": "imaging_safety.pregnancy",
+      "value": null,
+      "note": "Une grossesse est-elle possible ou en cours ?"
+    }
+  ]
+}
+```
+
+Copy or rename it, fill the values, and pass the completed file:
+
+```bash
+cp output/answers.template.json answers.json
+# Edit answers.json after obtaining the clinical answers.
+bulkinout request run \
+  --input input \
+  --answers answers.json \
+  --output output_after_answers
+```
+
+This is a complete rerun: documents are extracted again, answers are then applied, and the reference, decision, guards, and outputs are recalculated.
 
 ## `bulkinout request catalog`
 
-Lists YAML scenarios, versions, candidate and question counts, and validation status. It makes no LLM call.
+Inspect the scenario set without an LLM:
+
+```bash
+bulkinout request catalog --reference reference/scenarios
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--reference` | `reference/scenarios` | Directory of YAML scenarios to summarize. |
+
+Each output line includes ID, version, candidate count, question count, and validation status. This is a structural inventory; it does not test clinical behavior or compare against `reference/catalog.json`.
 
 ## `bulkinout request golden`
 
-Runs YAML golden cases without an LLM and exits nonzero on failure.
+Run deterministic reference cases without an LLM:
+
+```bash
+bulkinout request golden \
+  --cases tests/golden \
+  --reference reference/scenarios
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--cases` | `tests/golden` | Directory recursively searched for YAML golden cases. |
+| `--reference` | `reference/scenarios` | Scenarios evaluated for every case. |
+
+The command prints `[PASS]` or `[FAIL]` per case and exits with status 1 if any case fails. It also exits if no golden files are found.
 
 ## `bulkinout report`
 
-Reports that the post-exam workflow is reserved for a later phase. v0 performs no post-exam processing.
+```bash
+bulkinout report
+```
+
+This command only reports that the post-exam workflow is reserved for a later phase. It performs no processing and writes no output.
+
+## Output lifecycle
+
+JSON files are written directly with UTF-8 indentation. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
+
+Use a fresh output directory for important runs:
+
+```bash
+bulkinout request run --input input --output output/run_2026_09_04
+```
+
+Generated `output*/` directories are ignored by Git and may contain sensitive clinical content.
+
+## Common failures
+
+| Message or symptom | Cause | Action |
+|---|---|---|
+| `OPENAI_API_KEY is missing.` | Required key is not exported. | Set it in the command environment; do not commit it. |
+| `No model configured.` | Neither `--model` nor `BULKINOUT_MODEL` is set. | Supply a compatible model explicitly. |
+| `No supported document found` | Input is empty, wrong, or contains only unsupported extensions. | Check `--input` and the supported-file list. |
+| Pydantic validation error | The provider response does not satisfy the requested schema. | Inspect model compatibility and raw provider behavior. |
+| No matched scenarios | Extracted field paths or terms do not satisfy any entry predicate. | Inspect `case.json` and `reference_context.json`; add tested synonyms when appropriate. |
+| `insufficient_information` | A required or high-impact fact remains unknown/conflicting. | Complete `answers.template.json` after clinical clarification. |
+| `safety_blocked` | A blocking safety fact is unresolved. | Obtain and record the missing safety information. |
+
+See [Request](request.md) for state transitions and [Operations and safety](operations.md) for data-handling boundaries.

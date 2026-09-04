@@ -62,7 +62,7 @@ class WorkflowState(BaseModel):
 
 class RadiologyCase(BaseModel):
     """
-    Longitudinal container shared by all BULKINOUT radiology workflows.
+    Longitudinal container shared by all Bulkinout radiology workflows.
     Pre-exam Request is implemented now; post-exam Report is reserved for later.
     """
     case_id: str | None = None

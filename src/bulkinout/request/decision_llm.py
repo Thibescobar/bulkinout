@@ -12,7 +12,7 @@ from ..core.models import ClinicalCase, ImagingDecision
 T = TypeVar("T", bound=BaseModel)
 
 DECISION_PROMPT = """
-You are BULKINOUT Request, a radiology clinical decision-support component.
+You are Bulkinout Request, a radiology clinical decision-support component.
 Given a structured clinical case, unresolved questions and a reference context,
 reason across plausible imaging candidates.
 

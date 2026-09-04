@@ -21,7 +21,7 @@ from ..models import (
 T = TypeVar("T", bound=BaseModel)
 
 EXTRACTION_PROMPT = """
-You are the BULKINOUT Core clinical information extraction component.
+You are the Bulkinout Core clinical information extraction component.
 Extract ONLY information present in supplied documents. Do not invent absent facts.
 
 Critical rules:

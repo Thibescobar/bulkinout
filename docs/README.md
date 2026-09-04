@@ -1,16 +1,86 @@
-# BULKINOUT v0 Documentation
+# Bulkinout documentation
 
-This documentation describes the code that is actually present in v0. Components that are not implemented are explicitly identified.
+This documentation explains both what v0 does and how its pieces cooperate. Start with the mental model below, then follow the reading path closest to your task.
 
-1. [Architecture](architecture.md) — Core, Request, and Report responsibilities.
-2. [Data model](data-model.md) — `RadiologyCase`, `ClinicalCase`, decisions, and provenance.
-3. [BULKINOUT Core](core.md) — file ingestion, multimodal extraction, and case construction.
-4. [BULKINOUT Request](request.md) — reference data, decision logic, safeguards, and final request.
-5. [Reference](reference.md) — YAML format and reference-engine behavior.
-6. [Tests](testing.md) — pytest, golden cases, and synthetic E2E fixtures.
-7. [CLI](cli.md) — commands, arguments, and generated files.
-8. [Code reference](code-reference.md) — v0 modules, classes, and functions.
+## The system in one minute
 
-## v0 Boundaries
+Bulkinout receives a directory of heterogeneous clinical documents. Core extracts source-grounded facts into a shared `RadiologyCase`. Request combines that case with YAML scenarios and an LLM, then applies deterministic guards before creating a French teleradiology request draft.
 
-`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` stabilize the architecture but do not yet contain substantial domain logic. The active audit mechanism is `RadiologyCase.audit`, populated by `core.service` and the Request CLI.
+```mermaid
+flowchart LR
+    A[Clinical documents] --> B[Core extraction]
+    B --> C[ClinicalCase]
+    C --> D[Reference matching]
+    D --> E[LLM candidate comparison]
+    E --> F[Deterministic guards]
+    F --> G{Enough information?}
+    G -- No --> H[French clinician questions]
+    H --> C
+    G -- Yes --> I[Teleradiology draft]
+    I --> J[Human approval outside v0]
+```
+
+Three ideas are central:
+
+1. **Evidence remains traceable.** A clinical fact includes status, confidence, and source excerpts; it is not just a bare value.
+2. **The LLM does not own safety.** It proposes structured extraction and decisions, while deterministic code prevents selection when required information remains unresolved.
+3. **Internal data and presentation are separate concerns.** Technical metadata and canonical concepts use English. Current clinical interaction is in French. Source documents may use any language.
+
+## Choose a reading path
+
+### Understand the full workflow
+
+1. [Architecture](architecture.md) for components, dependency direction, and the end-to-end sequence.
+2. [Data model](data-model.md) for the objects passed between layers.
+3. [Core](core.md) and [Request](request.md) for detailed processing.
+4. [Reference](reference.md) for deterministic scenario behavior.
+
+### Run or troubleshoot the software
+
+1. [CLI](cli.md) for commands, options, output files, and expected failures.
+2. [Operations and safety](operations.md) for configuration, data handling, and production gaps.
+3. [Testing](testing.md) for automated, golden, and manual validation.
+
+### Change the software
+
+1. [Development](development.md) for setup, code ownership, common change recipes, and validation.
+2. [Code reference](code-reference.md) for the module and function inventory.
+3. The repository-level [`AGENTS.md`](../AGENTS.md) for contribution and language rules.
+
+## Vocabulary
+
+| Term | Meaning in this repository |
+|---|---|
+| Core | Language-agnostic document ingestion and structured fact extraction. |
+| Request | Implemented pre-exam workflow that prepares an imaging proposal and referral draft. |
+| Report | Reserved post-exam workflow; no processing is implemented in v0. |
+| `RadiologyCase` | Longitudinal container shared by current and future workflows. |
+| `ClinicalCase` | Current structured clinical facts used by Request. |
+| Reference | Versioned YAML scenarios containing matching terms, questions, candidates, and simple rules. |
+| Golden case | Deterministic YAML fixture that checks reference behavior without an LLM. |
+| Decision guard | Code that prevents a selected state when a required discriminator is unresolved. |
+| Human approval | Clinical validation step outside the current implementation. |
+
+## Repository map
+
+```text
+bulkinout/
+├── src/bulkinout/
+│   ├── core/                 ingestion, extraction, models, case construction
+│   ├── request/              reference, decision, guards, request generation
+│   ├── report/               post-exam placeholder
+│   └── cli.py                command parsing and workflow orchestration
+├── reference/
+│   ├── scenarios/            18 versioned YAML scenarios
+│   └── catalog.json          generated scenario summary
+├── tests/
+│   ├── test_*.py             deterministic pytest suite
+│   ├── golden/               reference behavior fixtures
+│   └── e2e/                  synthetic records for real-LLM manual review
+├── review/                   radiologist review template
+└── docs/                     technical documentation
+```
+
+## v0 boundaries
+
+`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` reserve architectural boundaries but contain no substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service.

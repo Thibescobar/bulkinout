@@ -1,23 +1,141 @@
-# BULKINOUT Core
+# Bulkinout Core
 
-## Ingestion
+Core turns a directory of source documents into a structured, traceable `RadiologyCase`. It does not select an imaging examination and does not contain scenario-specific decision logic.
 
-`core.ingestion.files.collect_files(input_dir)` recursively collects `.pdf`, `.txt`, `.md`, `.png`, `.jpg`, `.jpeg`, and `.webp` files. Test JSON and unsupported files are ignored.
+## Processing pipeline
 
-## LLM Extraction
+```mermaid
+flowchart LR
+    A[Input directory] --> B[collect_files]
+    B --> C{File type}
+    C -- TXT / Markdown --> D[Inline text]
+    C -- PNG / JPEG / WebP --> E[Base64 image]
+    C -- PDF --> F[Uploaded input_file]
+    D --> G[OpenAICoreExtractor]
+    E --> G
+    F --> G
+    G --> H[LLMExtraction validation]
+    H --> I[extraction_to_case]
+    I --> J[ClinicalCase]
+    J --> K[RadiologyCase + artifacts + audit]
+```
 
-`OpenAICoreExtractor` uses the OpenAI SDK. Configure the model with `--model` or `BULKINOUT_MODEL`. TXT and Markdown files are inserted as text, images are sent as `input_image` data URLs, and other supported files such as PDFs are uploaded as `input_file`.
+The important separation is between the model response and the application record. `LLMExtraction` reflects what the model returned; `ClinicalCase` reorganizes recognized facts into the structure consumed by downstream workflows.
 
-The response must satisfy the `LLMExtraction` Pydantic schema. The prompt prohibits invented facts, preserves provenance and source wording, distinguishes `observed` from `inferred`, detects contradictions, and prohibits inferred MRI compatibility or renal function. Input may be written in any language; canonical identifiers and structured concepts use English.
+## Step 1: file discovery
 
-## Clinical Case Conversion
+`core.ingestion.files.collect_files(input_dir)` recursively finds supported files and returns them in sorted order.
 
-`extraction_to_case()` maps `section.field` facts into `ClinicalCase` dictionaries. Recognized sections are `patient`, `current_problem`, `history`, `medications`, `allergies`, `labs`, and `imaging_safety`. Structured prior imaging becomes `PriorImaging` objects.
+| Extension | Transport to the model |
+|---|---|
+| `.txt`, `.md` | Read as UTF-8 with replacement for invalid bytes, then inserted as `input_text`. |
+| `.png`, `.jpg`, `.jpeg`, `.webp` | Base64-encoded as an `input_image` data URL. |
+| `.pdf` | Uploaded through the OpenAI Files API, then referenced as `input_file`. |
 
-## Core Service
+Unsupported files, including test oracle JSON, are ignored. An empty supported-file set causes `build_radiology_case()` to raise `ValueError` before any model call.
 
-`build_radiology_case()` orchestrates ingestion, extraction, and conversion. It returns `(RadiologyCase, LLMExtraction, paths)`. The case includes input artifacts and a `core_structuring_completed` audit event.
+### Consequences
 
-## Not Yet Implemented
+- Directory layout has no clinical meaning; all discovered documents are processed together.
+- Sorting makes input order reproducible, but model output may still vary.
+- Inline text includes a filename marker so the model can associate evidence with a source.
+- Uploaded documents leave the local process and are subject to the configured provider's handling terms. See [Operations and safety](operations.md).
 
-`normalization`, `reconciliation`, and `timeline` are empty in v0. Current reconciliation relies on structured LLM output, contradictions, provenance, and Request behavior; no dedicated deterministic longitudinal merge engine exists yet.
+## Step 2: structured extraction
+
+`OpenAICoreExtractor` requires a model from its constructor or `BULKINOUT_MODEL`. It submits a developer prompt and all document content through the Responses API, requesting a strict JSON schema generated from `LLMExtraction`.
+
+The prompt establishes these contracts:
+
+- extract only facts supported by supplied documents;
+- keep missing information unknown;
+- distinguish observed and inferred facts;
+- retain provenance for every non-unknown fact;
+- preserve dates and units;
+- report contradictions;
+- never infer renal function or device compatibility;
+- treat input language as unknown;
+- use English canonical identifiers and language-independent concepts;
+- retain the source wording in evidence excerpts.
+
+Schema validation answers “does this response have the required shape?” It does not answer “is this fact clinically correct?” That second question requires test fixtures and qualified review.
+
+## Step 3: extraction conversion
+
+`extraction_to_case(extraction)` processes each `LLMFact.field` as a `section.key` path. Facts are accepted only for these sections:
+
+```text
+patient
+current_problem
+history
+medications
+allergies
+labs
+imaging_safety
+```
+
+Unknown sections or malformed paths are skipped. Accepted facts become `ClinicalField` objects with their value, status, sources, confidence, and default `validated=False` state. `prior_imaging` entries are converted separately into `PriorImaging` objects.
+
+Example model fact:
+
+```json
+{
+  "field": "current_problem.location",
+  "value": "right_lower_quadrant",
+  "status": "observed",
+  "confidence": 0.98,
+  "sources": [
+    {
+      "filename": "emergency_note.pdf",
+      "page": 1,
+      "excerpt": "Douleur prédominant en fosse iliaque droite"
+    }
+  ]
+}
+```
+
+The canonical value can be English while the evidence excerpt remains exactly as written in the French source. This is the intended language boundary.
+
+## Step 4: aggregate record
+
+`build_radiology_case(input_dir, model)` coordinates discovery, extraction, and conversion. It returns:
+
+```python
+record, extraction, source_paths = build_radiology_case(...)
+```
+
+| Return value | Role |
+|---|---|
+| `record` | `RadiologyCase` containing the clinical case, artifacts, workflow state, and audit event. |
+| `extraction` | Original validated `LLMExtraction`, useful for debugging model behavior. |
+| `source_paths` | Exact local files included in the run. |
+
+Each source path creates an `ArtifactRef` whose ID is `input:<filename>`, whose `artifact_type` is the file suffix, and whose `source` is the filename. Core appends `core_structuring_completed` to `RadiologyCase.audit`.
+
+## Provenance and uncertainty
+
+`ClinicalField.status` controls how downstream code should interpret a value:
+
+| Status | Meaning | Downstream expectation |
+|---|---|---|
+| `observed` | Explicitly supported by a source. | May be used with its provenance. |
+| `inferred` | Derived by the model rather than directly stated. | Treat cautiously and retain evidence. |
+| `unknown` | Not available. | Ask when material; never convert to a negative. |
+| `conflicting` | Sources disagree. | Do not present as a reliable fact without resolution. |
+
+Request construction excludes unknown and conflicting fields from its reliable clinical lists. The original evidence remains available in `case.json` and `radiology_case.json` for review.
+
+## Failure modes
+
+| Failure | Where it occurs | What to inspect |
+|---|---|---|
+| No supported files | Before extraction | Input directory and supported extensions. |
+| Missing model | Extractor construction | `--model` or `BULKINOUT_MODEL`. |
+| Missing API key | CLI preflight | `OPENAI_API_KEY`. |
+| Upload or API error | Provider call | Connectivity, credentials, provider status, file support. |
+| Invalid structured response | Pydantic validation | Model compatibility, schema, raw provider response. |
+| Missing expected fact | Extraction or conversion | `llm_extraction.json`, field path, status, and provenance. |
+
+## Current gaps
+
+The `normalization`, `reconciliation`, and `timeline` packages are placeholders. Today, terminology selection, cross-document reconciliation, and contradiction detection depend mainly on the model. Adding deterministic implementations should preserve the raw extraction and provenance so reviewers can still trace every transformation.

@@ -303,4 +303,4 @@ def test_main_dispatches_report_command(monkeypatch, capsys):
 
     cli.main()
 
-    assert "BULKINOUT Report is reserved" in capsys.readouterr().out
+    assert "Bulkinout Report is reserved" in capsys.readouterr().out
