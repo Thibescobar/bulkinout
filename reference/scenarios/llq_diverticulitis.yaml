@@ -1,6 +1,6 @@
 id: llq_diverticulitis
 version: 0.1.0
-title: Douleur de fosse iliaque gauche / suspicion de diverticulite
+title: Left lower quadrant pain / suspected diverticulitis
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,7 +8,7 @@ sources:
     url: https://acsearch.acr.org/docs/69356/Narrative/
 entry:
   any:
-    - {field: current_problem.location, contains: "fosse iliaque gauche"}
+    - {field: current_problem.location, contains_any: ["fosse iliaque gauche", "left lower quadrant", "LLQ"]}
     - {field: current_problem.suspected_diagnosis, contains: "diverticul"}
 questions:
   - id: complication
@@ -16,13 +16,13 @@ questions:
     question: "Y a-t-il des signes faisant suspecter une complication (péritonite, abcès, sepsis, occlusion) ?"
     priority: 1
     material: true
-    reason: "La recherche de complication précise l'objectif et le protocole."
+    reason: "Suspected complications refine the objective and protocol."
   - id: pregnancy
     field: imaging_safety.pregnancy
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
-    reason: "Peut modifier la stratégie d'imagerie."
+    reason: "May change the imaging strategy."
 candidates:
   - id: ct_iv
     exam_name: TDM abdomino-pelvienne avec injection IV

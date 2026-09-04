@@ -1,6 +1,6 @@
 {
   "case_id": "case_003_suspected_pe_conflicting_allergy",
-  "purpose": "Tester extraction multi-documents, antériorité et contradiction entre 'aucune allergie connue' et réaction iodée documentée.",
+  "purpose": "Test multidocument extraction, prior evidence, and conflict between no known allergy and a documented iodinated-contrast reaction.",
   "core": {
     "must_extract": [
       "current_problem.suspected_diagnosis",

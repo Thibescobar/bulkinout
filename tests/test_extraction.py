@@ -46,7 +46,7 @@ def test_extractor_requires_a_model(monkeypatch):
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ValueError, match="Aucun modèle configuré"):
+    with pytest.raises(ValueError, match="No model configured"):
         llm.OpenAICoreExtractor()
 
 

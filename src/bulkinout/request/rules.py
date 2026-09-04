@@ -20,7 +20,7 @@ def generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]:
             field="current_problem.indication",
             question="Quelle est l'indication clinique précise et la question diagnostique ?",
             importance="critical",
-            reason="Sans question clinique, le choix d'examen et l'interprétation sont insuffisamment ciblés.",
+            reason="Without a clinical question, exam selection and interpretation lack focus.",
             blocking=True,
         ))
 
@@ -29,7 +29,7 @@ def generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]:
             field="current_problem.symptoms",
             question="Quels sont les symptômes/signes actuels motivant l'imagerie ?",
             importance="high",
-            reason="Permet de choisir la modalité, la zone et l'urgence.",
+            reason="Required to select the modality, body region, and urgency.",
             blocking=False,
         ))
 
@@ -52,7 +52,7 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 field="allergies.iodinated_contrast_reaction",
                 question="Antécédent de réaction au produit de contraste iodé ? Si oui, préciser le type et la gravité.",
                 importance="high",
-                reason="Peut modifier l'administration du contraste ou le protocole.",
+                reason="May change contrast administration or the protocol.",
                 blocking=False,
             ))
         if _unknown(case.labs, "egfr_ml_min_1_73m2"):
@@ -60,7 +60,7 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 field="labs.egfr_ml_min_1_73m2",
                 question="Fonction rénale récente (DFG/eGFR) disponible si nécessaire selon le contexte/protocole local ?",
                 importance="high",
-                reason="Peut modifier la stratégie d'injection selon le contexte clinique et les procédures locales.",
+                reason="May change the injection strategy under local procedures and clinical context.",
                 blocking=False,
             ))
 
@@ -70,7 +70,7 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 field="imaging_safety.pacemaker",
                 question="Pacemaker/stimulateur ou défibrillateur implantable ?",
                 importance="critical",
-                reason="Peut nécessiter une procédure spécifique ou modifier la faisabilité de l'IRM.",
+                reason="May require a specific procedure or change MRI feasibility.",
                 blocking=True,
             ))
         if _unknown(case.imaging_safety, "implant_or_metal"):
@@ -78,7 +78,7 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 field="imaging_safety.implant_or_metal",
                 question="Implant, matériel métallique, clip, stent ou autre dispositif à caractériser avant IRM ?",
                 importance="high",
-                reason="La compatibilité IRM doit être vérifiée, pas supposée.",
+                reason="MRI compatibility must be verified, not assumed.",
                 blocking=False,
             ))
 
@@ -101,7 +101,7 @@ def recommendation_specific_questions(case: ClinicalCase, decision) -> list[Miss
                 field="imaging_safety.pregnancy",
                 question="Une grossesse est-elle possible ou en cours ?",
                 importance="high",
-                reason="Information de sécurité pour un examen utilisant des rayonnements ionisants.",
+                reason="Safety information for an examination using ionizing radiation.",
                 blocking=False,
             ))
 

@@ -1,6 +1,6 @@
 id: acute_pancreatitis
 version: 0.1.0
-title: Suspicion de pancréatite aiguë
+title: Suspected acute pancreatitis
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,27 +8,27 @@ sources:
     url: https://acsearch.acr.org/docs/69468/Narrative
 entry:
   any:
-    - {field: current_problem.suspected_diagnosis, contains: "pancréatite"}
-    - {field: current_problem.known_diagnosis, contains: "pancréatite"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["pancréatite", "pancreatitis"]}
+    - {field: current_problem.known_diagnosis, contains_any: ["pancréatite", "pancreatitis"]}
 questions:
   - id: onset
     field: current_problem.onset
     question: "Depuis combien de temps les symptômes évoluent-ils ?"
     priority: 1
     material: true
-    reason: "Le timing (< ou > 48-72 h) influence la valeur d'une imagerie en coupe initiale."
+    reason: "Timing before or after 48–72 hours affects the value of initial cross-sectional imaging."
   - id: enzymes
     field: labs.lipase
     question: "Lipase/amylase compatibles avec une pancréatite ?"
     priority: 1
     material: true
-    reason: "Un tableau typique avec enzymes élevées diffère d'une présentation atypique."
+    reason: "A typical presentation with elevated enzymes differs from an atypical presentation."
   - id: atypical
     field: current_problem.atypical_presentation
     question: "La présentation est-elle atypique ou existe-t-il un diagnostic alternatif important ?"
     priority: 1
     material: true
-    reason: "Peut justifier une imagerie en coupe précoce."
+    reason: "May justify early cross-sectional imaging."
 candidates:
   - id: us_abd
     exam_name: Échographie abdominale

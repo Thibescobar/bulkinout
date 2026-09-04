@@ -1,6 +1,6 @@
 id: acute_hip_trauma
 version: 0.1.0
-title: Douleur aiguë de hanche traumatique / suspicion de fracture occulte
+title: Acute traumatic hip pain / suspected occult fracture
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,21 +8,21 @@ sources:
     url: https://acsearch.acr.org/docs/3082587/Narrative/
 entry:
   all:
-    - {field: current_problem.location, contains: "hanche"}
-    - {field: history.trauma, contains: "trauma"}
+    - {field: current_problem.location, contains_any: ["hanche", "hip"]}
+    - {field: history.trauma, contains_any: ["trauma", "traumatisme"]}
 questions:
   - id: prior_xray
     field: current_problem.prior_hip_radiograph_result
     question: "Des radiographies de hanche ont-elles déjà été réalisées et sont-elles négatives/indéterminées ?"
     priority: 1
     material: true
-    reason: "L'imagerie initiale et l'étape suivante diffèrent."
+    reason: "Initial imaging and the next step differ."
   - id: suspected_fracture
     field: current_problem.suspected_fracture
     question: "La suspicion clinique de fracture reste-t-elle forte malgré les radiographies ?"
     priority: 1
     material: true
-    reason: "Conditionne le recours à IRM ou TDM."
+    reason: "Determines whether MRI or CT is appropriate."
 candidates:
   - id: hip_xray
     exam_name: Radiographies de hanche

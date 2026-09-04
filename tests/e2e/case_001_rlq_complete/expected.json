@@ -1,6 +1,6 @@
 {
   "case_id": "case_001_rlq_complete",
-  "purpose": "Cas suffisamment complet : choix d'imagerie sans rappel clinique attendu.",
+  "purpose": "Sufficiently complete case: expect imaging selection without a clinician callback.",
   "core": {
     "must_extract": [
       "current_problem.location",

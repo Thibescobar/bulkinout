@@ -1,6 +1,6 @@
 id: right_upper_quadrant_pain
 version: 0.1.0
-title: Douleur de l'hypochondre droit / suspicion biliaire
+title: Right upper quadrant pain / suspected biliary disease
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,28 +8,28 @@ sources:
     url: https://acsearch.acr.org/docs/69474/Narrative/
 entry:
   any:
-    - {field: current_problem.location, contains: "hypochondre droit"}
-    - {field: current_problem.location, contains: "quadrant supérieur droit"}
-    - {field: current_problem.suspected_diagnosis, contains: "cholécystite"}
+    - {field: current_problem.location, contains_any: ["hypochondre droit", "right hypochondrium"]}
+    - {field: current_problem.location, contains_any: ["quadrant supérieur droit", "right upper quadrant", "RUQ"]}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["cholécystite", "cholecystitis"]}
 questions:
   - id: biliary_suspicion
     field: current_problem.biliary_disease_suspected
     question: "La présentation oriente-t-elle vers une pathologie biliaire ?"
     priority: 1
     material: true
-    reason: "L'échographie est l'examen initial privilégié si une cause biliaire est suspectée."
+    reason: "Ultrasound is the preferred initial examination when biliary disease is suspected."
   - id: prior_us
     field: current_problem.ultrasound_equivocal_or_negative
     question: "Une échographie a-t-elle déjà été réalisée et est-elle négative/équivoque ?"
     priority: 1
     material: true
-    reason: "Conditionne l'étape d'imagerie suivante."
+    reason: "Determines the next imaging step."
   - id: fever_wbc
     field: current_problem.fever_or_leukocytosis
     question: "Fièvre ou hyperleucocytose ?"
     priority: 2
     material: true
-    reason: "Distingue certains variants après échographie négative/équivoque."
+    reason: "Distinguishes variants after a negative or equivocal ultrasound."
 candidates:
   - id: us_abd
     exam_name: Échographie abdominale ciblée hépatobiliaire

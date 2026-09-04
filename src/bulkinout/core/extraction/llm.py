@@ -25,6 +25,7 @@ You are the BULKINOUT Core clinical information extraction component.
 Extract ONLY information present in supplied documents. Do not invent absent facts.
 
 Critical rules:
+- Source documents may be written in any language. Never assume French or any other language.
 - Missing information stays unknown.
 - Absence of mention is NOT a negative finding.
 - Distinguish observed vs inferred.
@@ -34,6 +35,9 @@ Critical rules:
 - Extract information useful across the radiology workflow, not only pre-exam referral.
 - Never infer device MRI compatibility.
 - Never convert missing renal function into normal renal function.
+- Use canonical English identifiers and language-independent canonical values.
+- Preserve source wording in provenance excerpts; do not translate quoted evidence.
+- Write developer-facing contradictions and document notes in English.
 
 Use canonical fields when applicable:
 patient.age
@@ -88,7 +92,7 @@ class OpenAICoreExtractor:
         self.client = OpenAI()
         self.model = model or os.getenv("BULKINOUT_MODEL")
         if not self.model:
-            raise ValueError("Aucun modèle configuré. Utilisez --model ou BULKINOUT_MODEL.")
+            raise ValueError("No model configured. Use --model or BULKINOUT_MODEL.")
 
     def _call_structured(self, prompt: str, content: list[dict], model_cls: type[T]) -> T:
         response = self.client.responses.create(

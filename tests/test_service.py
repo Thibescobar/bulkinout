@@ -7,7 +7,7 @@ from bulkinout.core.models import ClinicalCase, LLMExtraction
 def test_build_radiology_case_rejects_empty_input(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "collect_files", lambda path: [])
 
-    with pytest.raises(ValueError, match="Aucun document supporté"):
+    with pytest.raises(ValueError, match="No supported document"):
         service.build_radiology_case(tmp_path)
 
 

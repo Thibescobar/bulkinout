@@ -1,6 +1,6 @@
 id: acute_aortic_syndrome
 version: 0.1.0
-title: Douleur thoracique aiguë / suspicion de syndrome aortique aigu
+title: Acute chest pain / suspected acute aortic syndrome
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -9,27 +9,27 @@ sources:
 entry:
   any:
     - {field: current_problem.suspected_diagnosis, contains: "dissection"}
-    - {field: current_problem.suspected_diagnosis, contains: "syndrome aortique"}
-    - {field: current_problem.indication, contains: "aorte"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["syndrome aortique", "aortic syndrome"]}
+    - {field: current_problem.indication, contains_any: ["aorte", "aorta"]}
 questions:
   - id: hemodynamic_status
     field: current_problem.hemodynamic_instability
     question: "Le patient est-il hémodynamiquement instable ?"
     priority: 1
     material: true
-    reason: "Peut modifier la modalité réalisable et l'urgence."
+    reason: "May change the feasible modality and urgency."
   - id: pain_extent
     field: current_problem.pain_extent
     question: "La douleur ou les signes cliniques font-ils suspecter une extension abdomino-pelvienne ?"
     priority: 1
     material: true
-    reason: "Détermine notamment l'étendue anatomique à couvrir."
+    reason: "Determines the anatomical extent to cover."
   - id: neuro_malperfusion
     field: current_problem.malperfusion_signs
     question: "Signes neurologiques, ischémiques viscéraux ou de membre suggérant une malperfusion ?"
     priority: 2
     material: true
-    reason: "Précise l'étendue et la question diagnostique."
+    reason: "Clarifies the required coverage and diagnostic question."
 candidates:
   - id: cta_chest
     exam_name: Angioscanner thoracique aortique
@@ -52,4 +52,4 @@ candidates:
     contrast: no
     appropriateness: usually_appropriate
 notes:
-  - "Le choix CTA thorax vs thoraco-abdomino-pelvien doit être adapté au contexte et au protocole local."
+  - "The choice between chest and chest-abdomen-pelvis CTA must follow the clinical context and local protocol."

@@ -1,327 +1,327 @@
-# Référence du code
+# Code Reference
 
-Inventaire généré à partir de l’AST de la v0, puis annoté. Les fonctions privées (`_...`) sont documentées car elles participent au comportement du POC.
+This inventory was generated from the v0 AST and then annotated. Private functions (`_...`) are documented when they contribute to the proof-of-concept behavior.
 
 ## `bulkinout.cli`
 
-Source : `src/bulkinout/cli.py`
+Source: `src/bulkinout/cli.py`
 
 ### `_dump(path: Path, payload)`
 
-Sérialise une charge Python en JSON UTF-8 indenté et crée le dossier parent. Ligne source : 20.
+Serializes a Python payload as indented UTF-8 JSON and creates the parent directory.
 
 ### `cmd_core_structure(args)`
 
-Commande CLI qui exécute uniquement le Core et écrit ses deux sorties JSON. Ligne source : 25.
+Runs only Core and writes its two JSON outputs.
 
 ### `_write_answer_template(output_dir: Path, decision)`
 
-Écrit les questions discriminantes requises dans `answers.template.json`. Ligne source : 35.
+Writes required discriminating questions to `answers.template.json`.
 
 ### `cmd_request_run(args)`
 
-Orchestre la chaîne Core + Request et écrit toutes les sorties de la demande. Ligne source : 51.
+Orchestrates the Core and Request pipeline and writes every request output.
 
 ### `cmd_request_golden(args)`
 
-Exécute les golden cases et termine avec un code non nul si un cas échoue. Ligne source : 151.
+Runs golden cases and exits with a nonzero status when a case fails.
 
 ### `cmd_request_catalog(args)`
 
-Affiche le catalogue synthétique des scénarios. Ligne source : 169.
+Prints summarized scenario catalog metadata.
 
 ### `main()`
 
-Construit le parseur argparse et distribue les sous-commandes. Ligne source : 181.
+Builds the argparse parser and dispatches subcommands.
 
 ## `bulkinout.core.extraction.llm`
 
-Source : `src/bulkinout/core/extraction/llm.py`
+Source: `src/bulkinout/core/extraction/llm.py`
 
-### `_schema_format(model: Type[T]) -> dict`
+### `_schema_format(model: type[T]) -> dict`
 
-Construit la configuration `json_schema` utilisée pour la sortie structurée. Ligne source : 64.
+Builds the `json_schema` configuration used for structured output.
 
 ### `_extract_json(response) -> str`
 
-Récupère le texte JSON d’une réponse SDK, avec fallback sur les contenus de sortie. Ligne source : 72.
+Retrieves JSON text from an SDK response, with a fallback over output content blocks.
 
 ### `OpenAICoreExtractor`
 
-Classe de service ; ses méthodes sont documentées ci-dessous. Ligne source : 82.
+Service class whose methods are documented below.
 
 ### `OpenAICoreExtractor.__init__(self, model: str | None = None)`
 
-Initialise le client OpenAI et résout le modèle configuré. Ligne source : 83.
+Initializes the OpenAI client and resolves the configured model.
 
-### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[dict], model_cls: Type[T]) -> T`
+### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[dict], model_cls: type[T]) -> T`
 
-Appelle Responses API avec un schéma Pydantic strict puis valide la réponse. Ligne source : 89.
+Calls the Responses API with a strict Pydantic schema and validates the response.
 
 ### `OpenAICoreExtractor._upload_or_inline(self, path: Path) -> dict`
 
-Encode les images en data URL et téléverse les autres fichiers comme `input_file`. Ligne source : 101.
+Encodes images as data URLs and uploads other files as `input_file` content.
 
 ### `OpenAICoreExtractor.extract(self, paths: list[Path]) -> LLMExtraction`
 
-Construit l’entrée multimodale de tous les fichiers et renvoie `LLMExtraction`. Ligne source : 114.
+Builds multimodal input from all files and returns an `LLMExtraction`.
 
 ### `extraction_to_case(extraction: LLMExtraction) -> ClinicalCase`
 
-Convertit `LLMExtraction` en `ClinicalCase` avec provenance et antériorités. Ligne source : 128.
+Converts `LLMExtraction` into a `ClinicalCase`, including provenance and prior imaging.
 
 ## `bulkinout.core.ingestion.files`
 
-Source : `src/bulkinout/core/ingestion/files.py`
+Source: `src/bulkinout/core/ingestion/files.py`
 
 ### `collect_files(input_dir: Path) -> list[Path]`
 
-Collecte récursivement les fichiers dont l’extension appartient à `SUPPORTED`. Ligne source : 6.
+Recursively collects files whose extension is listed in `SUPPORTED`.
 
 ## `bulkinout.core.models.case`
 
-Source : `src/bulkinout/core/models/case.py`
+Source: `src/bulkinout/core/models/case.py`
 
 ### `FieldStatus`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 8.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `SourceRef`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 15.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `ClinicalField`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 22.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `PriorImaging`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 30.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `ClinicalCase`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 38.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `ArtifactRef`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 50.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `WorkflowState`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 57.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `RadiologyCase`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 62.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `MissingQuestion`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 81.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `CandidateExam`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 90.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `DiscriminatingQuestion`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 103.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `ImagingRecommendation`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 114.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `ImagingDecision`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 134.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `TeleradiologyRequest`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 154.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `LLMSource`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 174.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `LLMFact`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 180.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `LLMExtraction`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 188.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `AnswerItem`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 195.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ### `AnswerFile`
 
-Modèle Pydantic/Enum décrit dans [`data-model.md`](data-model.md). Ligne source : 202.
+Pydantic model or enum described in [Data Model](data-model.md).
 
 ## `bulkinout.core.service`
 
-Source : `src/bulkinout/core/service.py`
+Source: `src/bulkinout/core/service.py`
 
 ### `build_radiology_case(input_dir: Path, model: str | None = None)`
 
-Construit un `RadiologyCase` à partir d’un dossier de documents via l’extracteur Core. Ligne source : 9.
+Builds a `RadiologyCase` from a document directory through the Core extractor.
 
 ## `bulkinout.request.answers`
 
-Source : `src/bulkinout/request/answers.py`
+Source: `src/bulkinout/request/answers.py`
 
 ### `load_answers(path: Path) -> AnswerFile`
 
-Charge un fichier de réponses et accepte une forme dictionnaire ou liste. Ligne source : 20.
+Loads an answer file in either dictionary or list form.
 
 ### `apply_answers(case: ClinicalCase, answer_file: AnswerFile, filename: str) -> ClinicalCase`
 
-Injecte les réponses dans le `ClinicalCase` comme faits observés sourcés. Ligne source : 31.
+Adds answers to the `ClinicalCase` as sourced observed facts.
 
 ## `bulkinout.request.decision_guard`
 
-Source : `src/bulkinout/request/decision_guard.py`
+Source: `src/bulkinout/request/decision_guard.py`
 
 ### `_get_case_value(case: ClinicalCase, field_path: str)`
 
-Lit un champ `section.champ` et indique s’il est inconnu/conflictuel. Ligne source : 6.
+Reads a `section.field` path and reports whether it is unknown or conflicting.
 
 ### `enforce_decision_guard(case: ClinicalCase, decision: ImagingDecision) -> ImagingDecision`
 
-Bloque une sélection si une question discriminante obligatoire reste sans réponse. Ligne source : 19.
+Blocks a selection when a required discriminating question remains unanswered.
 
 ## `bulkinout.request.decision_llm`
 
-Source : `src/bulkinout/request/decision_llm.py`
+Source: `src/bulkinout/request/decision_llm.py`
 
-### `_schema_format(model: Type[T]) -> dict`
+### `_schema_format(model: type[T]) -> dict`
 
-Construit le format de sortie structurée pour `ImagingDecision`. Ligne source : 35.
+Builds the structured output format for `ImagingDecision`.
 
 ### `_extract_json(response) -> str`
 
-Extrait le JSON textuel de la réponse du moteur de décision. Ligne source : 43.
+Extracts JSON text from the decision-engine response.
 
 ### `OpenAIRequestDecision`
 
-Classe de service ; ses méthodes sont documentées ci-dessous. Ligne source : 53.
+Service class whose methods are documented below.
 
 ### `OpenAIRequestDecision.__init__(self, model: str | None = None)`
 
-Initialise le client OpenAI et le modèle de décision. Ligne source : 54.
+Initializes the OpenAI client and resolves the decision model.
 
 ### `OpenAIRequestDecision.decide(self, case: ClinicalCase, missing_questions: list[dict], reference_context: dict | None = None) -> ImagingDecision`
 
-Envoie cas, questions et référentiel au LLM et valide un `ImagingDecision`. Ligne source : 60.
+Sends the case, questions, and reference data to the LLM and validates an `ImagingDecision`.
 
 ## `bulkinout.request.golden`
 
-Source : `src/bulkinout/request/golden.py`
+Source: `src/bulkinout/request/golden.py`
 
 ### `_observed(value)`
 
-Crée un `ClinicalField` observé de confiance 1 pour les tests. Ligne source : 10.
+Creates an observed `ClinicalField` with confidence 1 for tests.
 
 ### `case_from_facts(facts: dict[str, Any]) -> ClinicalCase`
 
-Transforme les faits YAML `section.champ` en `ClinicalCase`. Ligne source : 13.
+Converts YAML `section.field` facts into a `ClinicalCase`.
 
 ### `GoldenResult`
 
-Dataclass contenant le résultat d’un golden case. Ligne source : 25.
+Dataclass containing a golden-case result.
 
 ### `run_golden_case(path: Path, reference_dir: Path) -> GoldenResult`
 
-Exécute un cas golden contre le `ReferenceEngine` et retourne les écarts. Ligne source : 33.
+Runs one golden case against the `ReferenceEngine` and returns the differences.
 
 ### `discover_golden_cases(case_dir: Path) -> list[Path]`
 
-Découvre récursivement les fichiers YAML de golden cases. Ligne source : 89.
+Recursively discovers golden-case YAML files.
 
 ## `bulkinout.request.reference_catalog`
 
-Source : `src/bulkinout/request/reference_catalog.py`
+Source: `src/bulkinout/request/reference_catalog.py`
 
 ### `build_catalog(reference_dir: Path) -> list[dict]`
 
-Produit les métadonnées synthétiques de tous les scénarios YAML. Ligne source : 5.
+Produces summarized metadata for every scenario YAML file.
 
 ## `bulkinout.request.reference_engine`
 
-Source : `src/bulkinout/request/reference_engine.py`
+Source: `src/bulkinout/request/reference_engine.py`
 
 ### `ScenarioMatch`
 
-Dataclass représentant un scénario apparié et son score. Ligne source : 12.
+Dataclass representing a matched scenario and its score.
 
 ### `_raw(case: ClinicalCase, field: str)`
 
-Lit un `ClinicalField` connu à partir d’un chemin `section.champ`. Ligne source : 20.
+Reads a known `ClinicalField` from a `section.field` path.
 
 ### `_predicate(case: ClinicalCase, pred: dict) -> bool`
 
-Évalue un prédicat YAML sur une valeur clinique connue. Ligne source : 33.
+Evaluates a YAML predicate against a known clinical value. Supported operators include `equals`, `contains`, `contains_any`, and `in`.
 
 ### `_condition(case: ClinicalCase, node: dict) -> bool`
 
-Évalue un groupe `all` ou `any` de prédicats. Ligne source : 53.
+Evaluates an `all` or `any` predicate group.
 
 ### `_candidate_applicable(case: ClinicalCase, candidate: dict) -> bool`
 
-Évalue la clause optionnelle `when` d’un candidat. Ligne source : 61.
+Evaluates a candidate's optional `when` clause.
 
 ### `ReferenceEngine`
 
-Classe de service ; ses méthodes sont documentées ci-dessous. Ligne source : 68.
+Service class whose methods are documented below.
 
 ### `ReferenceEngine.__init__(self, reference_dir: Path)`
 
-Charge tous les scénarios YAML du dossier de référence. Ligne source : 69.
+Loads all scenario YAML files from the reference directory.
 
 ### `ReferenceEngine.match(self, case: ClinicalCase) -> list[ScenarioMatch]`
 
-Retourne les scénarios dont les critères d’entrée sont satisfaits, triés par score. Ligne source : 77.
+Returns scenarios whose entry criteria match, ordered by score.
 
 ### `ReferenceEngine.unresolved_material_questions(self, case: ClinicalCase, scenario: dict) -> list[dict]`
 
-Retourne les questions matérielles dont le champ est encore inconnu. Ligne source : 101.
+Returns material questions whose field is still unknown.
 
 ### `ReferenceEngine.evaluate_rules(self, case: ClinicalCase, scenario: dict) -> list[dict]`
 
-Évalue les règles conditionnelles d’un scénario. Ligne source : 109.
+Evaluates a scenario's conditional rules.
 
 ### `ReferenceEngine.build_context(self, case: ClinicalCase, max_scenarios: int = 3) -> dict`
 
-Construit le contexte envoyé au moteur de décision : scénarios, candidats filtrés, questions, règles. Ligne source : 119.
+Builds the decision-engine context from scenarios, filtered candidates, questions, and rules.
 
 ## `bulkinout.request.request_builder`
 
-Source : `src/bulkinout/request/request_builder.py`
+Source: `src/bulkinout/request/request_builder.py`
 
 ### `_clean_value(section, key)`
 
-Retourne uniquement la valeur d’un champ connu et non conflictuel. Ligne source : 6.
+Returns only the value of a known, nonconflicting field.
 
 ### `_fmt(label, value)`
 
-Formate `label: value`; helper actuellement non utilisé par le builder. Ligne source : 13.
+Formats `label: value`; this helper is currently unused by the builder.
 
 ### `build_teleradiology_request(case: ClinicalCase, decision: ImagingDecision, questions: list[MissingQuestion]) -> TeleradiologyRequest`
 
-Assemble le brouillon de demande à partir du cas, de la décision et des questions. Ligne source : 17.
+Assembles the request draft from the case, decision, and questions.
 
 ## `bulkinout.request.rules`
 
-Source : `src/bulkinout/request/rules.py`
+Source: `src/bulkinout/request/rules.py`
 
 ### `_unknown(section: dict, key: str) -> bool`
 
-Teste l’absence, l’inconnu ou le conflit d’un champ clinique. Ligne source : 6.
+Checks whether a clinical field is absent, unknown, or conflicting.
 
 ### `generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]`
 
-Génère les contrôles génériques d’indication et de symptômes. Ligne source : 11.
+Generates generic indication and symptom checks.
 
 ### `recommendation_specific_questions(case: ClinicalCase, decision) -> list[MissingQuestion]`
 
-Ajoute les contrôles de sécurité/complétude spécifiques à la modalité proposée. Ligne source : 39.
+Adds safety and completeness checks specific to the proposed modality.

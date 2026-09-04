@@ -1,16 +1,16 @@
-# Documentation BULKINOUT v0
+# BULKINOUT v0 Documentation
 
-Cette documentation décrit **le code réellement présent dans la v0**. Les composants non implémentés sont explicitement indiqués comme tels.
+This documentation describes the code that is actually present in v0. Components that are not implemented are explicitly identified.
 
-1. [Architecture](architecture.md) — responsabilités de Core, Request et Report.
-2. [Modèle de données](data-model.md) — `RadiologyCase`, `ClinicalCase`, décisions et provenance.
-3. [BULKINOUT Core](core.md) — ingestion, extraction LLM et construction du cas.
-4. [BULKINOUT Request](request.md) — référentiel, décision, garde-fous et demande finale.
-5. [Référentiel](reference.md) — format YAML et fonctionnement du moteur.
-6. [Tests](testing.md) — pytest, golden cases et E2E synthétiques.
-7. [CLI](cli.md) — commandes et fichiers produits.
-8. [Référence du code](code-reference.md) — modules, classes, méthodes et fonctions de la v0.
+1. [Architecture](architecture.md) — Core, Request, and Report responsibilities.
+2. [Data model](data-model.md) — `RadiologyCase`, `ClinicalCase`, decisions, and provenance.
+3. [BULKINOUT Core](core.md) — file ingestion, multimodal extraction, and case construction.
+4. [BULKINOUT Request](request.md) — reference data, decision logic, safeguards, and final request.
+5. [Reference](reference.md) — YAML format and reference-engine behavior.
+6. [Tests](testing.md) — pytest, golden cases, and synthetic E2E fixtures.
+7. [CLI](cli.md) — commands, arguments, and generated files.
+8. [Code reference](code-reference.md) — v0 modules, classes, and functions.
 
-## Frontières de la v0
+## v0 Boundaries
 
-`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/` et `report/` existent pour stabiliser l'architecture, mais ne contiennent pas encore de logique métier substantielle. L'audit actuellement utilisé est la liste `RadiologyCase.audit`, alimentée par `core.service` et la CLI Request.
+`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` stabilize the architecture but do not yet contain substantial domain logic. The active audit mechanism is `RadiologyCase.audit`, populated by `core.service` and the Request CLI.

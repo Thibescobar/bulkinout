@@ -1,13 +1,16 @@
-# Revue radiologue
+# Radiologist Review
 
-Pour chaque cas end-to-end, noter :
-- scénario correct ;
-- questions pertinentes ;
-- examen correct ;
-- protocole correct ;
-- appel nécessaire ou inutile ;
-- information critique oubliée.
+For each end-to-end case, record whether the following are correct:
 
-Catégories d'erreur :
+- scenario;
+- clinical questions;
+- examination;
+- protocol;
+- clinician callback decision;
+- identification of missing critical information.
+
+Error categories:
 `core_extraction`, `scenario_matching`, `reference_question`, `reference_rule`,
 `decision_llm`, `safety_guard`, `request_generation`, `other`.
+
+The CSV headings and review categories are developer-facing and use English. Review comments may quote French clinical presentation text when necessary.

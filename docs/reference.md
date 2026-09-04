@@ -1,40 +1,37 @@
-# Référentiel Request
+# Request Reference
 
-Les scénarios sont des fichiers YAML dans `reference/scenarios/`. La v0 en contient 18, tous marqués `needs_local_validation`.
+Scenarios are YAML files in `reference/scenarios/`. v0 contains 18 scenarios, all marked `needs_local_validation`.
 
-## Structure utilisée
+## Structure
 
 ```yaml
 id: renal_colic
 version: 0.1.0
-title: Suspicion de colique néphrétique
+title: Suspected renal colic / urinary stone disease
 status: needs_local_validation
 sources: [...]
 entry:
   any:
-    - field: current_problem.location
-      contains: flanc
+    - {field: current_problem.location, contains_any: ["flanc", "flank"]}
 questions: [...]
 candidates: [...]
 rules: [...]
 ```
 
+Scenario titles, reasons, notes, and rule metadata are technical content and use English. Clinical questions and examination names presented to French users remain in French.
+
 ## Matching
 
-`ReferenceEngine.match()` évalue `entry.all` ou `entry.any`. Les prédicats supportés dans la v0 sont `equals`, `not_equals`, `contains` et `in`. Un champ `unknown` ou `conflicting` ne satisfait aucun prédicat.
+`ReferenceEngine.match()` evaluates `entry.all` or `entry.any`. v0 supports `equals`, `not_equals`, `contains`, `contains_any`, and `in`. `contains_any` accepts a synonym list and succeeds when any term is present. An `unknown` or `conflicting` field satisfies no predicate. Matching terms may be multilingual; French terms are preserved and English synonyms are added rather than replacing them.
 
-## Questions matérielles
+## Material Questions and Candidates
 
-`unresolved_material_questions()` retourne uniquement les questions avec `material: true` dont le champ n'est pas connu. Leur ordre dépend de `priority`.
+`unresolved_material_questions()` returns only `material: true` questions whose field is unknown, ordered by `priority`. `build_context()` includes only candidates whose optional `when` clause matches; candidates without `when` are always included.
 
-## Candidats
+## Rules
 
-`build_context()` ne renvoie que les candidats dont la clause optionnelle `when:` est satisfaite. Sans clause `when:`, le candidat est inclus. Le même mini-langage `all`/`any` et les mêmes prédicats sont utilisés.
+`evaluate_rules()` applies each `rules[].if` condition and returns its `result`. v0 can encode a preferred candidate or `no_imaging_recommended`; final interpretation is supplied to Request through `reference_context`.
 
-## Règles
+## Field-Path Limitation
 
-`evaluate_rules()` applique les objets `rules[].if` et renvoie leur `result`. La v0 sait notamment encoder un candidat préféré ou `no_imaging_recommended` ; l'interprétation finale est envoyée au moteur Request via `reference_context`.
-
-## Limite de chemin de champ
-
-Le moteur de règles lit actuellement les dictionnaires de premier niveau de `ClinicalCase` sous la forme `section.champ`. Il ne navigue pas arbitrairement dans des listes ou objets imbriqués. Les scénarios v0 utilisent donc des champs questionnables/complétables dans ces sections pour leurs règles déterministes.
+The rule engine reads first-level `ClinicalCase` dictionaries through `section.field` paths. It does not traverse arbitrary nested lists or objects. v0 scenarios therefore use fields that can be queried and completed within those sections.

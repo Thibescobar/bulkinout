@@ -1,6 +1,6 @@
 id: low_back_pain
 version: 0.1.0
-title: Lombalgie aiguë / lomboradiculalgie
+title: Acute low back pain / radiculopathy
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,27 +8,27 @@ sources:
     url: https://acsearch.acr.org/docs/69483/Narrative/
 entry:
   any:
-    - {field: current_problem.location, contains: "lomb"}
-    - {field: current_problem.indication, contains: "lombalg"}
+    - {field: current_problem.location, contains_any: ["lomb", "low back", "lumbar"]}
+    - {field: current_problem.indication, contains_any: ["lombalg", "low back pain"]}
 questions:
   - id: red_flags
     field: current_problem.red_flags
     question: "Existe-t-il un red flag (cancer, infection, traumatisme, déficit neurologique, syndrome de la queue de cheval, immunodépression, etc.) ?"
     priority: 1
     material: true
-    reason: "Une lombalgie aiguë sans red flag ne justifie généralement pas d'imagerie initiale."
+    reason: "Acute low back pain without red flags generally does not warrant initial imaging."
   - id: trauma_osteoporosis
     field: current_problem.fracture_risk
     question: "Traumatisme, ostéoporose, âge avancé ou corticothérapie chronique ?"
     priority: 1
     material: true
-    reason: "Peut orienter vers radiographies, TDM ou IRM."
+    reason: "May direct selection toward radiography, CT, or MRI."
   - id: prior_surgery
     field: history.prior_spine_surgery
     question: "Chirurgie lombaire antérieure avec symptômes nouveaux ou progressifs ?"
     priority: 2
     material: true
-    reason: "Modifie le choix de l'imagerie."
+    reason: "Changes imaging selection."
 candidates:
   - id: no_imaging
     exam_name: Pas d'imagerie initiale
@@ -57,4 +57,4 @@ rules:
         - {field: current_problem.red_flags, equals: false}
     result:
       no_imaging_recommended: true
-      reason: "ACR: imagerie initiale généralement non appropriée en l'absence de red flags."
+      reason: "ACR: initial imaging is generally not appropriate without red flags."

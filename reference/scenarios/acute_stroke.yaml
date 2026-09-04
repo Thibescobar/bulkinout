@@ -1,6 +1,6 @@
 id: acute_stroke
 version: 0.1.0
-title: Déficit neurologique aigu / suspicion d'AVC
+title: Acute neurologic deficit / suspected stroke
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,21 +8,21 @@ sources:
     url: https://acsearch.acr.org/docs/3149012/Narrative
 entry:
   any:
-    - {field: current_problem.suspected_diagnosis, contains: "AVC"}
-    - {field: current_problem.symptoms, contains: "déficit neurologique"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["AVC", "stroke"]}
+    - {field: current_problem.symptoms, contains_any: ["déficit neurologique", "neurologic deficit", "neurological deficit"]}
 questions:
   - id: onset
     field: current_problem.onset
     question: "Heure de début des symptômes ou dernière heure connue sans déficit ?"
     priority: 1
     material: true
-    reason: "Information majeure pour l'urgence et la stratégie neurovasculaire."
+    reason: "Critical information for urgency and neurovascular strategy."
   - id: resolved
     field: current_problem.symptoms_resolved
     question: "Les symptômes sont-ils résolus ?"
     priority: 2
     material: true
-    reason: "Distingue notamment un tableau d'AIT d'un déficit persistant."
+    reason: "Distinguishes a transient ischemic attack from a persistent deficit."
 candidates:
   - id: ct_head_nc
     exam_name: TDM cérébrale sans injection

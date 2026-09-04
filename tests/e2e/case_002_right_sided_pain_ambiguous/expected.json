@@ -1,6 +1,6 @@
 {
   "case_id": "case_002_right_sided_pain_ambiguous",
-  "purpose": "Le système ne doit pas forcer un scanner urinaire ou abdominal tant que la présentation reste ambiguë.",
+  "purpose": "The system must not force urinary or abdominal CT while the presentation remains ambiguous.",
   "core": {
     "must_extract": [
       "current_problem.indication",

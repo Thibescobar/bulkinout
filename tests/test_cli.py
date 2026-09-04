@@ -26,7 +26,7 @@ def question(field, text, *, blocking=False, importance="high"):
 
 
 def test_dump_and_answer_template_write_json(tmp_path):
-    cli._dump(tmp_path / "nested" / "payload.json", {"name": "été"})
+    cli._dump(tmp_path / "nested" / "payload.json", {"name": "Unicode ✓"})
     decision = ImagingDecision(
         primary=ImagingRecommendation(),
         discriminating_questions=[
@@ -53,7 +53,7 @@ def test_dump_and_answer_template_write_json(tmp_path):
 
     cli._write_answer_template(tmp_path, decision)
 
-    assert json.loads((tmp_path / "nested" / "payload.json").read_text())["name"] == "été"
+    assert json.loads((tmp_path / "nested" / "payload.json").read_text())["name"] == "Unicode ✓"
     payload = json.loads((tmp_path / "answers.template.json").read_text())
     assert payload["answers"] == [
         {
@@ -69,7 +69,7 @@ def test_core_structure_requires_api_key(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     args = SimpleNamespace(input=str(tmp_path), output=str(tmp_path / "out"), model="model")
 
-    with pytest.raises(SystemExit, match="OPENAI_API_KEY absent"):
+    with pytest.raises(SystemExit, match="OPENAI_API_KEY is missing"):
         cli.cmd_core_structure(args)
 
 
@@ -89,7 +89,7 @@ def test_core_structure_writes_outputs(monkeypatch, tmp_path, capsys):
 
     assert (output / "radiology_case.json").exists()
     assert (output / "llm_extraction.json").exists()
-    assert "Core structuring terminé" in capsys.readouterr().out
+    assert "Core structuring completed" in capsys.readouterr().out
 
 
 def test_request_run_requires_api_key(monkeypatch, tmp_path):
@@ -102,7 +102,7 @@ def test_request_run_requires_api_key(monkeypatch, tmp_path):
         model="model",
     )
 
-    with pytest.raises(SystemExit, match="OPENAI_API_KEY absent"):
+    with pytest.raises(SystemExit, match="OPENAI_API_KEY is missing"):
         cli.cmd_request_run(args)
 
 
@@ -194,7 +194,7 @@ def test_request_run_applies_guards_and_writes_all_outputs(monkeypatch, tmp_path
         "teleradiology_request.json",
         "answers.template.json",
     } <= {path.name for path in output.iterdir()}
-    assert "Décision: safety_blocked" in capsys.readouterr().out
+    assert "Decision: safety_blocked" in capsys.readouterr().out
 
 
 def test_request_run_applies_answer_file_and_nonblocking_material_guard(monkeypatch, tmp_path):
@@ -255,7 +255,7 @@ def test_request_run_applies_answer_file_and_nonblocking_material_guard(monkeypa
 def test_request_golden_handles_empty_success_and_failure(monkeypatch, tmp_path, capsys):
     args = SimpleNamespace(reference=str(tmp_path), cases=str(tmp_path))
     monkeypatch.setattr(cli, "discover_golden_cases", lambda path: [])
-    with pytest.raises(SystemExit, match="Aucun golden case trouvé"):
+    with pytest.raises(SystemExit, match="No golden cases found"):
         cli.cmd_request_golden(args)
 
     paths = [tmp_path / "pass.yaml", tmp_path / "fail.yaml"]
@@ -294,7 +294,7 @@ def test_request_catalog_prints_scenarios(monkeypatch, tmp_path, capsys):
     cli.cmd_request_catalog(SimpleNamespace(reference=str(tmp_path)))
 
     output = capsys.readouterr().out
-    assert "1 scénario(s)" in output
+    assert "1 scenario(s)" in output
     assert "renal_colic v1" in output
 
 
@@ -303,4 +303,4 @@ def test_main_dispatches_report_command(monkeypatch, capsys):
 
     cli.main()
 
-    assert "BULKINOUT Report est réservé" in capsys.readouterr().out
+    assert "BULKINOUT Report is reserved" in capsys.readouterr().out

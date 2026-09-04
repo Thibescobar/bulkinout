@@ -45,6 +45,12 @@ def _predicate(case: ClinicalCase, pred: dict) -> bool:
         else:
             hay = str(value).lower()
         return needle.lower() in hay
+    if "contains_any" in pred:
+        if isinstance(value, list):
+            hay = " ".join(map(str, value)).lower()
+        else:
+            hay = str(value).lower()
+        return any(str(needle).lower() in hay for needle in pred["contains_any"])
     if "in" in pred:
         return value in pred["in"]
     return False

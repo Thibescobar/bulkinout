@@ -1,6 +1,6 @@
 id: renal_colic
 version: 0.1.0
-title: Suspicion de colique néphrétique / lithiase urinaire
+title: Suspected renal colic / urinary stone disease
 status: needs_local_validation
 sources:
   - organization: ACR
@@ -8,22 +8,22 @@ sources:
     url: https://acsearch.acr.org/docs/69362/Narrative/
 entry:
   any:
-    - {field: current_problem.suspected_diagnosis, contains: "colique"}
-    - {field: current_problem.suspected_diagnosis, contains: "lithi"}
-    - {field: current_problem.location, contains: "flanc"}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["colique", "renal colic"]}
+    - {field: current_problem.suspected_diagnosis, contains_any: ["lithi", "urolith"]}
+    - {field: current_problem.location, contains_any: ["flanc", "flank"]}
 questions:
   - id: pregnancy
     field: imaging_safety.pregnancy
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
-    reason: "La grossesse modifie la hiérarchie des modalités."
+    reason: "Pregnancy changes the modality hierarchy."
   - id: prior_stone
     field: history.prior_urolithiasis
     question: "Lithiase connue ou imagerie récente documentant un calcul ?"
     priority: 3
     material: false
-    reason: "Peut modifier le contexte initial vs suivi."
+    reason: "May distinguish initial evaluation from follow-up."
 candidates:
   - id: ct_noncontrast
     exam_name: TDM abdomen-pelvis sans injection
@@ -42,4 +42,4 @@ candidates:
       all:
         - {field: imaging_safety.pregnancy, equals: true}
 notes:
-  - "Le référentiel encode la hiérarchie de modalité, pas les paramètres techniques locaux de dose."
+  - "The reference encodes modality hierarchy, not local technical dose parameters."

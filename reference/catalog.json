@@ -2,7 +2,7 @@
   {
     "id": "acute_abdominal_pain",
     "version": "0.1.0",
-    "title": "Douleur abdominale aiguë non localisée",
+    "title": "Acute nonlocalized abdominal pain",
     "status": "needs_local_validation",
     "source_file": "acute_abdominal_pain.yaml",
     "candidate_count": 1,
@@ -12,7 +12,7 @@
   {
     "id": "acute_aortic_syndrome",
     "version": "0.1.0",
-    "title": "Douleur thoracique aiguë / suspicion de syndrome aortique aigu",
+    "title": "Acute chest pain / suspected acute aortic syndrome",
     "status": "needs_local_validation",
     "source_file": "acute_aortic_syndrome.yaml",
     "candidate_count": 4,
@@ -22,7 +22,7 @@
   {
     "id": "acute_hip_trauma",
     "version": "0.1.0",
-    "title": "Douleur aiguë de hanche traumatique / suspicion de fracture occulte",
+    "title": "Acute traumatic hip pain / suspected occult fracture",
     "status": "needs_local_validation",
     "source_file": "acute_hip_trauma.yaml",
     "candidate_count": 3,
@@ -32,7 +32,7 @@
   {
     "id": "acute_pancreatitis",
     "version": "0.1.0",
-    "title": "Suspicion de pancréatite aiguë",
+    "title": "Suspected acute pancreatitis",
     "status": "needs_local_validation",
     "source_file": "acute_pancreatitis.yaml",
     "candidate_count": 3,
@@ -42,7 +42,7 @@
   {
     "id": "acute_stroke",
     "version": "0.1.0",
-    "title": "Déficit neurologique aigu / suspicion d'AVC",
+    "title": "Acute neurologic deficit / suspected stroke",
     "status": "needs_local_validation",
     "source_file": "acute_stroke.yaml",
     "candidate_count": 2,
@@ -52,7 +52,7 @@
   {
     "id": "cervical_spine_trauma",
     "version": "0.1.0",
-    "title": "Traumatisme cervical contondant",
+    "title": "Acute blunt cervical spine trauma",
     "status": "needs_local_validation",
     "source_file": "cervical_spine_trauma.yaml",
     "candidate_count": 1,
@@ -62,7 +62,7 @@
   {
     "id": "head_trauma",
     "version": "0.1.0",
-    "title": "Traumatisme crânien aigu",
+    "title": "Acute head trauma",
     "status": "needs_local_validation",
     "source_file": "head_trauma.yaml",
     "candidate_count": 1,
@@ -72,7 +72,7 @@
   {
     "id": "jaundice",
     "version": "0.1.0",
-    "title": "Ictère / suspicion d'obstruction biliaire",
+    "title": "Jaundice / suspected biliary obstruction",
     "status": "needs_local_validation",
     "source_file": "jaundice.yaml",
     "candidate_count": 3,
@@ -82,7 +82,7 @@
   {
     "id": "llq_diverticulitis",
     "version": "0.1.0",
-    "title": "Douleur de fosse iliaque gauche / suspicion de diverticulite",
+    "title": "Left lower quadrant pain / suspected diverticulitis",
     "status": "needs_local_validation",
     "source_file": "llq_diverticulitis.yaml",
     "candidate_count": 1,
@@ -92,7 +92,7 @@
   {
     "id": "low_back_pain",
     "version": "0.1.0",
-    "title": "Lombalgie aiguë / lomboradiculalgie",
+    "title": "Acute low back pain / radiculopathy",
     "status": "needs_local_validation",
     "source_file": "low_back_pain.yaml",
     "candidate_count": 4,
@@ -102,7 +102,7 @@
   {
     "id": "new_onset_seizure",
     "version": "0.1.0",
-    "title": "Première crise comitiale / crise de novo",
+    "title": "New-onset seizure",
     "status": "needs_local_validation",
     "source_file": "new_onset_seizure.yaml",
     "candidate_count": 2,
@@ -112,7 +112,7 @@
   {
     "id": "renal_colic",
     "version": "0.1.0",
-    "title": "Suspicion de colique néphrétique / lithiase urinaire",
+    "title": "Suspected renal colic / urinary stone disease",
     "status": "needs_local_validation",
     "source_file": "renal_colic.yaml",
     "candidate_count": 2,
@@ -122,7 +122,7 @@
   {
     "id": "right_upper_quadrant_pain",
     "version": "0.1.0",
-    "title": "Douleur de l'hypochondre droit / suspicion biliaire",
+    "title": "Right upper quadrant pain / suspected biliary disease",
     "status": "needs_local_validation",
     "source_file": "right_upper_quadrant_pain.yaml",
     "candidate_count": 3,
@@ -132,7 +132,7 @@
   {
     "id": "rlq_appendicitis",
     "version": "0.1.0",
-    "title": "Douleur de fosse iliaque droite / suspicion d'appendicite",
+    "title": "Right lower quadrant pain / suspected appendicitis",
     "status": "needs_local_validation",
     "source_file": "rlq_appendicitis.yaml",
     "candidate_count": 1,
@@ -142,7 +142,7 @@
   {
     "id": "small_bowel_obstruction",
     "version": "0.1.0",
-    "title": "Suspicion d'occlusion du grêle",
+    "title": "Suspected small bowel obstruction",
     "status": "needs_local_validation",
     "source_file": "small_bowel_obstruction.yaml",
     "candidate_count": 2,
@@ -152,7 +152,7 @@
   {
     "id": "suspected_pulmonary_embolism",
     "version": "0.1.0",
-    "title": "Suspicion d'embolie pulmonaire",
+    "title": "Suspected pulmonary embolism",
     "status": "needs_local_validation",
     "source_file": "suspected_pe.yaml",
     "candidate_count": 1,
@@ -162,7 +162,7 @@
   {
     "id": "suspected_spine_infection",
     "version": "0.1.0",
-    "title": "Suspicion d'infection rachidienne / spondylodiscite / abcès épidural",
+    "title": "Suspected spine infection / spondylodiscitis / epidural abscess",
     "status": "needs_local_validation",
     "source_file": "suspected_spine_infection.yaml",
     "candidate_count": 2,
@@ -172,7 +172,7 @@
   {
     "id": "thunderclap_headache",
     "version": "0.1.0",
-    "title": "Céphalée brutale maximale en moins d'une heure",
+    "title": "Thunderclap headache reaching maximum intensity within one hour",
     "status": "needs_local_validation",
     "source_file": "thunderclap_headache.yaml",
     "candidate_count": 2,
