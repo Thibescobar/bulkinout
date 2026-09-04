@@ -90,26 +90,26 @@ bulkinout
 
 ### Commands and arguments
 
-| Command | Command&#8209;line&nbsp;argument | Default | Purpose |
+| Command&nbsp;/&nbsp;subcommand | Command&#8209;line&nbsp;argument | Default | Purpose |
 |---|---|---|---|
 | `core structure` | `--input` | `input` | Directory scanned recursively for supported documents. |
 |  | `--output` | `output` | Directory receiving Core JSON outputs. |
-|  | `--model` | `BULKINOUT_EXTRACTION_MODEL`, then `BULKINOUT_MODEL` | Model used for structured extraction. |
+|  | `--model` | extraction&nbsp;→&nbsp;shared&nbsp;env | Model used for structured extraction. |
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
-|  | `--reference` | packaged reference | Optional scenario-directory override. |
-|  | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used by Core. |
-|  | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used by Request. |
-|  | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
-| `request catalog` | `--reference` | packaged reference | Optional reference directory to summarize instead. |
+|  | `--reference` | packaged&nbsp;reference | Optional scenario-directory override. |
+|  | `--extraction-model` | extraction&nbsp;env | Model used by Core. |
+|  | `--decision-model` | decision&nbsp;env | Model used by Request. |
+|  | `--model` | shared&nbsp;env | Optional shared fallback for both stages. |
+| `request catalog` | `--reference` | packaged&nbsp;reference | Optional reference directory to summarize instead. |
 | `request golden` | `--cases` | `tests/golden` | Directory containing deterministic golden cases. |
-|  | `--reference` | packaged reference | Optional reference override evaluated by the golden cases. |
+|  | `--reference` | packaged&nbsp;reference | Optional reference override evaluated by the golden cases. |
 | `request evaluate` | `--case` | required | E2E fixture directory containing `expected.json`. |
 |  | `--run` | required | Directory containing saved Request artifacts. |
 |  | `--report` | none | Optional path for a machine-readable evaluation report. |
 
-The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then `BULKINOUT_MODEL`. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
+Here, extraction env, decision env, and shared env mean `BULKINOUT_EXTRACTION_MODEL`, `BULKINOUT_DECISION_MODEL`, and `BULKINOUT_MODEL`, respectively. The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then the shared environment variable. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
 ## Python integration
 
