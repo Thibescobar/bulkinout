@@ -10,7 +10,9 @@ bulkinout = "bulkinout.cli:main"
 Install the package in editable mode before using the command:
 
 ```bash
-pip install -e ".[dev]"
+conda create --name bulkinout python=3.11 -y
+conda activate bulkinout
+python -m pip install -e ".[dev]"
 bulkinout --help
 ```
 

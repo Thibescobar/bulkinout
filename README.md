@@ -51,9 +51,9 @@ PDF / TXT / Markdown / images
 ## Quick start
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+conda create --name bulkinout python=3.11 -y
+conda activate bulkinout
+python -m pip install -e ".[dev]"
 cp .env.example .env               # or export the variables manually
 export OPENAI_API_KEY="..."
 export BULKINOUT_MODEL="<compatible-model>"

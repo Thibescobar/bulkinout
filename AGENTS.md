@@ -11,9 +11,9 @@ Canonical clinical scenarios live in `reference/scenarios/*.yaml`, with catalog 
 Create a local environment and install the package in editable mode:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+conda create --name bulkinout python=3.11 -y
+conda activate bulkinout
+python -m pip install -e ".[dev]"
 ```
 
 Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden` to validate scenario rules without an LLM; add `--reference reference/scenarios` when intentionally testing the source override. Use `bulkinout request catalog` to inspect the packaged scenarios. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific model settings or the shared `BULKINOUT_MODEL` fallback; for example, `bulkinout request run --input input --output output`. Python integrations may inject provider-neutral components instead.

@@ -7,8 +7,8 @@ This guide explains how to work on Bulkinout safely and how to locate the right 
 Bulkinout requires Python 3.11 or newer. From the repository root:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+conda create --name bulkinout python=3.11 -y
+conda activate bulkinout
 python -m pip install -e ".[dev]"
 cp .env.example .env
 ```
