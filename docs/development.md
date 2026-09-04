@@ -13,7 +13,7 @@ python -m pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-The editable install exposes the `bulkinout` command while keeping imports connected to `src/`. Deterministic tests do not need credentials. Commands that call an LLM require both `OPENAI_API_KEY` and a model selected with `BULKINOUT_MODEL` or `--model`:
+The editable install exposes the `bulkinout` command while keeping imports connected to `src/`. Deterministic tests do not need credentials. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific models or the shared `BULKINOUT_MODEL` / `--model` fallback:
 
 ```bash
 export OPENAI_API_KEY="..."
@@ -49,6 +49,7 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 | Request service | `src/bulkinout/request/service.py` | Owns the complete pre-exam execution order and safeguards |
 | Output writers | `src/bulkinout/output.py` | Serializes Core and Request results to the documented JSON files |
 | File ingestion | `src/bulkinout/core/ingestion/` | Discovers supported input files |
+| LLM contracts | `core/interfaces.py`, `request/interfaces.py` | Defines provider-neutral extraction and decision boundaries |
 | Extraction | `src/bulkinout/core/extraction/llm.py` | Builds multimodal LLM input and validates structured extraction |
 | Shared models | `src/bulkinout/core/models/case.py` | Defines the longitudinal case, facts, decisions, and requests |
 | Core service | `src/bulkinout/core/service.py` | Creates a `RadiologyCase` from an input directory |
@@ -58,9 +59,20 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 | Clinical presentation | `src/bulkinout/request/request_builder.py` | Builds the French-facing teleradiology request |
 | Reference content | `reference/scenarios/*.yaml` | Stores scenario matching, questions, candidates, and deterministic rules |
 
-The full Request workflow is orchestrated by `run_request()`. Keep the CLI thin and add application behavior to the service so CLI and Python users cannot diverge. Moving a guard before or after the LLM decision can change clinical behavior.
+The full Request workflow is orchestrated by `run_request()`. Keep the CLI thin and add application behavior to the service so CLI and Python users cannot diverge. Provider adapters must stop at the typed `LLMExtraction` and `ImagingDecision` boundaries; they must not duplicate reference matching or deterministic guards. Moving a guard before or after the LLM decision can change clinical behavior.
 
 ## Follow common change recipes
+
+### Add an LLM provider adapter
+
+Implement the narrowest contract needed by the provider:
+
+- `CoreExtractor` for document-to-`LLMExtraction` processing;
+- `RequestDecisionEngine` for case-to-`ImagingDecision` comparison.
+
+Keep SDK clients, credentials, message formats, document transport, and response parsing inside the adapter. Return the existing Pydantic model instead of introducing provider-shaped data into Core or Request. Do not move scenario matching, deterministic guards, or request construction into the adapter.
+
+Test the adapter with a simulated client, then inject a small fake protocol implementation into the application service test. A real-model check belongs in `tests/e2e/` and must record the provider and model used. Adding an adapter does not establish clinical equivalence with an already evaluated model.
 
 ### Add or correct a reference scenario
 
@@ -103,7 +115,7 @@ For an LLM-backed run, inspect artifacts in order:
 5. `missing_questions.json` — which deterministic checks remain unresolved?
 6. `teleradiology_request.json` — which reliable facts reached presentation output?
 
-If no document is found, verify the supported suffix and the input directory. If the CLI reports a missing model, check `--model` and `BULKINOUT_MODEL`; if it reports a missing key, check `OPENAI_API_KEY`. Do not paste real patient artifacts or secrets into issues, test output, or debug logs.
+If no document is found, verify the supported suffix and the input directory. If the CLI reports a missing model, check the corresponding `--extraction-model` or `--decision-model` option and environment variable, then the shared `--model` / `BULKINOUT_MODEL` fallback. If it reports a missing key, check `OPENAI_API_KEY`. Do not paste real patient artifacts or secrets into issues, test output, or debug logs.
 
 LLM calls are not part of the default suite and may vary across models. A successful schema validation demonstrates structural compatibility, not clinical correctness. Record representative E2E findings with `review/radiologist_review_template.csv`.
 

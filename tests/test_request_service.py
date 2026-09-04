@@ -44,17 +44,16 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
     monkeypatch.setattr(
         service,
         "build_radiology_case",
-        lambda input_dir, model: CoreResult(radiology_case, extraction, []),
+        lambda input_dir, model, extractor: CoreResult(radiology_case, extraction, []),
     )
     monkeypatch.setattr(service, "ReferenceEngine", FakeReferenceEngine)
-    monkeypatch.setattr(service, "OpenAIRequestDecision", FakeDecisionEngine)
     monkeypatch.setattr(service, "generic_missing_questions", lambda received_case: initial)
     monkeypatch.setattr(
         service,
         "recommendation_specific_questions",
         lambda received_case, received_decision: specific,
     )
-    return radiology_case
+    return radiology_case, FakeDecisionEngine()
 
 
 def test_run_request_applies_safety_guards_and_builds_result(monkeypatch, tmp_path):
@@ -73,11 +72,16 @@ def test_run_request_applies_safety_guards_and_builds_result(monkeypatch, tmp_pa
     )
     safety = question("imaging_safety.pacemaker", "Pacemaker?", blocking=True)
     nonblocking = question("imaging_safety.implant_or_metal", "Implant?")
-    radiology_case = configure_workflow(
+    radiology_case, decision_engine = configure_workflow(
         monkeypatch, case, decision, [initial], [safety, nonblocking]
     )
 
-    result = service.run_request(tmp_path, reference_dir=tmp_path, model="model")
+    result = service.run_request(
+        tmp_path,
+        reference_dir=tmp_path,
+        model="model",
+        decision_engine=decision_engine,
+    )
 
     assert result.imaging_decision.decision_status == "safety_blocked"
     assert result.imaging_decision.clinician_call_required is True
@@ -99,7 +103,7 @@ def test_run_request_applies_answers_and_nonblocking_material_guard(monkeypatch,
         clinician_call_required=False,
         decision_ready_for_human_approval=True,
     )
-    configure_workflow(
+    _, decision_engine = configure_workflow(
         monkeypatch,
         case,
         decision,
@@ -121,6 +125,7 @@ def test_run_request_applies_answers_and_nonblocking_material_guard(monkeypatch,
         reference_dir=tmp_path,
         model="model",
         answers_path=tmp_path / "answers.json",
+        decision_engine=decision_engine,
     )
 
     assert applied == [("loaded", "answers.json")]
@@ -139,3 +144,73 @@ def test_question_guards_leave_decision_unchanged_without_material_questions():
 
     assert decision.decision_status == "selected"
     assert decision.decision_ready_for_human_approval is True
+
+
+def test_run_request_accepts_custom_components_without_openai_configuration(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
+    source = tmp_path / "note.txt"
+    source.write_text("synthetic clinical input", encoding="utf-8")
+
+    class LocalExtractor:
+        name = "test_local_extractor"
+        model = "local-extraction-model"
+
+        def extract(self, paths):
+            assert paths == [source]
+            return LLMExtraction()
+
+    class LocalDecisionEngine:
+        def decide(self, received_case, missing_questions, reference_context=None):
+            assert received_case.metadata["extractor"] == "test_local_extractor"
+            assert len(missing_questions) == 2
+            assert reference_context == {"matched_scenarios": []}
+            return ImagingDecision(primary=ImagingRecommendation())
+
+    result = service.run_request(
+        tmp_path,
+        reference_dir=tmp_path / "reference",
+        extractor=LocalExtractor(),
+        decision_engine=LocalDecisionEngine(),
+    )
+
+    assert result.source_paths == [source]
+    assert result.clinical_case.metadata["model"] == "local-extraction-model"
+    assert result.imaging_decision.decision_status == "insufficient_information"
+
+
+def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
+    case = ClinicalCase()
+    decision = ImagingDecision(primary=ImagingRecommendation())
+    radiology_case, decision_engine = configure_workflow(
+        monkeypatch,
+        case,
+        decision,
+        [],
+        [],
+    )
+    captured = {}
+
+    def build_case(input_dir, model, extractor):
+        captured["extraction_model"] = model
+        return CoreResult(radiology_case, LLMExtraction(), [])
+
+    def build_decision_engine(model):
+        captured["decision_model"] = model
+        return decision_engine
+
+    monkeypatch.setattr(service, "build_radiology_case", build_case)
+    monkeypatch.setattr(service, "OpenAIRequestDecision", build_decision_engine)
+
+    service.run_request(
+        tmp_path,
+        reference_dir=tmp_path,
+        model="shared-model",
+        extraction_model="extraction-model",
+        decision_model="decision-model",
+    )
+
+    assert captured == {
+        "extraction_model": "extraction-model",
+        "decision_model": "decision-model",
+    }

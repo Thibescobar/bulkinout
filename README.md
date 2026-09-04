@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-73%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-79%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -89,21 +89,23 @@ bulkinout
 
 ### Commands and arguments
 
-| Command | Argument | Default | Purpose |
+| Command | Command&#8209;line&nbsp;argument | Default | Purpose |
 |---|---|---|---|
 | `core structure` | `--input` | `input` | Directory scanned recursively for supported documents. |
 |  | `--output` | `output` | Directory receiving Core JSON outputs. |
-|  | `--model` | `BULKINOUT_MODEL` | Model used for structured extraction. |
+|  | `--model` | `BULKINOUT_EXTRACTION_MODEL`, then `BULKINOUT_MODEL` | Model used for structured extraction. |
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
 |  | `--reference` | `reference/scenarios` | Directory containing scenario YAML files. |
-|  | `--model` | `BULKINOUT_MODEL` | Model used by Core and Request. |
+|  | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used by Core. |
+|  | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used by Request. |
+|  | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
 | `request catalog` | `--reference` | `reference/scenarios` | Reference directory to summarize. |
 | `request golden` | `--cases` | `tests/golden` | Directory containing deterministic golden cases. |
 |  | `--reference` | `reference/scenarios` | Reference evaluated by the golden cases. |
 
-`core structure` and `request run` require `OPENAI_API_KEY`. A command-line `--model` value overrides `BULKINOUT_MODEL`. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
+The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then `BULKINOUT_MODEL`. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
 ## Python integration
 
@@ -117,7 +119,8 @@ from bulkinout import run_request, write_request_outputs
 result = run_request(
     Path("input"),
     reference_dir=Path("reference/scenarios"),
-    model="<compatible-model>",
+    extraction_model="<multimodal-model>",
+    decision_model="<decision-model>",
 )
 
 print(result.imaging_decision.decision_status)
@@ -127,7 +130,7 @@ print(result.teleradiology_request.model_dump(mode="json"))
 write_request_outputs(result, Path("output"))
 ```
 
-This path requires `OPENAI_API_KEY`. `run_request()` executes Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
+With its defaults, this path requires `OPENAI_API_KEY`. Python callers can instead inject provider-neutral extraction and decision components, including local implementations; see the [Python API guide](docs/python-api.md#custom-and-local-llm-components). `run_request()` still owns Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
 
 ## Generated outputs
 

@@ -12,7 +12,8 @@ from bulkinout import run_request, write_request_outputs
 result = run_request(
     Path("input"),
     reference_dir=Path("reference/scenarios"),
-    model="<compatible-model>",
+    extraction_model="<multimodal-model>",
+    decision_model="<decision-model>",
     answers_path=None,
 )
 
@@ -56,9 +57,43 @@ write_core_outputs(result, Path("output_core"))
 record, extraction, source_paths = result
 ```
 
+## Custom and local LLM components
+
+The services accept two small provider-neutral protocols:
+
+```text
+CoreExtractor
+└── extract(paths) -> LLMExtraction
+
+RequestDecisionEngine
+└── decide(case, missing_questions, reference_context) -> ImagingDecision
+```
+
+An extractor also exposes `name` and `model` strings so Core can preserve the implementation identity in case metadata and audit output. A custom adapter owns document decoding, transport, prompting, and response parsing. It must return the existing Pydantic contract; it must not add reference matching or clinical safeguards.
+
+```python
+from pathlib import Path
+
+from bulkinout import CoreExtractor, RequestDecisionEngine, run_request
+
+extractor: CoreExtractor = MyLocalExtractor(model="local-extractor")
+decision_engine: RequestDecisionEngine = MyLocalDecisionEngine(model="local-decision")
+
+result = run_request(
+    Path("input"),
+    reference_dir=Path("reference/scenarios"),
+    extractor=extractor,
+    decision_engine=decision_engine,
+)
+```
+
+Supplying both components removes the OpenAI configuration requirement. Mixed configurations are also valid: for example, a local extractor can be combined with the default OpenAI decision engine. In that case, stage-specific model arguments configure the corresponding default component. The legacy `model=` argument remains a shared fallback, followed by `BULKINOUT_EXTRACTION_MODEL` or `BULKINOUT_DECISION_MODEL`, then `BULKINOUT_MODEL`. Any default component still requires `OPENAI_API_KEY`.
+
+This is dependency injection, not automatic provider discovery. Bulkinout ships OpenAI adapters only; an Ollama, llama.cpp, vLLM, or other local integration must implement these protocols and demonstrate that its outputs validate as `LLMExtraction` and `ImagingDecision`. Deterministic guards run after every decision engine in the same order.
+
 ## Configuration and failures
 
-LLM-backed services require `OPENAI_API_KEY` plus either the `model` argument or `BULKINOUT_MODEL`. Catch `BulkinoutError` for expected application failures:
+The default OpenAI components require `OPENAI_API_KEY` plus a stage-specific model setting or the shared `model=` / `BULKINOUT_MODEL` fallback. Injected components own their configuration. Catch `BulkinoutError` for expected application failures:
 
 ```python
 from pathlib import Path
@@ -71,6 +106,6 @@ except BulkinoutError as error:
     handle_expected_failure(str(error))
 ```
 
-`ConfigurationError`, `InputError`, and `ReferenceDataError` provide narrower handling. OpenAI, filesystem, JSON, YAML, and Pydantic exceptions keep their original types rather than being hidden inside a generic wrapper.
+`ConfigurationError`, `InputError`, and `ReferenceDataError` provide narrower handling. Provider, filesystem, JSON, YAML, and Pydantic exceptions keep their original types rather than being hidden inside a generic wrapper.
 
 The API is synchronous and has no global mutable workflow state. HTTP transport, authentication, durable persistence, request isolation, retries, and approval storage remain integration responsibilities.

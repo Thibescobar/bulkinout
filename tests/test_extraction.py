@@ -42,14 +42,29 @@ def test_extract_json_prefers_output_text_and_falls_back_to_chunks():
 
 
 def test_extractor_requires_a_model(monkeypatch):
+    monkeypatch.delenv("BULKINOUT_EXTRACTION_MODEL", raising=False)
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ConfigurationError, match="No model configured"):
+    with pytest.raises(ConfigurationError, match="No extraction model configured"):
         llm.OpenAICoreExtractor()
 
 
+def test_extractor_prefers_specific_model_environment(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("BULKINOUT_EXTRACTION_MODEL", "extraction-model")
+    monkeypatch.setenv("BULKINOUT_MODEL", "shared-model")
+    monkeypatch.setattr(llm, "OpenAI", lambda: SimpleNamespace())
+
+    assert llm.OpenAICoreExtractor().model == "extraction-model"
+    assert llm.OpenAICoreExtractor(model="explicit-model").model == "explicit-model"
+
+    monkeypatch.delenv("BULKINOUT_EXTRACTION_MODEL")
+    assert llm.OpenAICoreExtractor().model == "shared-model"
+
+
 def test_structured_call_uses_configured_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     responses = FakeResponses(SimpleNamespace(output_text='{"facts": []}'))
     client = SimpleNamespace(responses=responses)
     monkeypatch.setattr(llm, "OpenAI", lambda: client)
@@ -60,6 +75,13 @@ def test_structured_call_uses_configured_model(monkeypatch):
     assert result == LLMExtraction()
     assert responses.calls[0]["model"] == "test-model"
     assert responses.calls[0]["text"]["format"]["strict"] is True
+
+
+def test_extractor_requires_openai_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY is missing"):
+        llm.OpenAICoreExtractor(model="test-model")
 
 
 def test_upload_or_inline_handles_images_and_documents(tmp_path):

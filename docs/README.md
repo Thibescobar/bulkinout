@@ -38,7 +38,7 @@ Three ideas are central:
 ### Run or troubleshoot the software
 
 1. [CLI](cli.md) for commands, options, output files, and expected failures.
-2. [Python API](python-api.md) for public services, typed results, persistence, and errors.
+2. [Python API](python-api.md) for public services, typed results, provider injection, persistence, and errors.
 3. [Operations and safety](operations.md) for configuration, data handling, and production gaps.
 4. [Testing](testing.md) for automated, golden, and manual validation.
 

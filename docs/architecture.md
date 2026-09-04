@@ -74,6 +74,22 @@ Request may import Core models. Core must never import Request. This one-way dep
 
 `src/bulkinout/report/` currently contains no post-exam processing. The corresponding fields in `RadiologyCase` reserve space for acquisition metadata, AI results, radiologist observations, findings, impression, and a final report. Their presence is an architectural promise, not implemented behavior.
 
+## LLM provider boundary
+
+Application services depend on two structural protocols rather than a provider SDK:
+
+```mermaid
+flowchart LR
+    CORE[Core service] --> EXTRACT[CoreExtractor]
+    REQUEST[Request service] --> DECISION[RequestDecisionEngine]
+    EXTRACT --> OPENAI_E[OpenAI extractor]
+    EXTRACT -. injection .-> CUSTOM_E[Custom or local extractor]
+    DECISION --> OPENAI_D[OpenAI decision engine]
+    DECISION -. injection .-> CUSTOM_D[Custom or local decision engine]
+```
+
+`CoreExtractor` accepts source paths and returns `LLMExtraction`. `RequestDecisionEngine` accepts a `ClinicalCase`, unresolved questions, and `ReferenceContext`, then returns `ImagingDecision`. OpenAI is the built-in default, but Python callers may inject either component independently. Provider-specific transport, prompts, credentials, and response parsing stay inside adapters. Reference matching, deterministic guards, request construction, and human-approval boundaries remain in Bulkinout services and cannot be replaced through these interfaces.
+
 ## End-to-end sequence
 
 ```mermaid
@@ -155,5 +171,6 @@ There is no concurrency control, durable workflow engine, identity model, or per
 - Add evidence reconciliation behind `core/reconciliation/` while preserving original provenance.
 - Build a chronological view behind `core/timeline/` from dated facts and prior imaging.
 - Add scenarios under `reference/scenarios/` with golden cases before changing matching behavior.
+- Add an LLM provider by implementing `CoreExtractor` and/or `RequestDecisionEngine`; keep provider transport outside application services.
 - Add an authenticated HTTP boundary around the public Python service only after defining request isolation, persistence, and operational error contracts.
 - Implement Report against `RadiologyCase` without importing Request-specific behavior into Core.

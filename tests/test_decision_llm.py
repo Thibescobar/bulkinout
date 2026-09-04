@@ -37,14 +37,29 @@ def test_schema_format_is_strict():
 
 
 def test_decision_engine_requires_model(monkeypatch):
+    monkeypatch.delenv("BULKINOUT_DECISION_MODEL", raising=False)
     monkeypatch.delenv("BULKINOUT_MODEL", raising=False)
     monkeypatch.setattr(decision_llm, "OpenAI", lambda: SimpleNamespace())
 
-    with pytest.raises(ConfigurationError, match="No model configured"):
+    with pytest.raises(ConfigurationError, match="No decision model configured"):
         decision_llm.OpenAIRequestDecision()
 
 
+def test_decision_engine_prefers_specific_model_environment(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("BULKINOUT_DECISION_MODEL", "decision-model")
+    monkeypatch.setenv("BULKINOUT_MODEL", "shared-model")
+    monkeypatch.setattr(decision_llm, "OpenAI", lambda: SimpleNamespace())
+
+    assert decision_llm.OpenAIRequestDecision().model == "decision-model"
+    assert decision_llm.OpenAIRequestDecision(model="explicit-model").model == "explicit-model"
+
+    monkeypatch.delenv("BULKINOUT_DECISION_MODEL")
+    assert decision_llm.OpenAIRequestDecision().model == "shared-model"
+
+
 def test_decide_sends_case_questions_and_reference_context(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     calls = []
 
     def create(**kwargs):
@@ -69,6 +84,7 @@ def test_decide_sends_case_questions_and_reference_context(monkeypatch):
 
 
 def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     calls = []
     client = SimpleNamespace(
         responses=SimpleNamespace(
@@ -83,3 +99,10 @@ def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):
 
     payload = json.loads(calls[0]["input"][1]["content"][0]["text"])
     assert payload["reference_context"] == {}
+
+
+def test_decision_engine_requires_openai_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY is missing"):
+        decision_llm.OpenAIRequestDecision(model="test-model")
