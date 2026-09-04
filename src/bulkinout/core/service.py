@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import NamedTuple
 
-from ..errors import ConfigurationError, InputError
+from ..errors import InputError
 from .extraction import OpenAICoreExtractor, extraction_to_case
 from .ingestion import collect_files
+from .interfaces import CoreExtractor
 from .models import ArtifactRef, LLMExtraction, RadiologyCase, WorkflowState
 
 
@@ -18,18 +18,24 @@ class CoreResult(NamedTuple):
     source_paths: list[Path]
 
 
-def build_radiology_case(input_dir: Path, model: str | None = None) -> CoreResult:
+def build_radiology_case(
+    input_dir: Path,
+    model: str | None = None,
+    *,
+    extractor: CoreExtractor | None = None,
+) -> CoreResult:
+    """Build a radiology case with the default or an injected extractor."""
+
     paths = collect_files(input_dir)
     if not paths:
         raise InputError(f"No supported document found in {input_dir}")
-    if not os.getenv("OPENAI_API_KEY"):
-        raise ConfigurationError("OPENAI_API_KEY is missing.")
 
-    extractor = OpenAICoreExtractor(model=model)
-    extraction = extractor.extract(paths)
+    selected_extractor = extractor or OpenAICoreExtractor(model=model)
+    extraction = selected_extractor.extract(paths)
     clinical = extraction_to_case(extraction)
+    clinical.metadata["extractor"] = selected_extractor.name
     clinical.metadata["documents_processed"] = len(paths)
-    clinical.metadata["model"] = extractor.model
+    clinical.metadata["model"] = selected_extractor.model
 
     case = RadiologyCase(
         workflow=WorkflowState(phase="pre_exam", status="active"),
@@ -42,6 +48,6 @@ def build_radiology_case(input_dir: Path, model: str | None = None) -> CoreResul
             )
             for p in paths
         ],
-        audit=[{"event": "core_structuring_completed", "model": extractor.model}],
+        audit=[{"event": "core_structuring_completed", "model": selected_extractor.model}],
     )
     return CoreResult(case, extraction, paths)

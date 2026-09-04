@@ -76,7 +76,7 @@ This object is saved as `reference_context.json` and sent to the decision model.
 
 ## 4. LLM candidate comparison
 
-`OpenAIRequestDecision.decide()` sends three inputs:
+The Request service depends on `RequestDecisionEngine`. Its default implementation, `OpenAIRequestDecision`, resolves its model from the explicit decision setting, `BULKINOUT_DECISION_MODEL`, or the shared `BULKINOUT_MODEL` fallback, then sends three inputs:
 
 ```json
 {
@@ -86,9 +86,9 @@ This object is saved as `reference_context.json` and sent to the decision model.
 }
 ```
 
-The response must validate as `ImagingDecision`. The prompt tells the model to use reference context as the local normative context, compare candidates, ask the minimum number of material questions, avoid fabricated safety facts, and abstain when required information is missing.
+Every implementation must return an `ImagingDecision`. The default prompt tells the model to use reference context as the local normative context, compare candidates, ask the minimum number of material questions, avoid fabricated safety facts, and abstain when required information is missing.
 
-The model is still a variable component. Its schema constrains shape, not clinical truth or reproducibility. The next steps therefore re-evaluate critical state transitions in code.
+The model is still a variable component. Its schema constrains shape, not clinical truth or reproducibility. Injecting another provider does not bypass the deterministic guards that re-evaluate critical state transitions in the following steps.
 
 ## 5. Deterministic decision guard
 

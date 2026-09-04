@@ -11,7 +11,7 @@ flowchart LR
     C -- TXT / Markdown --> D[Inline text]
     C -- PNG / JPEG / WebP --> E[Base64 image]
     C -- PDF --> F[Uploaded input_file]
-    D --> G[OpenAICoreExtractor]
+    D --> G[CoreExtractor]
     E --> G
     F --> G
     G --> H[LLMExtraction validation]
@@ -26,7 +26,9 @@ The important separation is between the model response and the application recor
 
 `core.ingestion.files.collect_files(input_dir)` recursively finds supported files and returns them in sorted order.
 
-| Extension | Transport to the model |
+The built-in `OpenAICoreExtractor` uses this transport. A custom `CoreExtractor` owns its own document decoding and transport.
+
+| Extension | Default OpenAI transport |
 |---|---|
 | `.txt`, `.md` | Read as UTF-8 with replacement for invalid bytes, then inserted as `input_text`. |
 | `.png`, `.jpg`, `.jpeg`, `.webp` | Base64-encoded as an `input_image` data URL. |
@@ -43,7 +45,7 @@ Unsupported files, including test oracle JSON, are ignored. An empty supported-f
 
 ## Step 2: structured extraction
 
-`OpenAICoreExtractor` requires a model from its constructor or `BULKINOUT_MODEL`. It submits a developer prompt and all document content through the Responses API, requesting a strict JSON schema generated from `LLMExtraction`.
+The Core service depends on the `CoreExtractor` protocol, not on a provider API. An extractor exposes a stable `name` and `model`, accepts the discovered paths, and returns a validated `LLMExtraction`. `OpenAICoreExtractor` is the default implementation. It requires `OPENAI_API_KEY` plus a model from its constructor, `BULKINOUT_EXTRACTION_MODEL`, or the shared `BULKINOUT_MODEL` fallback, then uses the Responses and Files APIs with a strict JSON schema generated from `LLMExtraction`.
 
 The prompt establishes these contracts:
 
@@ -98,7 +100,7 @@ The canonical value can be English while the evidence excerpt remains exactly as
 
 ## Step 4: aggregate record
 
-`build_radiology_case(input_dir, model)` coordinates discovery, extraction, and conversion. It returns a typed `CoreResult`, which remains tuple-unpackable:
+`build_radiology_case(input_dir, model, *, extractor=None)` coordinates discovery, extraction, and conversion. When `extractor` is omitted it constructs `OpenAICoreExtractor`; an injected extractor bypasses OpenAI configuration. It returns a typed `CoreResult`, which remains tuple-unpackable:
 
 ```python
 record, extraction, source_paths = build_radiology_case(...)
@@ -130,8 +132,8 @@ Request construction excludes unknown and conflicting fields from its reliable c
 | Failure | Where it occurs | What to inspect |
 |---|---|---|
 | No supported files | Before extraction | Input directory and supported extensions. |
-| Missing model | Extractor construction | `--model` or `BULKINOUT_MODEL`. |
-| Missing API key | CLI or Core service preflight | `OPENAI_API_KEY`. |
+| Missing model | Extractor construction | `--model`, `BULKINOUT_EXTRACTION_MODEL`, or `BULKINOUT_MODEL`. |
+| Missing API key | OpenAI adapter construction | `OPENAI_API_KEY`. Custom extractors define their own configuration. |
 | Upload or API error | Provider call | Connectivity, credentials, provider status, file support. |
 | Invalid structured response | Pydantic validation | Model compatibility, schema, raw provider response. |
 | Missing expected fact | Extraction or conversion | `llm_extraction.json`, field path, status, and provenance. |

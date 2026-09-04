@@ -31,12 +31,19 @@ bulkinout
 
 ## Configuration precedence
 
-Commands that call an LLM need both:
+Both LLM-backed CLI commands currently use the built-in OpenAI adapters and need:
 
 - `OPENAI_API_KEY` in the process environment;
-- a model from `--model` or `BULKINOUT_MODEL`.
+- an extraction model and, for Request, a decision model.
 
-The explicit `--model` argument wins. `.env.example` documents variable names, but Bulkinout does not load `.env` files itself. Export the values in the shell or use an external environment loader.
+For `request run`, each stage resolves its model in this order:
+
+1. `--extraction-model` or `--decision-model`;
+2. the shared `--model` compatibility fallback;
+3. `BULKINOUT_EXTRACTION_MODEL` or `BULKINOUT_DECISION_MODEL`;
+4. the shared `BULKINOUT_MODEL` compatibility fallback.
+
+`core structure --model` configures extraction only, then falls back to `BULKINOUT_EXTRACTION_MODEL` and `BULKINOUT_MODEL`. `.env.example` documents variable names, but Bulkinout does not load `.env` files itself.
 
 ```bash
 export OPENAI_API_KEY="..."
@@ -58,7 +65,7 @@ bulkinout core structure \
 |---|---|---|
 | `--input` | `input` | Directory recursively scanned for PDF, TXT, Markdown, JPEG, PNG, and WebP files. |
 | `--output` | `output` | Destination directory. Parent directories are created when outputs are written. |
-| `--model` | `BULKINOUT_MODEL` | Model used by `OpenAICoreExtractor`. |
+| `--model` | `BULKINOUT_EXTRACTION_MODEL`, then `BULKINOUT_MODEL` | Model used by `OpenAICoreExtractor`. |
 
 Outputs:
 
@@ -84,7 +91,9 @@ bulkinout request run \
 | `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
 | `--answers` | none | Optional answer JSON from a previous clarification pass. |
 | `--reference` | `reference/scenarios` | Scenario YAML directory. |
-| `--model` | `BULKINOUT_MODEL` | Model used for both extraction and decision support. |
+| `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
+| `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
+| `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
 
 The command reports the combined service run before processing:
 
@@ -180,7 +189,8 @@ Generated `output*/` directories are ignored by Git and may contain sensitive cl
 | Message or symptom | Cause | Action |
 |---|---|---|
 | `OPENAI_API_KEY is missing.` | Required key is not exported. | Set it in the command environment; do not commit it. |
-| `No model configured.` | Neither `--model` nor `BULKINOUT_MODEL` is set. | Supply a compatible model explicitly. |
+| `No extraction model configured.` | No extraction-specific or shared model is configured. | Set `--extraction-model`, `--model`, or the corresponding environment variable. |
+| `No decision model configured.` | No decision-specific or shared model is configured. | Set `--decision-model`, `--model`, or the corresponding environment variable. |
 | `No supported document found` | Input is empty, wrong, or contains only unsupported extensions. | Check `--input` and the supported-file list. |
 | Pydantic validation error | The provider response does not satisfy the requested schema. | Inspect model compatibility and raw provider behavior. |
 | No matched scenarios | Extracted field paths or terms do not satisfy any entry predicate. | Inspect `case.json` and `reference_context.json`; add tested synonyms when appropriate. |

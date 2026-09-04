@@ -43,6 +43,8 @@ def cmd_request_run(args: argparse.Namespace) -> None:
         Path(args.input),
         reference_dir=Path(args.reference),
         model=args.model,
+        extraction_model=args.extraction_model,
+        decision_model=args.decision_model,
         answers_path=Path(args.answers) if args.answers else None,
     )
     write_request_outputs(result, Path(args.output))
@@ -117,8 +119,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     structure.add_argument(
         "--model",
-        default=os.getenv("BULKINOUT_MODEL"),
-        help="Extraction model (default: BULKINOUT_MODEL)",
+        default=None,
+        help=("Extraction model (default: BULKINOUT_EXTRACTION_MODEL, then BULKINOUT_MODEL)"),
     )
     structure.set_defaults(func=cmd_core_structure)
 
@@ -141,8 +143,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--model",
-        default=os.getenv("BULKINOUT_MODEL"),
-        help="Extraction and decision model (default: BULKINOUT_MODEL)",
+        default=None,
+        help="Shared fallback model (default: BULKINOUT_MODEL)",
+    )
+    run.add_argument(
+        "--extraction-model",
+        default=None,
+        help="Core extraction model (default: BULKINOUT_EXTRACTION_MODEL, then shared fallback)",
+    )
+    run.add_argument(
+        "--decision-model",
+        default=None,
+        help="Request decision model (default: BULKINOUT_DECISION_MODEL, then shared fallback)",
     )
     run.set_defaults(func=cmd_request_run)
 

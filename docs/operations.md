@@ -4,14 +4,16 @@ This guide explains how to run Bulkinout v0 safely, what data crosses each bound
 
 ## Configuration and precedence
 
-The LLM-backed commands require two values:
+The LLM-backed CLI commands currently use the built-in OpenAI adapters and require credentials plus a model for each active stage:
 
 | Setting | Purpose | Resolution order |
 |---|---|---|
 | `OPENAI_API_KEY` | Authenticates OpenAI SDK requests | Environment only |
-| `BULKINOUT_MODEL` | Default model for extraction and decision calls | `--model`, then environment |
+| `BULKINOUT_EXTRACTION_MODEL` | Default Core extraction model | After explicit extraction and shared arguments |
+| `BULKINOUT_DECISION_MODEL` | Default Request decision model | After explicit decision and shared arguments |
+| `BULKINOUT_MODEL` | Backward-compatible shared fallback | Last |
 
-For Python callers, the explicit `model=` argument takes precedence over `BULKINOUT_MODEL`. The CLI follows the same effective rule because `--model` defaults to the environment value.
+For `run_request()`, the exact priority is stage-specific argument, shared `model=` argument, stage-specific environment variable, then `BULKINOUT_MODEL`. The CLI applies the same order with `--extraction-model`, `--decision-model`, and `--model`. `build_radiology_case(model=...)` configures extraction only. Python callers may inject custom components; their configuration is owned by those components.
 
 The application does **not** load `.env` files itself. Export the variables in the shell, source a protected file through your process manager, or inject them through the deployment environment:
 
@@ -52,14 +54,14 @@ The deterministic reference engine loads every `*.yaml` file directly inside the
 
 Source documents may be in any language. Technical identifiers and canonical values are English, while current clinician- and radiologist-facing clinical text is French.
 
-Data reaches the OpenAI SDK as follows:
+With the built-in OpenAI extractor, data reaches the OpenAI SDK as follows:
 
 - `.txt` and `.md` content is inserted directly into the model request.
 - `.png`, `.jpg`, `.jpeg`, and `.webp` files are base64-encoded as high-detail image inputs.
 - `.pdf` files are uploaded through the Files API with purpose `user_data`, then referenced by file identifier.
 - Filenames are included in model input, and provenance excerpts may be written to output JSON.
 
-Bulkinout does not currently delete uploaded files, redact identifiers, pseudonymize filenames, select a regional endpoint, or enforce a retention policy. Before using any sensitive data, the deploying organization must establish an approved processing agreement, retention policy, access model, and data-minimization procedure. Use synthetic data for development and CI.
+Bulkinout does not currently delete uploaded files, redact identifiers, pseudonymize filenames, select a regional endpoint, or enforce a retention policy. Custom or local adapters own their transport and retention behavior and must document it independently. Before using any sensitive data, the deploying organization must establish an approved processing agreement, retention policy, access model, and data-minimization procedure. Use synthetic data for development and CI.
 
 The extraction prompt prohibits invented facts and treats absent information as unknown. This is a model instruction, not a mathematical guarantee. Every extracted value retains a status, confidence, and available provenance so a human can inspect its origin.
 
@@ -99,7 +101,8 @@ The CLI prints concise progress to standard output. Expected configuration, inpu
 | Symptom | Likely cause | Check |
 |---|---|---|
 | `OPENAI_API_KEY is missing.` | Key is absent from the process environment | Use `test -n "$OPENAI_API_KEY" && echo configured` without printing the value |
-| `No model configured` | Neither `--model` nor `BULKINOUT_MODEL` is set | Pass `--model` explicitly or export the variable |
+| `No extraction model configured` | No extraction-specific or shared model is configured | Set the extraction option or environment variable, or a shared fallback |
+| `No decision model configured` | No decision-specific or shared model is configured | Set the decision option or environment variable, or a shared fallback |
 | `No supported document found` | Empty path, wrong path, or unsupported extensions | Confirm the directory and use PDF, TXT, Markdown, PNG, JPEG, or WebP |
 | OpenAI authentication or network error | Invalid credentials, connectivity, quota, or service failure | Verify the runtime environment and provider status; no retry policy is implemented |
 | Pydantic validation error after a model call | Returned structured data did not satisfy the schema | Preserve the exception and model name; retry only after assessing whether the failure is transient |

@@ -31,7 +31,7 @@ pytest -q
 - golden-case evaluation;
 - Request-service orchestration plus thin CLI delegation with test doubles.
 
-Tests must not call a real model unless they live in the explicit manual E2E layer. Use monkeypatching or a small fake client to test provider-bound code deterministically.
+Tests must not call a real model unless they live in the explicit manual E2E layer. Inject small `CoreExtractor` and `RequestDecisionEngine` fakes to test service orchestration. Use a simulated SDK client only when testing the built-in OpenAI adapters themselves.
 
 ### Focused runs
 

@@ -6,10 +6,12 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
     from bulkinout.request import service as request_service
 
     calls = []
+    extractor = object()
+    decision_engine = object()
     monkeypatch.setattr(
         core_service,
         "build_radiology_case",
-        lambda input_dir, model: calls.append(("core", input_dir, model)) or "core-result",
+        lambda input_dir, **kwargs: calls.append(("core", input_dir, kwargs)) or "core-result",
     )
     monkeypatch.setattr(
         request_service,
@@ -19,16 +21,33 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
         ),
     )
 
-    assert build_radiology_case(tmp_path, model="model") == "core-result"
-    assert run_request(tmp_path, reference_dir=tmp_path / "reference", model="model") == (
-        "request-result"
+    assert build_radiology_case(tmp_path, model="model", extractor=extractor) == "core-result"
+    assert (
+        run_request(
+            tmp_path,
+            reference_dir=tmp_path / "reference",
+            model="model",
+            extraction_model="extraction-model",
+            decision_model="decision-model",
+            extractor=extractor,
+            decision_engine=decision_engine,
+        )
+        == "request-result"
     )
     assert calls == [
-        ("core", tmp_path, "model"),
+        ("core", tmp_path, {"model": "model", "extractor": extractor}),
         (
             "request",
             tmp_path,
-            {"reference_dir": tmp_path / "reference", "model": "model", "answers_path": None},
+            {
+                "reference_dir": tmp_path / "reference",
+                "model": "model",
+                "extraction_model": "extraction-model",
+                "decision_model": "decision-model",
+                "answers_path": None,
+                "extractor": extractor,
+                "decision_engine": decision_engine,
+            },
         ),
     ]
 

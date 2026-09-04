@@ -89,6 +89,8 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
             answers=str(answers),
             reference=str(tmp_path / "reference"),
             model="model",
+            extraction_model="extraction-model",
+            decision_model="decision-model",
         )
     )
 
@@ -98,6 +100,8 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
             {
                 "reference_dir": tmp_path / "reference",
                 "model": "model",
+                "extraction_model": "extraction-model",
+                "decision_model": "decision-model",
                 "answers_path": answers,
             },
         )
@@ -184,3 +188,5 @@ def test_request_run_help_describes_its_arguments(capsys):
     output = capsys.readouterr().out
     assert "Optional JSON file of clinician answers" in output
     assert "Directory containing scenario YAML files" in output
+    assert "--extraction-model" in output
+    assert "--decision-model" in output

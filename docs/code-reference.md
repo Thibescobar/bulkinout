@@ -6,7 +6,7 @@ This inventory describes the public services and the private helpers that define
 
 Source: `src/bulkinout/__init__.py`
 
-The public Python facade exports `build_radiology_case()`, `run_request()`, JSON output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
+The public Python facade exports `build_radiology_case()`, `run_request()`, provider-neutral `CoreExtractor` and `RequestDecisionEngine` protocols, JSON output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
 
 ## `bulkinout.errors` and `bulkinout.types`
 
@@ -74,7 +74,7 @@ Service class whose methods are documented below.
 
 ### `OpenAICoreExtractor.__init__(self, model: str | None = None)`
 
-Initializes the OpenAI client and resolves the configured model.
+Initializes the OpenAI client and resolves the extraction model from the argument, `BULKINOUT_EXTRACTION_MODEL`, or `BULKINOUT_MODEL`.
 
 ### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T`
 
@@ -91,6 +91,14 @@ Builds multimodal input from all files and returns an `LLMExtraction`.
 ### `extraction_to_case(extraction: LLMExtraction) -> ClinicalCase`
 
 Converts `LLMExtraction` into a `ClinicalCase`, including provenance and prior imaging.
+
+## `bulkinout.core.interfaces`
+
+Source: `src/bulkinout/core/interfaces.py`
+
+### `CoreExtractor`
+
+Protocol for components that expose `name` and `model`, accept source paths, and return `LLMExtraction`.
 
 ## `bulkinout.core.ingestion.files`
 
@@ -188,9 +196,9 @@ Source: `src/bulkinout/core/service.py`
 
 Typed, tuple-compatible Core result containing the radiology case, extraction, and source paths.
 
-### `build_radiology_case(input_dir: Path, model: str | None = None) -> CoreResult`
+### `build_radiology_case(input_dir: Path, model: str | None = None, *, extractor: CoreExtractor | None = None) -> CoreResult`
 
-Builds a `RadiologyCase` from a document directory through the Core extractor.
+Builds a `RadiologyCase` from a document directory through the default OpenAI extractor or an injected implementation.
 
 ## `bulkinout.request.answers`
 
@@ -234,11 +242,19 @@ Service class whose methods are documented below.
 
 ### `OpenAIRequestDecision.__init__(self, model: str | None = None)`
 
-Initializes the OpenAI client and resolves the decision model.
+Initializes the OpenAI client and resolves the decision model from the argument, `BULKINOUT_DECISION_MODEL`, or `BULKINOUT_MODEL`.
 
 ### `OpenAIRequestDecision.decide(self, case: ClinicalCase, missing_questions: list[JsonObject], reference_context: ReferenceContext | None = None) -> ImagingDecision`
 
 Sends the case, questions, and reference data to the LLM and validates an `ImagingDecision`.
+
+## `bulkinout.request.interfaces`
+
+Source: `src/bulkinout/request/interfaces.py`
+
+### `RequestDecisionEngine`
+
+Protocol for components that turn a clinical case, unresolved questions, and reference context into `ImagingDecision`.
 
 ## `bulkinout.request.golden`
 
@@ -356,6 +372,6 @@ Source: `src/bulkinout/request/service.py`
 
 Slot-based dataclass containing every in-memory artifact of one Request run.
 
-### `run_request(input_dir: Path, *, reference_dir: Path, model: str | None = None, answers_path: Path | None = None) -> RequestResult`
+### `run_request(input_dir: Path, *, reference_dir: Path, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
 
-Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. It performs no output writes.
+Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.

@@ -14,11 +14,13 @@ from ..core.models import (
     RadiologyCase,
     TeleradiologyRequest,
 )
+from ..core.interfaces import CoreExtractor
 from ..core.service import build_radiology_case
 from ..types import JsonObject
 from .answers import apply_answers, load_answers
 from .decision_guard import enforce_decision_guard
 from .decision_llm import OpenAIRequestDecision
+from .interfaces import RequestDecisionEngine
 from .reference_engine import ReferenceEngine
 from .request_builder import build_teleradiology_request
 from .rules import generic_missing_questions, recommendation_specific_questions
@@ -91,11 +93,19 @@ def run_request(
     *,
     reference_dir: Path = Path("reference/scenarios"),
     model: str | None = None,
+    extraction_model: str | None = None,
+    decision_model: str | None = None,
     answers_path: Path | None = None,
+    extractor: CoreExtractor | None = None,
+    decision_engine: RequestDecisionEngine | None = None,
 ) -> RequestResult:
     """Run Core, reference matching, decision support, and deterministic safeguards."""
 
-    core_result = build_radiology_case(input_dir, model=model)
+    core_result = build_radiology_case(
+        input_dir,
+        model=extraction_model or model,
+        extractor=extractor,
+    )
     radiology_case = core_result.radiology_case
     case = radiology_case.clinical
 
@@ -105,7 +115,10 @@ def run_request(
 
     initial_questions = generic_missing_questions(case)
     reference_context = ReferenceEngine(reference_dir).build_context(case)
-    decision = OpenAIRequestDecision(model=model).decide(
+    selected_decision_engine = decision_engine or OpenAIRequestDecision(
+        model=decision_model or model
+    )
+    decision = selected_decision_engine.decide(
         case,
         [cast(JsonObject, question.model_dump(mode="json")) for question in initial_questions],
         reference_context=reference_context,

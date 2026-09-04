@@ -66,9 +66,14 @@ def _extract_json(response: Any) -> str:
 
 class OpenAIRequestDecision:
     def __init__(self, model: str | None = None):
-        self.model = model or os.getenv("BULKINOUT_MODEL")
+        self.model = model or os.getenv("BULKINOUT_DECISION_MODEL") or os.getenv("BULKINOUT_MODEL")
         if not self.model:
-            raise ConfigurationError("No model configured. Use --model or BULKINOUT_MODEL.")
+            raise ConfigurationError(
+                "No decision model configured. Use --decision-model, "
+                "BULKINOUT_DECISION_MODEL, --model, or BULKINOUT_MODEL."
+            )
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ConfigurationError("OPENAI_API_KEY is missing.")
         self.client = OpenAI()
 
     def decide(

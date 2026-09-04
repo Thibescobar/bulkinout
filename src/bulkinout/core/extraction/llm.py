@@ -95,10 +95,19 @@ def _extract_json(response: Any) -> str:
 
 
 class OpenAICoreExtractor:
+    name = "bulkinout_core_openai_multimodal_v1"
+
     def __init__(self, model: str | None = None):
-        self.model = model or os.getenv("BULKINOUT_MODEL")
+        self.model = (
+            model or os.getenv("BULKINOUT_EXTRACTION_MODEL") or os.getenv("BULKINOUT_MODEL")
+        )
         if not self.model:
-            raise ConfigurationError("No model configured. Use --model or BULKINOUT_MODEL.")
+            raise ConfigurationError(
+                "No extraction model configured. Use --extraction-model, "
+                "BULKINOUT_EXTRACTION_MODEL, --model, or BULKINOUT_MODEL."
+            )
+        if not os.getenv("OPENAI_API_KEY"):
+            raise ConfigurationError("OPENAI_API_KEY is missing.")
         self.client = OpenAI()
 
     def _call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T:
@@ -197,7 +206,6 @@ def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
             )
         )
 
-    case.metadata["extractor"] = "bulkinout_core_openai_multimodal_v1"
     case.metadata["contradictions"] = cast(list[JsonValue], extraction.contradictions)
     case.metadata["document_notes"] = cast(list[JsonValue], extraction.document_notes)
     return case

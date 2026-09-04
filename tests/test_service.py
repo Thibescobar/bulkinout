@@ -12,12 +12,12 @@ def test_build_radiology_case_rejects_empty_input(monkeypatch, tmp_path):
         service.build_radiology_case(tmp_path)
 
 
-def test_build_radiology_case_requires_api_key_after_input_validation(monkeypatch, tmp_path):
+def test_default_extractor_requires_api_key_after_input_validation(monkeypatch, tmp_path):
     monkeypatch.setattr(service, "collect_files", lambda path: [tmp_path / "letter.txt"])
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     with pytest.raises(ConfigurationError, match="OPENAI_API_KEY is missing"):
-        service.build_radiology_case(tmp_path)
+        service.build_radiology_case(tmp_path, model="test-model")
 
 
 def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path):
@@ -26,15 +26,14 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
     extraction = LLMExtraction(document_notes=["ok"])
 
     class FakeExtractor:
-        def __init__(self, model=None):
-            self.model = model or "fallback-model"
+        name = "test_extractor"
+        model = "local-model"
 
         def extract(self, received_paths):
             assert received_paths == paths
             return extraction
 
     monkeypatch.setattr(service, "collect_files", lambda path: paths)
-    monkeypatch.setattr(service, "OpenAICoreExtractor", FakeExtractor)
     monkeypatch.setattr(
         service,
         "extraction_to_case",
@@ -42,18 +41,20 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
     )
 
     case, returned_extraction, returned_paths = service.build_radiology_case(
-        tmp_path, model="test-model"
+        tmp_path,
+        extractor=FakeExtractor(),
     )
 
     assert returned_extraction is extraction
     assert returned_paths == paths
     assert case.clinical.metadata == {
         "source": "ok",
+        "extractor": "test_extractor",
         "documents_processed": 2,
-        "model": "test-model",
+        "model": "local-model",
     }
     assert [artifact.artifact_id for artifact in case.artifacts] == [
         "input:letter.txt",
         "input:scan.pdf",
     ]
-    assert case.audit == [{"event": "core_structuring_completed", "model": "test-model"}]
+    assert case.audit == [{"event": "core_structuring_completed", "model": "local-model"}]

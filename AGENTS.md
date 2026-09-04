@@ -16,7 +16,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden --reference reference/scenarios` to validate scenario rules without an LLM. Use `bulkinout request catalog` to inspect loaded scenarios. LLM-backed runs require `OPENAI_API_KEY` and `BULKINOUT_MODEL`; for example, `bulkinout request run --input input --output output`.
+Run `pytest -q` for the deterministic suite with coverage (minimum 95%). Before committing, run `ruff check src tests`, `ruff format --check src tests`, `mypy`, and `python -m build`. Run `bulkinout request golden --cases tests/golden --reference reference/scenarios` to validate scenario rules without an LLM. Use `bulkinout request catalog` to inspect loaded scenarios. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific model settings or the shared `BULKINOUT_MODEL` fallback; for example, `bulkinout request run --input input --output output`. Python integrations may inject provider-neutral components instead.
 
 ## Coding Style & Naming Conventions
 
