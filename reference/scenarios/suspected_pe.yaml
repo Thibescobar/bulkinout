@@ -1,0 +1,46 @@
+id: suspected_pulmonary_embolism
+version: 0.1.0
+title: Suspicion d'embolie pulmonaire
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Suspected Pulmonary Embolism
+    url: https://acsearch.acr.org/docs/69404/Narrative/
+entry:
+  any:
+    - {field: current_problem.suspected_diagnosis, contains: "embolie pulmonaire"}
+    - {field: current_problem.suspected_diagnosis, contains: "EP"}
+questions:
+  - id: pretest_probability
+    field: current_problem.pe_pretest_probability
+    question: "Quelle est la probabilité clinique pré-test d'EP (faible/intermédiaire/élevée ou score utilisé) ?"
+    priority: 1
+    material: true
+    reason: "Conditionne l'interprétation des D-dimères et la nécessité d'une imagerie."
+  - id: d_dimer
+    field: labs.d_dimer
+    question: "D-dimères disponibles et interprétables dans ce contexte ?"
+    priority: 1
+    material: true
+    reason: "Un résultat négatif avec probabilité pré-test faible/intermédiaire peut éviter l'imagerie."
+  - id: pregnancy
+    field: imaging_safety.pregnancy
+    question: "Une grossesse est-elle possible ou en cours ?"
+    priority: 1
+    material: true
+    reason: "Peut modifier la stratégie diagnostique."
+candidates:
+  - id: ctp_a
+    exam_name: Angioscanner des artères pulmonaires
+    modality: CT
+    contrast: yes
+    appropriateness: context_dependent
+rules:
+  - id: PE_NO_IMAGING_LOW_INT_NEG_DDIMER
+    if:
+      all:
+        - {field: current_problem.pe_pretest_probability, in: ["low", "intermediate"]}
+        - {field: labs.d_dimer, equals: "negative"}
+    result:
+      no_imaging_recommended: true
+      reason: "ACR: imagerie initiale généralement non appropriée dans ce variant."

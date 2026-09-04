@@ -1,0 +1,9 @@
+id: pe_missing_probability
+facts:
+  current_problem.suspected_diagnosis: "embolie pulmonaire"
+  labs.d_dimer: positive
+expected:
+  scenario: suspected_pulmonary_embolism
+  must_ask_fields:
+    - current_problem.pe_pretest_probability
+    - imaging_safety.pregnancy

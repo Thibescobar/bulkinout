@@ -1,0 +1,6 @@
+id: spine_infection_missing_region
+facts:
+  current_problem.suspected_diagnosis: "spondylodiscite"
+expected:
+  scenario: suspected_spine_infection
+  must_ask_fields: [current_problem.location]

@@ -1,0 +1,22 @@
+{
+  "answers": [
+    {
+      "question_id": "example_q1",
+      "field": "current_problem.location",
+      "value": "flanc droit",
+      "note": "Douleur maximale lombaire/flanc droit irradiant vers l'aine."
+    },
+    {
+      "question_id": "example_q2",
+      "field": "current_problem.hematuria",
+      "value": true,
+      "note": "Bandelette : sang +++."
+    },
+    {
+      "question_id": "example_q3",
+      "field": "imaging_safety.pregnancy",
+      "value": false,
+      "note": "Patient de sexe masculin confirmé dans le dossier administratif."
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "case_id": "case_002_right_sided_pain_ambiguous",
+  "purpose": "Le système ne doit pas forcer un scanner urinaire ou abdominal tant que la présentation reste ambiguë.",
+  "core": {
+    "must_extract": [
+      "current_problem.indication",
+      "labs.egfr_ml_min_1_73m2"
+    ],
+    "must_not_invent": [
+      "current_problem.hematuria",
+      "allergies.iodinated_contrast_reaction",
+      "imaging_safety.pregnancy"
+    ]
+  },
+  "request": {
+    "expected_decision_status": "insufficient_information",
+    "clinician_call_required": true,
+    "acceptable_candidate_scenarios": [
+      "renal_colic",
+      "acute_abdominal_pain",
+      "rlq_appendicitis"
+    ],
+    "expected_discriminating_topics": [
+      "localisation précise",
+      "hématurie / données urinaires"
+    ],
+    "must_not_force_exam": true
+  }
+}

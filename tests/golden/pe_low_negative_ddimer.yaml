@@ -1,0 +1,10 @@
+id: pe_low_negative_ddimer
+facts:
+  current_problem.suspected_diagnosis: "embolie pulmonaire"
+  current_problem.pe_pretest_probability: low
+  labs.d_dimer: negative
+  imaging_safety.pregnancy: false
+expected:
+  scenario: suspected_pulmonary_embolism
+  must_trigger_rules: [PE_NO_IMAGING_LOW_INT_NEG_DDIMER]
+  no_imaging_recommended: true

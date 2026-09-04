@@ -1,0 +1,6 @@
+id: stroke_missing_onset
+facts:
+  current_problem.suspected_diagnosis: "AVC"
+expected:
+  scenario: acute_stroke
+  must_ask_fields: [current_problem.onset]

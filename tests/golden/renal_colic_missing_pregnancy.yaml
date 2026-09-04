@@ -1,0 +1,6 @@
+id: renal_colic_missing_pregnancy
+facts:
+  current_problem.location: "flanc gauche"
+expected:
+  scenario: renal_colic
+  must_ask_fields: [imaging_safety.pregnancy]

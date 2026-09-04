@@ -1,0 +1,182 @@
+[
+  {
+    "id": "acute_abdominal_pain",
+    "version": "0.1.0",
+    "title": "Douleur abdominale aiguë non localisée",
+    "status": "needs_local_validation",
+    "source_file": "acute_abdominal_pain.yaml",
+    "candidate_count": 1,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "acute_aortic_syndrome",
+    "version": "0.1.0",
+    "title": "Douleur thoracique aiguë / suspicion de syndrome aortique aigu",
+    "status": "needs_local_validation",
+    "source_file": "acute_aortic_syndrome.yaml",
+    "candidate_count": 4,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "acute_hip_trauma",
+    "version": "0.1.0",
+    "title": "Douleur aiguë de hanche traumatique / suspicion de fracture occulte",
+    "status": "needs_local_validation",
+    "source_file": "acute_hip_trauma.yaml",
+    "candidate_count": 3,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "acute_pancreatitis",
+    "version": "0.1.0",
+    "title": "Suspicion de pancréatite aiguë",
+    "status": "needs_local_validation",
+    "source_file": "acute_pancreatitis.yaml",
+    "candidate_count": 3,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "acute_stroke",
+    "version": "0.1.0",
+    "title": "Déficit neurologique aigu / suspicion d'AVC",
+    "status": "needs_local_validation",
+    "source_file": "acute_stroke.yaml",
+    "candidate_count": 2,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "cervical_spine_trauma",
+    "version": "0.1.0",
+    "title": "Traumatisme cervical contondant",
+    "status": "needs_local_validation",
+    "source_file": "cervical_spine_trauma.yaml",
+    "candidate_count": 1,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "head_trauma",
+    "version": "0.1.0",
+    "title": "Traumatisme crânien aigu",
+    "status": "needs_local_validation",
+    "source_file": "head_trauma.yaml",
+    "candidate_count": 1,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "jaundice",
+    "version": "0.1.0",
+    "title": "Ictère / suspicion d'obstruction biliaire",
+    "status": "needs_local_validation",
+    "source_file": "jaundice.yaml",
+    "candidate_count": 3,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "llq_diverticulitis",
+    "version": "0.1.0",
+    "title": "Douleur de fosse iliaque gauche / suspicion de diverticulite",
+    "status": "needs_local_validation",
+    "source_file": "llq_diverticulitis.yaml",
+    "candidate_count": 1,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "low_back_pain",
+    "version": "0.1.0",
+    "title": "Lombalgie aiguë / lomboradiculalgie",
+    "status": "needs_local_validation",
+    "source_file": "low_back_pain.yaml",
+    "candidate_count": 4,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "new_onset_seizure",
+    "version": "0.1.0",
+    "title": "Première crise comitiale / crise de novo",
+    "status": "needs_local_validation",
+    "source_file": "new_onset_seizure.yaml",
+    "candidate_count": 2,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "renal_colic",
+    "version": "0.1.0",
+    "title": "Suspicion de colique néphrétique / lithiase urinaire",
+    "status": "needs_local_validation",
+    "source_file": "renal_colic.yaml",
+    "candidate_count": 2,
+    "question_count": 2,
+    "source_count": 1
+  },
+  {
+    "id": "right_upper_quadrant_pain",
+    "version": "0.1.0",
+    "title": "Douleur de l'hypochondre droit / suspicion biliaire",
+    "status": "needs_local_validation",
+    "source_file": "right_upper_quadrant_pain.yaml",
+    "candidate_count": 3,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "rlq_appendicitis",
+    "version": "0.1.0",
+    "title": "Douleur de fosse iliaque droite / suspicion d'appendicite",
+    "status": "needs_local_validation",
+    "source_file": "rlq_appendicitis.yaml",
+    "candidate_count": 1,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "small_bowel_obstruction",
+    "version": "0.1.0",
+    "title": "Suspicion d'occlusion du grêle",
+    "status": "needs_local_validation",
+    "source_file": "small_bowel_obstruction.yaml",
+    "candidate_count": 2,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "suspected_pulmonary_embolism",
+    "version": "0.1.0",
+    "title": "Suspicion d'embolie pulmonaire",
+    "status": "needs_local_validation",
+    "source_file": "suspected_pe.yaml",
+    "candidate_count": 1,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "suspected_spine_infection",
+    "version": "0.1.0",
+    "title": "Suspicion d'infection rachidienne / spondylodiscite / abcès épidural",
+    "status": "needs_local_validation",
+    "source_file": "suspected_spine_infection.yaml",
+    "candidate_count": 2,
+    "question_count": 3,
+    "source_count": 1
+  },
+  {
+    "id": "thunderclap_headache",
+    "version": "0.1.0",
+    "title": "Céphalée brutale maximale en moins d'une heure",
+    "status": "needs_local_validation",
+    "source_file": "thunderclap_headache.yaml",
+    "candidate_count": 2,
+    "question_count": 1,
+    "source_count": 1
+  }
+]

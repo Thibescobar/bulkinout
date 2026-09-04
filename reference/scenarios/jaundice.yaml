@@ -1,0 +1,42 @@
+id: jaundice
+version: 0.1.0
+title: Ictère / suspicion d'obstruction biliaire
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Jaundice
+    url: https://acsearch.acr.org/docs/69497/Narrative/
+entry:
+  any:
+    - {field: current_problem.symptoms, contains: "ictère"}
+    - {field: current_problem.indication, contains: "ictère"}
+    - {field: current_problem.suspected_diagnosis, contains: "obstruction biliaire"}
+questions:
+  - id: known_obstruction
+    field: current_problem.mechanical_obstruction_suspected
+    question: "Une obstruction mécanique est-elle déjà suspectée sur la clinique, la biologie ou une première imagerie ?"
+    priority: 1
+    material: true
+    reason: "Distingue l'imagerie initiale de la caractérisation d'une obstruction."
+  - id: prior_us
+    field: current_problem.prior_biliary_ultrasound_result
+    question: "Une échographie biliaire récente est-elle disponible et quel en est le résultat ?"
+    priority: 2
+    material: true
+    reason: "Peut orienter vers cholangio-IRM ou scanner de caractérisation."
+candidates:
+  - id: us_abd
+    exam_name: Échographie abdominale
+    modality: US
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: mri_mrcp
+    exam_name: IRM abdominale avec cholangio-IRM
+    modality: MRI
+    contrast: conditional
+    appropriateness: usually_appropriate
+  - id: ct_iv
+    exam_name: TDM abdominale avec injection IV
+    modality: CT
+    contrast: yes
+    appropriateness: usually_appropriate

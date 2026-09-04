@@ -1,0 +1,38 @@
+id: cervical_spine_trauma
+version: 0.1.0
+title: Traumatisme cervical contondant
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Acute Spinal Trauma
+    url: https://acsearch.acr.org/docs/69359/Narrative/
+entry:
+  any:
+    - {field: history.trauma, contains: "cervical"}
+    - {field: current_problem.location, contains: "cervical"}
+questions:
+  - id: rule_positive
+    field: current_problem.cspine_rule_positive
+    question: "Les critères CCR ou NEXUS indiquent-ils une imagerie ?"
+    priority: 1
+    material: true
+    reason: "L'ACR distingue le choix d'imagerie selon ces critères."
+  - id: neurologic_deficit
+    field: current_problem.neurologic_deficit
+    question: "Déficit neurologique ou suspicion de lésion médullaire/radiculaire ?"
+    priority: 1
+    material: true
+    reason: "Peut conduire à une imagerie complémentaire après le scanner."
+candidates:
+  - id: ct_cspine_nc
+    exam_name: TDM rachis cervical sans injection
+    modality: CT
+    contrast: no
+    appropriateness: context_dependent
+rules:
+  - id: CSPINE_RULE_POSITIVE
+    if:
+      all:
+        - {field: current_problem.cspine_rule_positive, equals: true}
+    result:
+      preferred_candidate: ct_cspine_nc

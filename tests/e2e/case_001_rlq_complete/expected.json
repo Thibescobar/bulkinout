@@ -1,0 +1,31 @@
+{
+  "case_id": "case_001_rlq_complete",
+  "purpose": "Cas suffisamment complet : choix d'imagerie sans rappel clinique attendu.",
+  "core": {
+    "must_extract": [
+      "current_problem.location",
+      "current_problem.onset",
+      "current_problem.indication",
+      "imaging_safety.pregnancy",
+      "allergies.iodinated_contrast_reaction",
+      "labs.egfr_ml_min_1_73m2"
+    ],
+    "must_not_invent": [
+      "history.oncology",
+      "imaging_safety.pacemaker"
+    ]
+  },
+  "request": {
+    "expected_scenario": "rlq_appendicitis",
+    "expected_decision_status": "selected",
+    "acceptable_exams": [
+      "TDM abdomino-pelvienne avec injection IV"
+    ],
+    "clinician_call_required": false,
+    "must_not_ask": [
+      "imaging_safety.pregnancy",
+      "allergies.iodinated_contrast_reaction",
+      "labs.egfr_ml_min_1_73m2"
+    ]
+  }
+}

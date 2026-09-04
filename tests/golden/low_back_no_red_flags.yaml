@@ -1,0 +1,8 @@
+id: low_back_no_red_flags
+facts:
+  current_problem.indication: "lombalgie aiguë"
+  current_problem.red_flags: false
+expected:
+  scenario: low_back_pain
+  must_trigger_rules: [LBP_NO_RED_FLAGS]
+  no_imaging_recommended: true

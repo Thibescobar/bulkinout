@@ -1,0 +1,6 @@
+id: rlq_missing_pregnancy
+facts:
+  current_problem.location: "fosse iliaque droite"
+expected:
+  scenario: rlq_appendicitis
+  must_ask_fields: [imaging_safety.pregnancy]

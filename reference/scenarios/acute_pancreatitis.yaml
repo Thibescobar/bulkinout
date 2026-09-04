@@ -1,0 +1,47 @@
+id: acute_pancreatitis
+version: 0.1.0
+title: Suspicion de pancréatite aiguë
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Acute Pancreatitis
+    url: https://acsearch.acr.org/docs/69468/Narrative
+entry:
+  any:
+    - {field: current_problem.suspected_diagnosis, contains: "pancréatite"}
+    - {field: current_problem.known_diagnosis, contains: "pancréatite"}
+questions:
+  - id: onset
+    field: current_problem.onset
+    question: "Depuis combien de temps les symptômes évoluent-ils ?"
+    priority: 1
+    material: true
+    reason: "Le timing (< ou > 48-72 h) influence la valeur d'une imagerie en coupe initiale."
+  - id: enzymes
+    field: labs.lipase
+    question: "Lipase/amylase compatibles avec une pancréatite ?"
+    priority: 1
+    material: true
+    reason: "Un tableau typique avec enzymes élevées diffère d'une présentation atypique."
+  - id: atypical
+    field: current_problem.atypical_presentation
+    question: "La présentation est-elle atypique ou existe-t-il un diagnostic alternatif important ?"
+    priority: 1
+    material: true
+    reason: "Peut justifier une imagerie en coupe précoce."
+candidates:
+  - id: us_abd
+    exam_name: Échographie abdominale
+    modality: US
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: ct_iv
+    exam_name: TDM abdomino-pelvienne avec injection IV
+    modality: CT
+    contrast: yes
+    appropriateness: context_dependent
+  - id: mri_mrcp
+    exam_name: IRM abdominale avec cholangio-IRM
+    modality: MRI
+    contrast: conditional
+    appropriateness: context_dependent

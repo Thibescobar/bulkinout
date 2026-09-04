@@ -1,0 +1,36 @@
+{
+  "case_id": "case_003_suspected_pe_conflicting_allergy",
+  "purpose": "Tester extraction multi-documents, antériorité et contradiction entre 'aucune allergie connue' et réaction iodée documentée.",
+  "core": {
+    "must_extract": [
+      "current_problem.suspected_diagnosis",
+      "current_problem.pe_pretest_probability",
+      "labs.d_dimer",
+      "labs.egfr_ml_min_1_73m2",
+      "allergies.iodinated_contrast_reaction"
+    ],
+    "must_detect_conflict_or_prefer_specific_evidence": [
+      "allergies.iodinated_contrast_reaction"
+    ],
+    "must_not_conclude": [
+      "iodinated_contrast_reaction=no"
+    ]
+  },
+  "request": {
+    "expected_scenario": "suspected_pulmonary_embolism",
+    "expected_decision_status": [
+      "selected",
+      "safety_blocked"
+    ],
+    "acceptable_exams": [
+      "Angioscanner des artères pulmonaires"
+    ],
+    "clinician_call_required": "depends_on_local_contrast_policy",
+    "must_surface": [
+      "réaction iodée antérieure",
+      "DFG/eGFR 51",
+      "D-dimères positifs",
+      "probabilité pré-test intermédiaire"
+    ]
+  }
+}

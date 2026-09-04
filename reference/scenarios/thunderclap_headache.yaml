@@ -1,0 +1,29 @@
+id: thunderclap_headache
+version: 0.1.0
+title: Céphalée brutale maximale en moins d'une heure
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Headache
+    url: https://acsearch.acr.org/docs/69482/Narrative/
+entry:
+  all:
+    - {field: current_problem.symptoms, contains: "céphal"}
+questions:
+  - id: sudden_maximal
+    field: current_problem.thunderclap
+    question: "La céphalée a-t-elle atteint son intensité maximale en moins d'une heure ?"
+    priority: 1
+    material: true
+    reason: "Définit le variant de céphalée brutale."
+candidates:
+  - id: ct_head_nc
+    exam_name: TDM cérébrale sans injection
+    modality: CT
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: cta_head
+    exam_name: Angioscanner intracrânien
+    modality: CT
+    contrast: yes
+    appropriateness: may_be_appropriate

@@ -1,0 +1,8 @@
+id: head_trauma_rule_positive
+facts:
+  current_problem.indication: "traumatisme crânien léger"
+  current_problem.head_ct_rule_positive: true
+expected:
+  scenario: head_trauma
+  must_trigger_rules: [HEAD_CT_RULE_POSITIVE]
+  preferred_candidate: ct_head_nc

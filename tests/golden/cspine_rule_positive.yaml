@@ -1,0 +1,8 @@
+id: cspine_rule_positive
+facts:
+  current_problem.location: "douleur cervicale après traumatisme"
+  current_problem.cspine_rule_positive: true
+expected:
+  scenario: cervical_spine_trauma
+  must_trigger_rules: [CSPINE_RULE_POSITIVE]
+  preferred_candidate: ct_cspine_nc

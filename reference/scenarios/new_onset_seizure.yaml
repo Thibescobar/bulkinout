@@ -1,0 +1,43 @@
+id: new_onset_seizure
+version: 0.1.0
+title: Première crise comitiale / crise de novo
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Seizures and Epilepsy
+    url: https://acsearch.acr.org/docs/69479/Narrative
+entry:
+  any:
+    - {field: current_problem.suspected_diagnosis, contains: "crise comitiale"}
+    - {field: current_problem.indication, contains: "première crise"}
+    - {field: current_problem.indication, contains: "convulsion"}
+questions:
+  - id: trauma
+    field: history.trauma
+    question: "La crise survient-elle dans un contexte traumatique récent ?"
+    priority: 1
+    material: true
+    reason: "En contexte traumatique, la TDM cérébrale sans injection est particulièrement pertinente en initial."
+  - id: first_seizure
+    field: current_problem.first_seizure
+    question: "S'agit-il bien d'une première crise ?"
+    priority: 1
+    material: true
+    reason: "Les recommandations diffèrent d'une épilepsie connue inchangée."
+  - id: persistent_deficit
+    field: current_problem.neurologic_deficit
+    question: "Déficit neurologique persistant ou altération prolongée ?"
+    priority: 2
+    material: true
+    reason: "Peut influencer l'urgence et la modalité initiale."
+candidates:
+  - id: mri_brain_wo
+    exam_name: IRM cérébrale sans injection
+    modality: MRI
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: ct_head_nc
+    exam_name: TDM cérébrale sans injection
+    modality: CT
+    contrast: no
+    appropriateness: usually_appropriate

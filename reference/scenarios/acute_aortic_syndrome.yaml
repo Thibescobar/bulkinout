@@ -1,0 +1,55 @@
+id: acute_aortic_syndrome
+version: 0.1.0
+title: Douleur thoracique aiguë / suspicion de syndrome aortique aigu
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Suspected Acute Aortic Syndrome
+    url: https://acsearch.acr.org/docs/69402/Narrative/
+entry:
+  any:
+    - {field: current_problem.suspected_diagnosis, contains: "dissection"}
+    - {field: current_problem.suspected_diagnosis, contains: "syndrome aortique"}
+    - {field: current_problem.indication, contains: "aorte"}
+questions:
+  - id: hemodynamic_status
+    field: current_problem.hemodynamic_instability
+    question: "Le patient est-il hémodynamiquement instable ?"
+    priority: 1
+    material: true
+    reason: "Peut modifier la modalité réalisable et l'urgence."
+  - id: pain_extent
+    field: current_problem.pain_extent
+    question: "La douleur ou les signes cliniques font-ils suspecter une extension abdomino-pelvienne ?"
+    priority: 1
+    material: true
+    reason: "Détermine notamment l'étendue anatomique à couvrir."
+  - id: neuro_malperfusion
+    field: current_problem.malperfusion_signs
+    question: "Signes neurologiques, ischémiques viscéraux ou de membre suggérant une malperfusion ?"
+    priority: 2
+    material: true
+    reason: "Précise l'étendue et la question diagnostique."
+candidates:
+  - id: cta_chest
+    exam_name: Angioscanner thoracique aortique
+    modality: CT
+    contrast: yes
+    appropriateness: usually_appropriate
+  - id: cta_cap
+    exam_name: Angioscanner thoraco-abdomino-pelvien aortique
+    modality: CT
+    contrast: yes
+    appropriateness: usually_appropriate
+  - id: mra
+    exam_name: Angio-IRM aortique
+    modality: MRI
+    contrast: conditional
+    appropriateness: usually_appropriate
+  - id: tee
+    exam_name: Échocardiographie transœsophagienne
+    modality: US
+    contrast: no
+    appropriateness: usually_appropriate
+notes:
+  - "Le choix CTA thorax vs thoraco-abdomino-pelvien doit être adapté au contexte et au protocole local."

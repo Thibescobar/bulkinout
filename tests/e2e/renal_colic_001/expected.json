@@ -1,0 +1,7 @@
+{
+  "scenario": "renal_colic",
+  "clinician_call_required": true,
+  "must_extract": ["current_problem.location"],
+  "must_not_invent": ["imaging_safety.pregnancy"],
+  "review_note": "Le sexe/grossesse n'est pas documenté : ne pas l'inventer."
+}

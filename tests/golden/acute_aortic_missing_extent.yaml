@@ -1,0 +1,8 @@
+id: acute_aortic_missing_extent
+facts:
+  current_problem.suspected_diagnosis: "dissection aortique"
+expected:
+  scenario: acute_aortic_syndrome
+  must_ask_fields:
+    - current_problem.hemodynamic_instability
+    - current_problem.pain_extent

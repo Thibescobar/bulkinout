@@ -1,0 +1,36 @@
+id: acute_stroke
+version: 0.1.0
+title: Déficit neurologique aigu / suspicion d'AVC
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Cerebrovascular Diseases-Stroke and Stroke-Related Conditions
+    url: https://acsearch.acr.org/docs/3149012/Narrative
+entry:
+  any:
+    - {field: current_problem.suspected_diagnosis, contains: "AVC"}
+    - {field: current_problem.symptoms, contains: "déficit neurologique"}
+questions:
+  - id: onset
+    field: current_problem.onset
+    question: "Heure de début des symptômes ou dernière heure connue sans déficit ?"
+    priority: 1
+    material: true
+    reason: "Information majeure pour l'urgence et la stratégie neurovasculaire."
+  - id: resolved
+    field: current_problem.symptoms_resolved
+    question: "Les symptômes sont-ils résolus ?"
+    priority: 2
+    material: true
+    reason: "Distingue notamment un tableau d'AIT d'un déficit persistant."
+candidates:
+  - id: ct_head_nc
+    exam_name: TDM cérébrale sans injection
+    modality: CT
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: cta_head_neck
+    exam_name: Angioscanner tête et cou
+    modality: CT
+    contrast: yes
+    appropriateness: context_dependent

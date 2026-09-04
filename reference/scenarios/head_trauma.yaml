@@ -1,0 +1,38 @@
+id: head_trauma
+version: 0.1.0
+title: Traumatisme crânien aigu
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Head Trauma
+    url: https://acsearch.acr.org/docs/69481/Narrative/
+entry:
+  any:
+    - {field: history.trauma, contains: "crân"}
+    - {field: current_problem.indication, contains: "traumatisme crânien"}
+questions:
+  - id: clinical_rule
+    field: current_problem.head_ct_rule_positive
+    question: "Une règle clinique validée indique-t-elle une TDM cérébrale ?"
+    priority: 1
+    material: true
+    reason: "L'ACR distingue explicitement les traumatismes légers selon l'indication par règle clinique."
+  - id: gcs
+    field: current_problem.gcs
+    question: "Score de Glasgow ?"
+    priority: 1
+    material: true
+    reason: "Participe à la stratification du traumatisme."
+candidates:
+  - id: ct_head_nc
+    exam_name: TDM cérébrale sans injection
+    modality: CT
+    contrast: no
+    appropriateness: context_dependent
+rules:
+  - id: HEAD_CT_RULE_POSITIVE
+    if:
+      all:
+        - {field: current_problem.head_ct_rule_positive, equals: true}
+    result:
+      preferred_candidate: ct_head_nc

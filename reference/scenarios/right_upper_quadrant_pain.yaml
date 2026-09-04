@@ -1,0 +1,48 @@
+id: right_upper_quadrant_pain
+version: 0.1.0
+title: Douleur de l'hypochondre droit / suspicion biliaire
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Right Upper Quadrant Pain
+    url: https://acsearch.acr.org/docs/69474/Narrative/
+entry:
+  any:
+    - {field: current_problem.location, contains: "hypochondre droit"}
+    - {field: current_problem.location, contains: "quadrant supérieur droit"}
+    - {field: current_problem.suspected_diagnosis, contains: "cholécystite"}
+questions:
+  - id: biliary_suspicion
+    field: current_problem.biliary_disease_suspected
+    question: "La présentation oriente-t-elle vers une pathologie biliaire ?"
+    priority: 1
+    material: true
+    reason: "L'échographie est l'examen initial privilégié si une cause biliaire est suspectée."
+  - id: prior_us
+    field: current_problem.ultrasound_equivocal_or_negative
+    question: "Une échographie a-t-elle déjà été réalisée et est-elle négative/équivoque ?"
+    priority: 1
+    material: true
+    reason: "Conditionne l'étape d'imagerie suivante."
+  - id: fever_wbc
+    field: current_problem.fever_or_leukocytosis
+    question: "Fièvre ou hyperleucocytose ?"
+    priority: 2
+    material: true
+    reason: "Distingue certains variants après échographie négative/équivoque."
+candidates:
+  - id: us_abd
+    exam_name: Échographie abdominale ciblée hépatobiliaire
+    modality: US
+    contrast: no
+    appropriateness: usually_appropriate
+  - id: ct_iv
+    exam_name: TDM abdominale avec injection IV
+    modality: CT
+    contrast: yes
+    appropriateness: context_dependent
+  - id: mri_mrcp
+    exam_name: IRM abdominale avec cholangio-IRM
+    modality: MRI
+    contrast: conditional
+    appropriateness: context_dependent

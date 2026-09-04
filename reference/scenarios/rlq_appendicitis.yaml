@@ -1,0 +1,37 @@
+id: rlq_appendicitis
+version: 0.1.0
+title: Douleur de fosse iliaque droite / suspicion d'appendicite
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Right Lower Quadrant Pain
+    url: https://acsearch.acr.org/docs/69357/Narrative/
+entry:
+  any:
+    - {field: current_problem.location, contains: "fosse iliaque droite"}
+    - {field: current_problem.suspected_diagnosis, contains: "appendic"}
+questions:
+  - id: pregnancy
+    field: imaging_safety.pregnancy
+    question: "Une grossesse est-elle possible ou en cours ?"
+    priority: 1
+    material: true
+    reason: "Peut modifier la stratégie d'imagerie."
+  - id: fever
+    field: current_problem.fever
+    question: "Fièvre présente ?"
+    priority: 2
+    material: false
+    reason: "Renforce le scénario infectieux/inflammatoire."
+  - id: leukocytosis
+    field: labs.leukocytosis
+    question: "Hyperleucocytose documentée ?"
+    priority: 3
+    material: false
+    reason: "Complète le contexte de suspicion d'appendicite."
+candidates:
+  - id: ct_iv
+    exam_name: TDM abdomino-pelvienne avec injection IV
+    modality: CT
+    contrast: yes
+    appropriateness: usually_appropriate

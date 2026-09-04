@@ -1,0 +1,7 @@
+id: renal_colic_typical
+facts:
+  current_problem.location: "flanc droit"
+  imaging_safety.pregnancy: false
+expected:
+  scenario: renal_colic
+  must_not_ask_fields: [imaging_safety.pregnancy]

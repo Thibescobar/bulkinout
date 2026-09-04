@@ -1,0 +1,36 @@
+id: acute_abdominal_pain
+version: 0.1.0
+title: Douleur abdominale aiguë non localisée
+status: needs_local_validation
+sources:
+  - organization: ACR
+    title: Acute Nonlocalized Abdominal Pain
+    url: https://acsearch.acr.org/docs/69467/Narrative/
+entry:
+  any:
+    - {field: current_problem.indication, contains: "douleur abdominale"}
+questions:
+  - id: localization
+    field: current_problem.location
+    question: "La douleur est-elle localisée à un quadrant ou une région précise ?"
+    priority: 1
+    material: true
+    reason: "La localisation peut faire basculer vers un scénario plus spécifique."
+  - id: fever
+    field: current_problem.fever
+    question: "Fièvre présente ?"
+    priority: 2
+    material: true
+    reason: "Distingue des variantes importantes du scénario."
+  - id: recent_surgery
+    field: history.recent_surgery
+    question: "Chirurgie abdominale récente ?"
+    priority: 2
+    material: true
+    reason: "Le contexte postopératoire modifie le différentiel et la demande."
+candidates:
+  - id: ct_iv
+    exam_name: TDM abdomino-pelvienne avec injection IV
+    modality: CT
+    contrast: yes
+    appropriateness: usually_appropriate

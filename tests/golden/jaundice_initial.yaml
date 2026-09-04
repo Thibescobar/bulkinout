@@ -1,0 +1,6 @@
+id: jaundice_initial
+facts:
+  current_problem.symptoms: ["ictère"]
+expected:
+  scenario: jaundice
+  must_ask_fields: [current_problem.mechanical_obstruction_suspected]
