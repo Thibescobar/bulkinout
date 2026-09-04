@@ -1,8 +1,11 @@
 import hashlib
 import json
+from pathlib import Path
 
+import bulkinout
 from bulkinout import __version__
 from bulkinout.core.extraction.llm import EXTRACTION_PROMPT, OpenAICoreExtractor
+from bulkinout.fingerprints import sha256_python_tree
 from bulkinout.core.models import (
     ImagingDecision,
     ImagingRecommendation,
@@ -89,8 +92,9 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
 
     manifest = result.run_manifest
     assert manifest is not None
-    assert manifest.schema_version == 1
+    assert manifest.schema_version == 2
     assert manifest.package_version == __version__
+    assert manifest.code_sha256 == sha256_python_tree(Path(bulkinout.__file__).parent)
     assert [item.filename for item in manifest.inputs] == ["a.txt", "b.txt"]
     assert manifest.inputs[0].sha256 == hashlib.sha256(b"first synthetic input").hexdigest()
     assert manifest.core.provider == "local"
@@ -153,6 +157,23 @@ def test_builtin_prompt_hashes_track_exact_prompts():
         OpenAIRequestDecision.prompt_sha256
         == hashlib.sha256(DECISION_PROMPT.encode("utf-8")).hexdigest()
     )
+
+
+def test_python_tree_fingerprint_tracks_names_and_contents(tmp_path):
+    package_root = tmp_path / "package"
+    package_root.mkdir()
+    source = package_root / "module.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+
+    initial = sha256_python_tree(package_root)
+    assert initial == sha256_python_tree(Path(package_root))
+
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    assert sha256_python_tree(package_root) != initial
+
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    source.rename(package_root / "renamed.py")
+    assert sha256_python_tree(package_root) != initial
 
 
 def test_request_outputs_include_manifest_and_all_required_answers(tmp_path):

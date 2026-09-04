@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-122%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -147,7 +147,7 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
-| `run_manifest.json` | Input, component, model, prompt, schema, and reference fingerprints for comparison. |
+| `run_manifest.json` | Package, code, input, component, prompt, schema, and reference fingerprints for comparison. |
 
 ## Tests and validation
 

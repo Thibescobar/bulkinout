@@ -10,7 +10,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from ...errors import ConfigurationError
-from ...run_manifest import sha256_text
+from ...fingerprints import sha256_text
 from ...types import JsonObject, JsonValue
 from ..models import (
     ClinicalCase,

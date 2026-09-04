@@ -10,6 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .core.models import ImagingDecision, LLMExtraction
+from .fingerprints import sha256_python_tree, sha256_text
 from .request.types import ReferenceContext, ReferenceScenario
 
 UNREPORTED = "unreported"
@@ -40,18 +41,13 @@ class ReferenceFingerprint(BaseModel):
 
 
 class RunManifest(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     package_version: str
+    code_sha256: str
     inputs: list[InputFingerprint]
     core: ComponentFingerprint
     request: ComponentFingerprint
     reference: ReferenceFingerprint
-
-
-def sha256_text(value: str) -> str:
-    """Hash UTF-8 text without retaining it in the manifest."""
-
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _schema_sha256(model: type[BaseModel]) -> str:
@@ -139,6 +135,7 @@ def build_run_manifest(
 
     return RunManifest(
         package_version=package_version,
+        code_sha256=sha256_python_tree(Path(__file__).parent),
         inputs=_input_fingerprints(source_paths),
         core=_component_fingerprint(
             core_component,

@@ -125,7 +125,7 @@ sequenceDiagram
 
 If clarification is necessary, the operator completes `answers.template.json` and starts a new run with `--answers`. v0 does not maintain an interactive server-side session; the answer file is the handoff between passes.
 
-A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The manifest makes runs comparable; the evaluator does not turn synthetic assertions into clinical validation.
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v2 run manifest fingerprints the distributed Python source as well as the inputs and configured components, so changed safeguards cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 

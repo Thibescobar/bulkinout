@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..core.models import ClinicalCase, ImagingDecision
 from ..errors import ConfigurationError
-from ..run_manifest import sha256_text
+from ..fingerprints import sha256_text
 from ..types import JsonObject, JsonValue
 from .types import ReferenceContext
 

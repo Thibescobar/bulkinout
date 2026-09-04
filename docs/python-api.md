@@ -39,7 +39,7 @@ run_request()
 
 The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
-`run_manifest` contains hashes and technical identities rather than source contents: package version, input and optional answer fingerprints, component/provider/model names, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, and `prompt_sha256`; omitted metadata is recorded as `unreported` without changing the provider-neutral protocols.
+`run_manifest` contains hashes and technical identities rather than source contents. Schema version 2 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, and `prompt_sha256`; omitted metadata is recorded as `unreported` without changing the provider-neutral protocols.
 
 ## Core only
 

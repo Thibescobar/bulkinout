@@ -82,11 +82,17 @@ Source: `src/bulkinout/run_manifest.py`
 
 ### `RunManifest`
 
-Typed technical fingerprints for one Request run: package, inputs, components, prompts, schemas, reference revision, and matched scenarios.
+Schema-v2 technical fingerprints for one Request run: package version, distributed Python source, inputs, components, prompts, schemas, reference revision, and matched scenarios.
 
 ### `build_run_manifest(...) -> RunManifest`
 
 Builds stable SHA-256 metadata without retaining prompt or source-document contents.
+
+## `bulkinout.fingerprints`
+
+Source: `src/bulkinout/fingerprints.py`
+
+Workflow-neutral SHA-256 helpers used by Core adapters and Request run manifests. Keeping these helpers independent prevents Core from importing Request-specific manifest types.
 
 ## `bulkinout.core.extraction.llm`
 

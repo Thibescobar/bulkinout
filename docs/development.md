@@ -49,6 +49,7 @@ Keep the dependency direction one-way: `request` may import Core models, but `co
 | Request service | `src/bulkinout/request/service.py` | Owns the complete pre-exam execution order and safeguards |
 | Output writers | `src/bulkinout/output.py` | Serializes Core and Request results to the documented JSON files |
 | Model evaluation | `src/bulkinout/evaluation.py`, `run_manifest.py` | Fingerprints runs and checks saved Core/Request artifacts separately |
+| Shared fingerprints | `src/bulkinout/fingerprints.py` | Hashes prompts and packaged Python sources without depending on a workflow |
 | File ingestion | `src/bulkinout/core/ingestion/` | Discovers supported input files |
 | LLM contracts | `core/interfaces.py`, `request/interfaces.py` | Defines provider-neutral extraction and decision boundaries |
 | Extraction | `src/bulkinout/core/extraction/llm.py` | Builds multimodal LLM input and validates structured extraction |

@@ -1,4 +1,16 @@
+import tomllib
+from pathlib import Path
+
+from bulkinout import __version__
 from bulkinout import build_radiology_case, run_request, write_core_outputs, write_request_outputs
+
+
+def test_runtime_version_matches_package_metadata():
+    pyproject = tomllib.loads(
+        (Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )
+
+    assert pyproject["project"]["version"] == __version__
 
 
 def test_public_service_facade_delegates(monkeypatch, tmp_path):

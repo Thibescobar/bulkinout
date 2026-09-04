@@ -130,7 +130,7 @@ bulkinout request run \
   --output output_e2e/case_001
 ```
 
-The run writes `run_manifest.json` with input, answer, component, model, prompt, schema, and reference fingerprints. It stores hashes rather than prompts or document contents; filenames may still be sensitive.
+The run writes a schema-v2 `run_manifest.json` with package, distributed-code, input, answer, component, model, prompt, schema, and reference fingerprints. It stores hashes rather than Python source, prompts, or document contents; filenames may still be sensitive.
 
 Evaluate the snapshots without another provider call:
 

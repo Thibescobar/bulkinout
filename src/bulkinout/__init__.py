@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from .core.service import CoreResult
     from .request.service import RequestResult
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 
 __all__ = [
     "BulkinoutError",

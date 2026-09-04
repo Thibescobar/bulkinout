@@ -74,6 +74,7 @@ bulkinout/
 │   ├── cli.py                command parsing and status display
 │   ├── errors.py             public application exception hierarchy
 │   ├── evaluation.py         offline Core and Request assertions
+│   ├── fingerprints.py       workflow-neutral SHA-256 helpers
 │   ├── output.py             JSON snapshot writers
 │   ├── run_manifest.py       reproducibility fingerprints
 │   └── types.py              shared JSON-compatible types

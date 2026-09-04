@@ -192,7 +192,7 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. A Request run writes nine snapshots, including `run_manifest.json`, whose hashes identify its inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
+JSON files are written directly with UTF-8 indentation. A Request run writes nine snapshots, including the schema-v2 `run_manifest.json`, whose hashes identify its package version, distributed Python source, inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
 
 Use a fresh output directory for important runs:
 

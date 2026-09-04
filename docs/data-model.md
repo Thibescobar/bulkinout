@@ -188,6 +188,6 @@ Do not treat serialization success as authorization to transmit the request. Ide
 
 ## Evaluation and run metadata
 
-`RunManifest` is a separate technical model rather than clinical case data. It records SHA-256 fingerprints for inputs, prompts, Pydantic schemas, the complete reference revision, and matched scenario files, plus the package, provider, component, and model identities. Missing custom-provider metadata is explicit as `unreported`. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
+`RunManifest` is a separate technical model rather than clinical case data. Schema version 2 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
 
 `E2EExpectations` and `EvaluationReport` define the offline model-evaluation boundary. Expectations use structured facts, tolerances, scenario/status sets, question fields, and acceptable presentation terms. Reports keep Core and Request results separate so a final-output failure is not automatically attributed to extraction.
