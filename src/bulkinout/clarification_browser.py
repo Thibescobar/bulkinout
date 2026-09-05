@@ -7,7 +7,7 @@ import os
 import secrets
 import time
 import webbrowser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html import escape
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -21,10 +21,14 @@ from .types import JsonValue
 
 _MAX_BODY_BYTES = 64 * 1024
 _DEFAULT_TIMEOUT_SECONDS = 600.0
-_SECURITY_POLICY = (
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
-    "frame-ancestors 'none'; base-uri 'none'"
-)
+
+
+def _security_policy(nonce: str) -> str:
+    return (
+        "default-src 'none'; style-src 'unsafe-inline'; "
+        f"script-src 'nonce-{nonce}'; form-action 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'"
+    )
 
 
 @dataclass(slots=True)
@@ -40,6 +44,7 @@ SubmissionHandler = Callable[[BrowserClarification], str]
 class _Session:
     token: str
     questions: list[MissingQuestion]
+    csp_nonce: str = field(default_factory=lambda: secrets.token_urlsafe(16))
     on_submit: SubmissionHandler | None = None
     port: int = 0
     outcome: BrowserClarification | None = None
@@ -92,6 +97,9 @@ legend{{font-weight:700;padding:0 8px}}select,input{{box-sizing:border-box;width
 .reason{{color:#405b66}}.tag{{font-size:.85rem;color:#98520a}}.warning{{border-left:4px solid #ef7d32;padding:10px;background:#fff8f1}}
 .actions{{display:flex;gap:12px;flex-wrap:wrap}}button{{border:0;border-radius:7px;padding:12px 16px;font-weight:700}}
 .continue{{background:#087f8c;color:#fff}}.escalate{{background:#fff0e5;color:#8a420c}}
+.submitting button{{pointer-events:none;opacity:.65}}.progress{{display:flex;align-items:center;gap:10px;margin-top:18px;color:#075b66;font-weight:700}}
+.progress[hidden]{{display:none}}.spinner{{width:20px;height:20px;border:3px solid #b9dddd;border-top-color:#087f8c;border-radius:50%;animation:spin .75s linear infinite}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
 </style></head><body><main><h1>Clarification clinique</h1>
 <p>Bulkinout a besoin des informations suivantes avant de recalculer sa proposition.</p>
 <p>Après validation, gardez cette page ouverte pendant le recalcul : le résultat final s'affichera ici.</p>
@@ -103,7 +111,28 @@ legend{{font-weight:700;padding:0 8px}}select,input{{box-sizing:border-box;width
 {"".join(question_cards)}
 <div class="actions"><button class="continue" name="action" value="continue">Recalculer la proposition</button>
 <button class="escalate" name="action" value="escalate">Information indisponible — appeler le téléradiologue</button></div>
-</form></main></body></html>"""
+<div id="progress" class="progress" role="status" aria-live="polite" hidden>
+<span class="spinner" aria-hidden="true"></span><span id="progress-text">Traitement en cours…</span></div>
+</form><script nonce="{escape(session.csp_nonce, quote=True)}">
+const form = document.querySelector("form");
+const progress = document.querySelector("#progress");
+const progressText = document.querySelector("#progress-text");
+form.addEventListener("submit", (event) => {{
+  if (form.dataset.submitted === "true") {{ event.preventDefault(); return; }}
+  form.dataset.submitted = "true";
+  form.classList.add("submitting");
+  form.setAttribute("aria-busy", "true");
+  progress.hidden = false;
+  const submitter = event.submitter;
+  const recalculating = submitter?.value !== "escalate";
+  if (submitter) {{
+    submitter.textContent = recalculating ? "Recalcul en cours…" : "Préparation de l’appel…";
+  }}
+  progressText.textContent = recalculating
+    ? "Recalcul de la proposition en cours…"
+    : "Préparation de l’appel au téléradiologue…";
+}});
+</script></main></body></html>"""
 
 
 def _parse_answer(raw: str, question: MissingQuestion) -> JsonValue:
@@ -170,7 +199,7 @@ class _ClarificationHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Pragma", "no-cache")
-        self.send_header("Content-Security-Policy", _SECURITY_POLICY)
+        self.send_header("Content-Security-Policy", _security_policy(self._session.csp_nonce))
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")

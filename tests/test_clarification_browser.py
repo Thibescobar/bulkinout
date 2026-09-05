@@ -39,6 +39,7 @@ def test_browser_form_is_french_typed_self_contained_and_escapes_questions():
     session = _Session(
         token="token",
         questions=[question(text="Grossesse <script>alert(1)</script> ?")],
+        csp_nonce="test-nonce",
     )
 
     html = _render_form(session)
@@ -48,6 +49,12 @@ def test_browser_form_is_french_typed_self_contained_and_escapes_questions():
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
     assert 'action="/token/submit"' in html
+    assert '<script nonce="test-nonce">' in html
+    assert 'class="spinner"' in html
+    assert "submitter.textContent = recalculating" in html
+    assert "Recalcul en cours…" in html
+    assert "Recalcul de la proposition en cours…" in html
+    assert 'aria-busy", "true"' in html
     assert "https://" not in html
     assert "http://" not in html
 
@@ -160,6 +167,10 @@ def test_http_handler_serves_form_with_security_headers_and_accepts_one_submissi
     assert get_handler.response_headers["Cache-Control"] == "no-store"
     assert get_handler.response_headers["X-Frame-Options"] == "DENY"
     assert "default-src 'none'" in get_handler.response_headers["Content-Security-Policy"]
+    assert (
+        f"script-src 'nonce-{session.csp_nonce}'"
+        in get_handler.response_headers["Content-Security-Policy"]
+    )
     assert "Clarification clinique" in get_handler.wfile.getvalue().decode()
 
     body = urllib.parse.urlencode(

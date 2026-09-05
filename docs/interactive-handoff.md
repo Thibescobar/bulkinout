@@ -24,7 +24,7 @@ flowchart TD
     H --> K[Remote radiologist review]
 ```
 
-The first Request evaluation discovers reference, model-generated, and modality-specific questions. All currently known required or blocking questions appear together in one form; Request is not run between individual answers. Submitting the form triggers a second Request evaluation but not another Core extraction or source-document upload. The same browser request remains open during this calculation, then the form is replaced by the final review handoff. The refreshed reference context, safeguards, request, manifest, and handoff are written over the initial snapshots in the selected output directory.
+The first Request evaluation discovers reference, model-generated, and modality-specific questions. All currently known required or blocking questions appear together in one form; Request is not run between individual answers. Submitting the form changes the button state and displays an animated progress indicator while triggering a second Request evaluation, but not another Core extraction or source-document upload. The same browser request remains open during this calculation, then the form is replaced by the final review handoff. The refreshed reference context, safeguards, request, manifest, and handoff are written over the initial snapshots in the selected output directory.
 
 ## Interactive mode
 
@@ -42,6 +42,7 @@ The form:
 - binds only to `127.0.0.1` on a random port;
 - uses a high-entropy, single-use URL token;
 - contains no remote scripts, fonts, images, or analytics;
+- uses one nonce-authorized inline script only for click feedback and the progress indicator;
 - rejects an unexpected host, path, form shape, or oversized request;
 - allows ten minutes to submit, remains open during recalculation, and closes its local server only after serving the final handoff;
 - writes `answers.interactive.N.json` with owner-only permissions where supported.

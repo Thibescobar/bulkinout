@@ -66,7 +66,7 @@ Run the complete pre-exam workflow:
 bulkinout request run --input input --output output
 ```
 
-Add `--interactive` to open a short-lived browser form when required clinical answers are missing. All currently known required questions appear together. After submission, the same page remains open while Request is recalculated without extracting the source documents again, then displays the examination proposed to the radiologist or the direct-escalation state.
+Add `--interactive` to open a short-lived browser form when required clinical answers are missing. All currently known required questions appear together. On submission, the button changes state and an animated progress indicator remains visible while Request is recalculated without extracting the source documents again. The same page then displays the examination proposed to the radiologist or the direct-escalation state.
 
 ```bash
 bulkinout request run --input input --output output --interactive
