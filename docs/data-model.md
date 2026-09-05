@@ -195,6 +195,8 @@ Do not treat serialization success as authorization to transmit the request. Ide
 
 `RadiologyHandoff` is an additive schema-v1 artifact designed for remote radiologist review. Its status is `ready_for_radiologist_review`, `clinician_contact_required`, or `draft`. It embeds the French request and proposal while retaining structured facts, document provenance, safety facts, clarification history, unresolved questions, decision trace, and scenario-level citations.
 
+The JSON artifact always retains canonical English identifiers and structured values. Its HTML rendering presents French clinical labels and human-readable statuses by default, while preserving the exact canonical fields, values, confidence, validation flags, filenames, and scenario metadata in a collapsed technical trace. Source excerpts remain in their original language.
+
 The decision trace separates applicable reference candidate IDs from model candidate IDs. `selected_reference_candidate` is populated only when the proposed examination name exactly matches an applicable YAML candidate. Triggered rules are labelled `local_rule_triggered`; citations are labelled `scenario_background`. These distinctions prevent model wording or scenario-level references from being presented as source endorsement of a patient-specific decision.
 
 `radiology_handoff.html` renders the same content in French. It escapes every clinical value, contains no remote assets, and is intended for review rather than automatic transmission or approval.

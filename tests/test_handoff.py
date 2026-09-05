@@ -145,6 +145,15 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "DFG : 92" in html
     assert "Modifie la stratégie d&#x27;imagerie." in html
     assert "2026-09-04T10:30:00Z" in html
+    assert "Médecin urgentiste" in html
+    assert "Formulaire interactif" in html
+    assert "Réponse interactive" in html
+    assert "Informations cliniques retenues et sources" in html
+    assert "Indication clinique" in html
+    assert "Grossesse possible ou en cours" in html
+    assert "Renseigné par le clinicien" in html
+    assert "Afficher la traçabilité technique" in html
+    assert "Canonical field" in html
     assert "note.md" in html
     assert "Aucune proposition transmissible" not in html
     assert "Right Lower Quadrant Pain" in html
@@ -209,6 +218,55 @@ def test_blocked_handoff_does_not_present_raw_model_exam_as_a_recommendation():
     assert "<strong>Examen proposé" not in html
 
 
+def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace():
+    case = ClinicalCase(
+        allergies={
+            "iodinated_contrast_reaction": ClinicalField(
+                value="Diffuse urticaria after iodinated contrast injection",
+                status=FieldStatus.observed,
+                confidence=0.93,
+                sources=[
+                    SourceRef(
+                        document_id="llm:prior_report.pdf",
+                        filename="prior_report.pdf",
+                        page=1,
+                        excerpt="Urticaire diffus après injection de produit iodé.",
+                    )
+                ],
+            )
+        },
+        current_problem={"laterality": observed("right")},
+    )
+    decision = ImagingDecision(
+        decision_status="insufficient_information",
+        primary=ImagingRecommendation(contrast="yes", urgency="urgent"),
+        clinician_call_required=False,
+    )
+    handoff = build_radiology_handoff(
+        case,
+        decision,
+        [],
+        TeleradiologyRequest(status="draft"),
+        {"matched_scenarios": []},
+    )
+
+    html = render_radiology_handoff_html(handoff)
+    clinical_view, technical_trace = html.split("<details>", maxsplit=1)
+
+    assert "Réaction antérieure au produit de contraste iodé" in clinical_view
+    assert "Urticaire diffus après injection de produit iodé." in clinical_view
+    assert "Côté concerné" in clinical_view
+    assert ">Droit<" in clinical_view
+    assert "<strong>Contraste :</strong> Oui" in clinical_view
+    assert "<strong>Urgence :</strong> Urgente" in clinical_view
+    assert "allergies.iodinated_contrast_reaction" not in clinical_view
+    assert "Diffuse urticaria after iodinated contrast injection" not in clinical_view
+    assert ">observed<" not in clinical_view
+    assert "allergies.iodinated_contrast_reaction" in technical_trace
+    assert "Diffuse urticaria after iodinated contrast injection" in technical_trace
+    assert ">observed<" in technical_trace
+
+
 def test_draft_handoff_skips_unknown_and_malformed_metadata_without_losing_values():
     case = ClinicalCase(
         medications={"metformin": observed(True)},
@@ -256,4 +314,4 @@ def test_draft_handoff_skips_unknown_and_malformed_metadata_without_losing_value
     assert [item.field for item in handoff.clarifications] == ["current_problem.detail"]
     assert "current_problem.unknown_detail" not in {fact.field for fact in handoff.supporting_facts}
     assert "Oui" in html
-    assert "[&quot;douleur&quot;, &quot;nausées&quot;]" in html
+    assert "douleur ; nausées" in html
