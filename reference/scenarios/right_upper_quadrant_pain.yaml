@@ -14,6 +14,7 @@ entry:
 questions:
   - id: biliary_suspicion
     field: current_problem.biliary_disease_suspected
+    answer_kind: boolean
     question: "La présentation oriente-t-elle vers une pathologie biliaire ?"
     priority: 1
     material: true
@@ -21,6 +22,7 @@ questions:
     reason: "Ultrasound is the preferred initial examination when biliary disease is suspected."
   - id: prior_us
     field: current_problem.ultrasound_equivocal_or_negative
+    answer_kind: boolean
     question: "Une échographie a-t-elle déjà été réalisée et est-elle négative/équivoque ?"
     priority: 1
     material: true
@@ -28,6 +30,7 @@ questions:
     reason: "Determines the next imaging step."
   - id: fever_wbc
     field: current_problem.fever_or_leukocytosis
+    answer_kind: boolean
     question: "Fièvre ou hyperleucocytose ?"
     priority: 2
     material: true

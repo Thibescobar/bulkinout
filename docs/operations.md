@@ -27,7 +27,7 @@ Input, output, answer, and golden-case paths are interpreted relative to the cur
 
 ## Execution and data flow
 
-The complete pre-exam command performs two LLM calls separated by deterministic processing:
+A non-interactive pre-exam run performs two LLM calls separated by deterministic processing: one extraction and one decision call. An answered interactive round adds one decision call but deliberately reuses the original extraction.
 
 ```text
 Supported documents
@@ -43,10 +43,12 @@ generic questions --> YAML reference --> LLM decision
                               deterministic guards and safety checks
                                              |
                                              v
-                           JSON artifacts + French request draft
+                           JSON artifacts + French review handoff
 ```
 
-`core structure` stops after the first LLM call and writes the structured longitudinal container. `request run` executes the entire diagram. When `--answers` is supplied, Bulkinout starts again from the source documents, repeats extraction, applies the answer file, and then repeats the Request phase. It does not resume from an earlier `radiology_case.json`.
+`core structure` stops after the first LLM call and writes the structured longitudinal container. `request run` executes the entire diagram. With `--interactive`, one required-question round opens locally and a submitted answer recalculates only Request from the in-memory Core result. With `--answers`, Bulkinout starts a new complete run, repeats extraction, applies the answer file, and then repeats Request. It does not resume from an earlier `radiology_case.json`.
+
+The interactive form listens on `127.0.0.1` at a random port, uses a single-use high-entropy URL token, accepts a bounded form body, and loads no remote assets. A nonce-authorized inline script provides only submission feedback and the animated progress indicator. The operator has ten minutes to submit all currently known questions. The same HTTP response remains pending during Request recalculation, returns the final handoff in that page, and only then closes the local server. These controls limit accidental exposure; they do not authenticate the declared clinician, protect a compromised workstation, or create a durable workflow session.
 
 The deterministic reference engine loads every packaged scenario, or every `*.yaml` file directly inside an explicit reference directory. It matches multilingual terms, selects applicable candidate exams, reports unresolved questions, and evaluates rules. Required or blocking reference questions are enforced after the LLM response, so the model may add context but cannot remove those constraints.
 
@@ -80,8 +82,11 @@ The extraction prompt prohibits invented facts and treats absent information as 
 | `teleradiology_request.json` | French clinical draft; never an automatically approved transmission |
 | `answers.template.json` | Required discriminating questions to complete before rerunning |
 | `run_manifest.json` | Technical fingerprints for the package, code, inputs, components, prompts, schemas, and reference used |
+| `radiology_handoff.json` | Structured proposal or abstention with evidence, clarifications, rules, safety facts, and scenario-level citations |
+| `radiology_handoff.html` | Escaped, self-contained French page for remote radiologist review |
+| `answers.interactive.N.json` | Owner-readable typed input created by an interactive round; numbered to avoid overwriting prior answers |
 
-Existing files with these names are overwritten. Writes are not atomic, versioned, or locked, so do not run two cases into the same directory concurrently. Use one private output directory per case and execution, then move validated artifacts into the organization’s controlled record system. Output JSON may contain clinical content and source excerpts; the manifest stores hashes rather than contents but can still expose filenames. Protect every artifact like the input documents. Generated `output*/` directories are intentionally excluded from Git.
+The ten standard JSON snapshots and HTML handoff are overwritten. Writes are not atomic, versioned, or locked, so do not run two cases into the same directory concurrently. Interactive answer files are numbered and created with owner-only permissions where the platform supports them. Use one private output directory per case and execution, then move validated artifacts into the organization’s controlled record system. JSON, answer, and HTML files may contain clinical content and source excerpts; the manifest stores hashes rather than contents but can still expose filenames. Protect every artifact like the input documents. Generated `output*/` directories are intentionally excluded from Git.
 
 ## Decision and approval states
 
@@ -94,6 +99,8 @@ The request status is independently derived:
 - `ready_for_human_approval`: ready to be reviewed, not already approved.
 
 `validated_by_clinician` defaults to `false`. Bulkinout provides no authentication, electronic signature, order-entry integration, or transmission mechanism. A qualified clinician remains responsible for verifying the patient, indication, extracted facts, contraindications, examination, protocol, urgency, and destination before any use.
+
+The radiology handoff adds a separate review state. `ready_for_radiologist_review` means a proposal and its evidence can be reviewed; `clinician_contact_required` means no examination is presented as transmissible and direct discussion is required; `draft` is neither state. References are marked `scenario_background`: they document the local scenario's source, not source-organization approval of the patient-specific proposal.
 
 ## Failure modes and troubleshooting
 
@@ -109,6 +116,7 @@ The CLI prints concise progress to standard output. Expected configuration, inpu
 | Pydantic validation error after a model call | Returned structured data did not satisfy the schema | Preserve the exception and model name; retry only after assessing whether the failure is transient |
 | YAML/parser error | Malformed scenario file | Run `bulkinout request catalog` and the golden cases before deployment |
 | Decision remains blocked | Required clinical or safety facts are unknown/conflicting | Review `missing_questions.json`, complete an answer file, and rerun |
+| Interactive form does not open or expires | Browser launch failed or the ten-minute local session ended | Use the printed `answers.template.json` workflow; the guarded initial result remains intact |
 | Partial or mixed output files | Process stopped during sequential writes | Discard the directory and rerun into a new empty directory |
 
 For deterministic reference diagnostics, run:

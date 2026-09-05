@@ -13,6 +13,7 @@ entry:
 questions:
   - id: pregnancy
     field: imaging_safety.pregnancy
+    answer_kind: boolean
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true
@@ -21,12 +22,14 @@ questions:
     reason: "May change the imaging strategy."
   - id: fever
     field: current_problem.fever
+    answer_kind: boolean
     question: "Fièvre présente ?"
     priority: 2
     material: false
     reason: "Supports an infectious or inflammatory scenario."
   - id: leukocytosis
     field: labs.leukocytosis
+    answer_kind: boolean
     question: "Hyperleucocytose documentée ?"
     priority: 3
     material: false

@@ -24,13 +24,15 @@ pytest -q
 - file discovery;
 - Core extraction helpers with simulated clients;
 - answer loading and application;
+- typed browser clarification, one-time-token checks, timeout behavior, and private answer writes;
 - generic and modality-specific questions;
 - decision guards;
 - multilingual scenario matching, filtering, and rules;
 - catalog generation;
 - golden-case evaluation;
 - offline E2E assertions and run-manifest fingerprints;
-- Request-service orchestration plus thin CLI delegation with test doubles.
+- Request-service orchestration plus thin CLI delegation with test doubles;
+- evidence-backed radiology handoff content, escaping, citations, and blocked-state presentation.
 
 Tests must not call a real model unless they live in the explicit manual E2E layer. Inject small `CoreExtractor` and `RequestDecisionEngine` fakes to test service orchestration. Use a simulated SDK client only when testing the built-in OpenAI adapters themselves.
 
@@ -40,6 +42,7 @@ Tests must not call a real model unless they live in the explicit manual E2E lay
 pytest -q tests/test_extraction.py
 pytest -q tests/test_reference_engine.py tests/test_reference_engine_v0.py
 pytest -q tests/test_cli.py
+pytest -q tests/test_clarification_browser.py tests/test_handoff.py
 pytest -q -k pregnancy
 ```
 
@@ -151,7 +154,8 @@ The evaluator reports Core and Request independently. Expectations assert struct
 4. Confirm scenario matching and decision status.
 5. Check questions, proposed examination, and safety surfaces.
 6. Review the complete French teleradiology draft for correctness and clarity.
-7. Record any error under the owning layer, not only under the final symptom.
+7. Open `radiology_handoff.html` and verify that the indication, answers, sources, rationale, safety data, and citations support review without implying approval. Confirm that the default view uses clinical French and that the collapsed technical trace preserves the canonical fields and exact provenance.
+8. Record any error under the owning layer, not only under the final symptom.
 
 The review template recognizes `core_extraction`, `scenario_matching`, `reference_question`, `reference_rule`, `decision_llm`, `safety_guard`, `request_generation`, and `other`.
 
@@ -183,6 +187,7 @@ CI validates the deterministic repository and its installable package boundaries
 | Wrong rule triggered | `reference_context.json` | Focused golden case. |
 | Unsafe selected state | `imaging_decision.json` | Decision-guard or Request-service test. |
 | Incorrect clinical draft | `teleradiology_request.json` | Request-builder test and manual E2E review. |
+| Unsupported or misleading handoff | `radiology_handoff.json` and `.html` | Handoff test plus manual radiologist-facing review. |
 
 ## Pre-merge checklist
 

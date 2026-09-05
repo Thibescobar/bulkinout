@@ -23,7 +23,7 @@ Clinical source documents intentionally include French, English, and mixed-langu
 
 ## Suggested manual suites
 
-Run cases one at a time so model calls and failures remain visible. A Request run normally makes one extraction call and one decision call, in addition to any provider-side file upload.
+Run cases one at a time so model calls and failures remain visible. A Request run normally makes one extraction call and one decision call, in addition to any provider-side file upload. An answered `--interactive` round reuses Core and adds only one decision call.
 
 The **quick smoke suite** covers one successful selection, ambiguity, a safety block, mixed-language extraction, negative matching, and image input:
 
@@ -42,6 +42,17 @@ The **extended suite** comprises all 12 cases. Run it before accepting a model, 
 bulkinout request run --input tests/e2e/case_001_rlq_complete --output output_e2e/case_001
 ```
 
+Exercise the clinician-question loop with a case that must remain blocked until onset is known:
+
+```bash
+bulkinout request run \
+  --input tests/e2e/case_004_stroke_missing_onset_mixed \
+  --output output_e2e/case_004_interactive \
+  --interactive
+```
+
+All initially known questions should appear in the same form. After submission, confirm that the page remains active during recalculation and becomes the final handoff without opening another tab. Verify that `answers.interactive.1.json` retains the typed response and that `run_manifest.json` fingerprints it. The page and saved `radiology_handoff.html` must show the final status and safely proposed examination or abstention, together with the clinical question, clarification, source evidence, rationale, safety information, and scenario references without implying approval.
+
 Evaluate the generated artifacts against the case assertions:
 
 ```bash
@@ -59,7 +70,7 @@ bulkinout request evaluate \
   --report output_e2e/case_001/evaluation.json
 ```
 
-The evaluator checks deterministic artifacts, but it does not replace radiologist review. Record the clinical review separately in `review/radiologist_review_template.csv`.
+The evaluator checks deterministic artifacts, but it does not replace radiologist review. Record the clinical review separately in `review/radiologist_review_template.csv`, including whether the handoff supports review and describes citations conservatively.
 
 For case 002, `answers_after_call.example.json` demonstrates a second pass after clarification:
 

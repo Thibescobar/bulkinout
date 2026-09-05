@@ -81,6 +81,7 @@ def _contrast_ct_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 importance="high",
                 reason="May change the injection strategy under local procedures and clinical context.",
                 required_to_choose=True,
+                answer_kind="number",
             )
         )
     return questions
@@ -97,6 +98,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 reason="May require a specific procedure or change MRI feasibility.",
                 required_to_choose=True,
                 blocking=True,
+                answer_kind="boolean",
             )
         )
     if _unknown(case.imaging_safety, "implant_or_metal"):
@@ -107,6 +109,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 importance="high",
                 reason="MRI compatibility must be verified, not assumed.",
                 required_to_choose=True,
+                answer_kind="boolean",
             )
         )
     return questions
@@ -145,5 +148,6 @@ def _ionizing_radiation_questions(case: ClinicalCase) -> list[MissingQuestion]:
             importance="high",
             reason="Safety information for an examination using ionizing radiation.",
             required_to_choose=True,
+            answer_kind="boolean",
         )
     ]

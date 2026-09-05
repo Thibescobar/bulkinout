@@ -4,7 +4,10 @@ from types import SimpleNamespace
 import pytest
 
 from bulkinout import cli
+from bulkinout.clarification_browser import BrowserClarification
 from bulkinout.core.models import (
+    AnswerFile,
+    AnswerItem,
     ClinicalCase,
     ImagingDecision,
     ImagingRecommendation,
@@ -37,6 +40,7 @@ def request_result() -> RequestResult:
                 question="Quelle est l'indication ?",
                 importance="critical",
                 reason="Required",
+                required_to_choose=True,
             )
         ],
         imaging_decision=decision,
@@ -120,6 +124,210 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
         "current_problem.indication"
     )
     assert "Decision: selected" in capsys.readouterr().out
+
+
+def test_request_run_prints_selected_examination(monkeypatch, tmp_path, capsys):
+    from bulkinout.request import service as request_service
+
+    result = request_result()
+    result.missing_questions = []
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(request_service, "run_request", lambda input_dir, **kwargs: result)
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path),
+            output=str(tmp_path / "out"),
+            answers=None,
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            interactive=False,
+        )
+    )
+
+    assert "Examen proposé au radiologue : CT abdomen" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("insufficient_information", "aucun à ce stade — échange direct requis"),
+        ("no_imaging_recommended", "aucun — imagerie initiale non recommandée"),
+    ],
+)
+def test_request_run_never_prints_blocked_exam_as_proposed(
+    monkeypatch, tmp_path, capsys, status, expected
+):
+    from bulkinout.request import service as request_service
+
+    result = request_result()
+    result.missing_questions = []
+    result.imaging_decision.decision_status = status
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(request_service, "run_request", lambda input_dir, **kwargs: result)
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path),
+            output=str(tmp_path / "out"),
+            answers=None,
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            interactive=False,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert f"Examen proposé au radiologue : {expected}" in output
+    assert "Examen proposé au radiologue : CT abdomen" not in output
+
+
+def test_request_run_explains_noninteractive_clarification_handoff(monkeypatch, tmp_path, capsys):
+    from bulkinout.request import service as request_service
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        request_service, "run_request", lambda input_dir, **kwargs: request_result()
+    )
+    output = tmp_path / "out"
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path),
+            output=str(output),
+            answers=None,
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            interactive=False,
+        )
+    )
+
+    text = capsys.readouterr().out
+    assert "Decision paused: 1 required clinical answer(s)." in text
+    assert "Quelle est l'indication ?" in text
+    assert str(output / "answers.template.json") in text
+    assert "--answers answers.json" in text
+
+
+def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
+    monkeypatch, tmp_path, capsys
+):
+    from bulkinout import clarification_browser
+    from bulkinout.core import service as core_service
+    from bulkinout.request import service as request_service
+
+    first = request_result()
+    second = request_result()
+    second.missing_questions = []
+    calls = []
+    core_result = CoreResult(RadiologyCase(), LLMExtraction(), [])
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        core_service,
+        "build_radiology_case",
+        lambda input_dir, model: calls.append(("core", input_dir, model)) or core_result,
+    )
+
+    def run_from_core(received_core, **kwargs):
+        calls.append(("request", received_core, kwargs))
+        return first if kwargs.get("answers_path") is None else second
+
+    monkeypatch.setattr(request_service, "run_request_from_core", run_from_core)
+
+    def collect_answers(questions, *, on_submit):
+        outcome = BrowserClarification(
+            answer_file=AnswerFile(
+                answers=[
+                    AnswerItem(
+                        field="current_problem.indication",
+                        value="Suspicion d'appendicite",
+                    )
+                ]
+            )
+        )
+        assert "Résultat disponible dans le terminal" in on_submit(outcome)
+        return outcome
+
+    monkeypatch.setattr(
+        clarification_browser,
+        "collect_clinician_answers",
+        collect_answers,
+    )
+    output = tmp_path / "out"
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path / "input"),
+            output=str(output),
+            answers=None,
+            reference=None,
+            model="shared-model",
+            extraction_model="extraction-model",
+            decision_model="decision-model",
+            interactive=True,
+        )
+    )
+
+    assert [call[0] for call in calls] == ["core", "request", "request"]
+    assert calls[0][2] == "extraction-model"
+    answer_path = output / "answers.interactive.1.json"
+    assert calls[2][2]["answers_path"] == answer_path
+    assert json.loads(answer_path.read_text())["answers"][0]["value"] == ("Suspicion d'appendicite")
+    text = capsys.readouterr().out
+    assert "Opening a local clarification form" in text
+    assert "Recalculating Request from the existing Core result" in text
+
+
+@pytest.mark.parametrize("outcome", [None, BrowserClarification(AnswerFile(), escalated=True)])
+def test_interactive_request_falls_back_or_escalates_without_recalculation(
+    monkeypatch, tmp_path, capsys, outcome
+):
+    from bulkinout import clarification_browser
+    from bulkinout.core import service as core_service
+    from bulkinout.request import service as request_service
+
+    calls = []
+    core_result = CoreResult(RadiologyCase(), LLMExtraction(), [])
+    monkeypatch.setattr(core_service, "build_radiology_case", lambda input_dir, model: core_result)
+    monkeypatch.setattr(
+        request_service,
+        "run_request_from_core",
+        lambda received_core, **kwargs: calls.append(kwargs) or request_result(),
+    )
+
+    def collect_answers(questions, *, on_submit):
+        if outcome is not None:
+            on_submit(outcome)
+        return outcome
+
+    monkeypatch.setattr(
+        clarification_browser,
+        "collect_clinician_answers",
+        collect_answers,
+    )
+    args = SimpleNamespace(
+        input=str(tmp_path / "input"),
+        output=str(tmp_path / "out"),
+        reference=None,
+        model="model",
+        extraction_model=None,
+        decision_model=None,
+    )
+
+    cli._run_interactive_request(args)
+
+    assert len(calls) == 1
+    text = capsys.readouterr().out
+    if outcome is None:
+        assert "unavailable or timed out" in text
+    else:
+        assert "contact the teleradiologist directly" in text
 
 
 def test_request_golden_handles_empty_success_and_failure(monkeypatch, tmp_path, capsys):
@@ -254,3 +462,12 @@ def test_request_run_help_describes_its_arguments(capsys):
     assert "Directory containing scenario YAML files" in output
     assert "--extraction-model" in output
     assert "--decision-model" in output
+    assert "--interactive" in output
+
+
+def test_request_run_rejects_answer_file_with_interactive_mode(capsys):
+    with pytest.raises(SystemExit) as error:
+        cli.main(["request", "run", "--answers", "answers.json", "--interactive"])
+
+    assert error.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err

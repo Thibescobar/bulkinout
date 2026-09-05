@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Required, TypedDict
+from typing import Literal, Required, TypedDict
 
 from ..types import JsonObject, JsonValue
 
@@ -36,6 +36,7 @@ class ReferenceQuestion(TypedDict, total=False):
     required_to_choose: bool
     blocking: bool
     reason: str
+    answer_kind: Literal["boolean", "integer", "number", "text"]
 
 
 class ReferenceCandidate(TypedDict, total=False):

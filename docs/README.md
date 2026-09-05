@@ -14,9 +14,9 @@ flowchart LR
     D --> E[LLM candidate comparison]
     E --> F[Deterministic guards]
     F --> G{Enough information?}
-    G -- No --> H[French clinician questions]
+    G -- No --> H[File or local browser clarification]
     H --> C
-    G -- Yes --> I[Teleradiology draft]
+    G -- Yes --> I[Evidence-backed teleradiology handoff]
     I --> J[Human approval outside v0]
 ```
 
@@ -34,6 +34,7 @@ Three ideas are central:
 2. [Data model](data-model.md) for the objects passed between layers.
 3. [Core](core.md) and [Request](request.md) for detailed processing.
 4. [Reference](reference.md) for deterministic scenario behavior.
+5. [Interactive clarification and handoff](interactive-handoff.md) for the clinician-to-teleradiologist boundary.
 
 ### Run or troubleshoot the software
 
@@ -71,6 +72,7 @@ bulkinout/
 │   ├── core/                 ingestion, extraction, models, case construction
 │   ├── request/              reference, decision, guards, request generation
 │   ├── report/               post-exam placeholder
+│   ├── clarification_browser.py private loopback clarification form
 │   ├── cli.py                command parsing and status display
 │   ├── errors.py             public application exception hierarchy
 │   ├── evaluation.py         offline Core and Request assertions

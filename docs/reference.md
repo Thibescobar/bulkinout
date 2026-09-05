@@ -28,6 +28,7 @@ questions:
   - id: pregnancy
     field: imaging_safety.pregnancy
     question: "Une grossesse est-elle possible ou en cours ?"
+    answer_kind: boolean
     priority: 1
     material: true
     reason: Pregnancy changes the modality hierarchy.
@@ -99,6 +100,7 @@ Questions connect a stable clinical field to French presentation text and Englis
 | `id` | Stable question identifier inside the scenario. |
 | `field` | `section.field` path inspected for an answer. |
 | `question` | Clinical text shown to the current French user. |
+| `answer_kind` | Canonical JSON input type: `boolean`, `integer`, `number`, or `text` (default). |
 | `priority` | Sort order; lower numbers appear first. |
 | `material` | Whether the unresolved question is included in reference context. |
 | `required_to_choose` | Whether an unresolved answer deterministically prevents examination selection. |
@@ -106,6 +108,8 @@ Questions connect a stable clinical field to French presentation text and Englis
 | `reason` | Developer-facing explanation of why the fact matters. |
 
 `unresolved_material_questions()` returns relevant questions whose field is absent, unknown, or conflicting. A material question may inform comparison without being mandatory. Required and blocking questions are converted to deterministic `MissingQuestion` objects after matching; the LLM may add questions but cannot remove or weaken these constraints. Questions from all sources are deduplicated by canonical field while retaining the strongest requirement.
+
+Choose `answer_kind` for the clinical concept rather than its presentation wording. This lets the interactive adapter preserve `false`, integer, and numeric answers as canonical JSON values. It does not validate clinical units or terminology; those remain explicit in the question and future normalization work.
 
 Pregnancy questions use the same conservative relevance rule as modality checks: they are omitted only for an observed male sex or an observed age outside 10–60. Missing, conflicting, or invalid demographic data keeps the question relevant.
 
@@ -138,7 +142,7 @@ rules:
 Use this sequence to keep reference changes reviewable:
 
 1. **Choose a stable ID.** Use `snake_case`; do not rename an existing ID solely to improve wording.
-2. **Record the source.** Include organization, exact source title, and a durable URL.
+2. **Record the source.** Include organization, exact source title, and a durable URL. Handoffs expose this as `scenario_background`, never as endorsement of one patient-specific proposal.
 3. **Define narrow entry predicates.** Prefer recognizable clinical phrases over very broad fragments that create false positives.
 4. **Add multilingual synonyms.** Preserve existing French terms and add English equivalents in one `contains_any` or `contains_any_term` predicate so scoring does not change accidentally.
 5. **Classify questions explicitly.** Use `material` for decision-relevant context, `required_to_choose` only when selection is invalid without the answer, and `blocking` for an unresolved workflow or safety constraint.

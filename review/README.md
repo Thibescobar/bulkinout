@@ -7,6 +7,8 @@ For each end-to-end case, record whether the following are correct:
 - examination;
 - protocol;
 - clinician callback decision;
+- whether the handoff provides sufficient evidence, clarification trace, and safety context for review;
+- whether citations are presented as scenario background rather than patient-specific endorsement;
 - identification of missing critical information.
 
 Error categories:

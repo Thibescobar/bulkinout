@@ -28,6 +28,8 @@ def load_answers(path: Path) -> AnswerFile:
 
 def apply_answers(case: ClinicalCase, answer_file: AnswerFile, filename: str) -> ClinicalCase:
     for item in answer_file.answers:
+        if item.value is None or (isinstance(item.value, str) and not item.value.strip()):
+            continue
         if "." not in item.field:
             continue
         section_name, key = item.field.split(".", 1)
@@ -41,12 +43,28 @@ def apply_answers(case: ClinicalCase, answer_file: AnswerFile, filename: str) ->
                 SourceRef(
                     document_id=f"answers:{filename}",
                     filename=filename,
-                    excerpt=item.note,
+                    excerpt=item.note or item.question,
                 )
             ],
             confidence=1.0,
             validated=False,
         )
+    clarification_records = case.metadata.get("clarifications")
+    if not isinstance(clarification_records, list):
+        clarification_records = []
+        case.metadata["clarifications"] = clarification_records
+    clarification_records.extend(
+        {
+            **item.model_dump(mode="json"),
+            "answer_source": filename,
+            "state": (
+                "unanswered"
+                if item.value is None or (isinstance(item.value, str) and not item.value.strip())
+                else "answered"
+            ),
+        }
+        for item in answer_file.answers
+    )
     answer_files = case.metadata.get("answer_files")
     if not isinstance(answer_files, list):
         answer_files = []

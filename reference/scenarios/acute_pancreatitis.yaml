@@ -19,12 +19,13 @@ questions:
     reason: "Timing before or after 48–72 hours affects the value of initial cross-sectional imaging."
   - id: enzymes
     field: labs.lipase
-    question: "Lipase/amylase compatibles avec une pancréatite ?"
+    question: "Quels sont les résultats de lipase/amylase et leur interprétation clinique ?"
     priority: 1
     material: true
     reason: "A typical presentation with elevated enzymes differs from an atypical presentation."
   - id: atypical
     field: current_problem.atypical_presentation
+    answer_kind: boolean
     question: "La présentation est-elle atypique ou existe-t-il un diagnostic alternatif important ?"
     priority: 1
     material: true

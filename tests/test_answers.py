@@ -59,3 +59,41 @@ def test_apply_answers_updates_valid_fields_and_tracks_provenance():
     assert age.sources[0].document_id == "answers:answers.json"
     assert age.sources[0].excerpt == "Telephone confirmation"
     assert result.metadata["answer_files"] == ["earlier.json", "answers.json"]
+
+
+def test_apply_answers_keeps_empty_values_unresolved_but_records_the_attempt():
+    case = ClinicalCase()
+    answers = AnswerFile(
+        answers=[
+            AnswerItem(field="imaging_safety.pregnancy", value=None, question="Grossesse ?"),
+            AnswerItem(field="current_problem.onset", value="   ", question="Début ?"),
+        ]
+    )
+
+    result = apply_answers(case, answers, "interactive.json")
+
+    assert "pregnancy" not in result.imaging_safety
+    assert "onset" not in result.current_problem
+    assert [item["state"] for item in result.metadata["clarifications"]] == [
+        "unanswered",
+        "unanswered",
+    ]
+
+
+def test_apply_answers_preserves_false_and_zero_as_typed_observations():
+    case = ClinicalCase()
+    answers = AnswerFile(
+        answers=[
+            AnswerItem(field="imaging_safety.pregnancy", value=False),
+            AnswerItem(field="current_problem.gcs", value=0),
+        ]
+    )
+
+    result = apply_answers(case, answers, "interactive.json")
+
+    assert result.imaging_safety["pregnancy"].value is False
+    assert result.current_problem["gcs"].value == 0
+    assert [item["state"] for item in result.metadata["clarifications"]] == [
+        "answered",
+        "answered",
+    ]

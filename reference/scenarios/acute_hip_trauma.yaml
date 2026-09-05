@@ -20,6 +20,7 @@ questions:
     reason: "Initial imaging and the next step differ."
   - id: suspected_fracture
     field: current_problem.suspected_fracture
+    answer_kind: boolean
     question: "La suspicion clinique de fracture reste-t-elle forte malgré les radiographies ?"
     priority: 1
     material: true

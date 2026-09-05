@@ -21,12 +21,14 @@ questions:
     reason: "Determines the spinal region to cover with MRI."
   - id: neuro_deficit
     field: current_problem.neurologic_deficit
+    answer_kind: boolean
     question: "Déficit neurologique nouveau ou syndrome de la queue de cheval ?"
     priority: 1
     material: true
     reason: "Increases urgency and the need to assess epidural extension."
   - id: recent_intervention
     field: history.recent_spine_intervention
+    answer_kind: boolean
     question: "Chirurgie, infiltration ou implantation de matériel rachidien récente ?"
     priority: 2
     material: true

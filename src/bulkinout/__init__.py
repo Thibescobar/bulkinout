@@ -24,6 +24,7 @@ __all__ = [
     "RequestDecisionEngine",
     "build_radiology_case",
     "run_request",
+    "run_request_from_core",
     "write_core_outputs",
     "write_request_outputs",
 ]
@@ -65,6 +66,29 @@ def run_request(
         decision_model=decision_model,
         answers_path=answers_path,
         extractor=extractor,
+        decision_engine=decision_engine,
+    )
+
+
+def run_request_from_core(
+    core_result: CoreResult,
+    *,
+    reference_dir: Path | None = None,
+    model: str | None = None,
+    decision_model: str | None = None,
+    answers_path: Path | None = None,
+    decision_engine: RequestDecisionEngine | None = None,
+) -> RequestResult:
+    """Run Request from an existing Core result without repeating extraction."""
+
+    from .request.service import run_request_from_core as run
+
+    return run(
+        core_result,
+        reference_dir=reference_dir,
+        model=model,
+        decision_model=decision_model,
+        answers_path=answers_path,
         decision_engine=decision_engine,
     )
 

@@ -3,8 +3,8 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-164%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
@@ -26,9 +26,10 @@ The current Request workflow:
 
 - identifies matching radiology scenarios;
 - asks only questions that may change the decision;
+- optionally collects required answers in a private local browser form;
 - compares candidate examinations;
 - blocks unsafe or under-specified proposals;
-- prepares a French clinical draft for human approval.
+- prepares an evidence-backed French handoff for remote radiologist review.
 
 ## What v0 supports
 
@@ -41,9 +42,9 @@ PDF / TXT / Markdown / images
     └── structured RadiologyCase
         ├── Request — available in v0
         │   ├── multilingual scenario matching
-        │   ├── discriminating questions
+        │   ├── file-based or interactive clarification
         │   ├── proposal / abstention / clarification
-        │   └── teleradiology request draft
+        │   └── cited teleradiology review handoff
         └── Report — standby
             └── future post-exam workflow
 ```
@@ -65,7 +66,13 @@ Run the complete pre-exam workflow:
 bulkinout request run --input input --output output
 ```
 
-If the decision requires clarification, complete the generated `answers.template.json`, save it as `answers.json`, and rerun:
+Add `--interactive` to open a short-lived browser form when required clinical answers are missing. All currently known required questions appear together. On submission, the button changes state and an animated progress indicator remains visible while Request is recalculated without extracting the source documents again. The same page then displays the examination proposed to the radiologist or the direct-escalation state. Its main review content uses French clinical labels; canonical fields, values, and reference metadata remain available in a collapsed technical trace.
+
+```bash
+bulkinout request run --input input --output output --interactive
+```
+
+Without interactive mode, the terminal lists every required or blocking question and points to `answers.template.json`. Complete it, save it as `answers.json`, and rerun:
 
 ```bash
 bulkinout request run \
@@ -98,6 +105,7 @@ bulkinout
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
+|  | `--interactive` | off | Open a private loopback browser form and recalculate Request from the same Core result. |
 |  | `--reference` | packaged&nbsp;reference | Optional scenario-directory override. |
 |  | `--extraction-model` | extraction&nbsp;env | Model used by Core. |
 |  | `--decision-model` | decision&nbsp;env | Model used by Request. |
@@ -129,7 +137,7 @@ result = run_request(
 print(result.imaging_decision.decision_status)
 print(result.teleradiology_request.model_dump(mode="json"))
 
-# Optional: write the same nine JSON files as the CLI.
+# Optional: write the JSON snapshots and HTML review handoff produced by the CLI.
 write_request_outputs(result, Path("output"))
 ```
 
@@ -148,6 +156,9 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
 | `run_manifest.json` | Package, code, input, component, prompt, schema, and reference fingerprints for comparison. |
+| `radiology_handoff.json` | Structured proposal or escalation package linking facts, clarifications, rules, safety checks, and references. |
+| `radiology_handoff.html` | Self-contained French review page intended for the remote radiologist. |
+| `answers.interactive.N.json` | Private typed answer record created only by an interactive clarification round. |
 
 ## Tests and validation
 
@@ -181,6 +192,7 @@ The evaluator checks Core and Request independently with structured assertions a
 | Ingestion, extraction, provenance, and case construction | [`docs/core.md`](docs/core.md) |
 | Models, statuses, and serialized data | [`docs/data-model.md`](docs/data-model.md) |
 | Decision sequence, clarification, and safeguards | [`docs/request.md`](docs/request.md) |
+| Interactive questions and teleradiology handoff | [`docs/interactive-handoff.md`](docs/interactive-handoff.md) |
 | Scenario YAML, matching, rules, and authoring | [`docs/reference.md`](docs/reference.md) |
 | Complete CLI behavior and troubleshooting | [`docs/cli.md`](docs/cli.md) |
 | Python services, results, persistence, and errors | [`docs/python-api.md`](docs/python-api.md) |
@@ -200,9 +212,9 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
 - **Simple reference paths:** matching reads first-level `section.field` values and does not traverse arbitrary nested clinical structures.
-- **No HTTP service:** the complete workflow has a public Python API, but authentication, transport, request isolation, persistence, and HTTP error contracts are not implemented.
+- **No HTTP service:** the complete workflow has a public Python API. The optional loopback form is a short-lived local UI, not an authenticated service endpoint; transport, request isolation, persistence, and HTTP API contracts are not implemented.
 - **No post-exam workflow:** `Report`, image-analysis integration, findings, impression, and final-report generation are placeholders.
-- **Human approval is external:** v0 records readiness and warnings but does not implement authentication, signatures, persistent approval, or clinical-system integration.
+- **Human approval is external:** interactive answers record a declared role but do not authenticate or sign it. Radiologist acceptance, persistent approval, transmission, and clinical-system integration remain external.
 
 The prioritized remediation sequence and exit criteria are maintained in the [`roadmap`](docs/roadmap.md).
 

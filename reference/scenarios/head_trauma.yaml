@@ -13,6 +13,7 @@ entry:
 questions:
   - id: clinical_rule
     field: current_problem.head_ct_rule_positive
+    answer_kind: boolean
     question: "Une règle clinique validée indique-t-elle une TDM cérébrale ?"
     priority: 1
     material: true
@@ -20,6 +21,7 @@ questions:
     reason: "ACR explicitly stratifies mild head trauma by validated clinical decision rules."
   - id: gcs
     field: current_problem.gcs
+    answer_kind: integer
     question: "Score de Glasgow ?"
     priority: 1
     material: true

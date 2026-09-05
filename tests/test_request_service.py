@@ -1,3 +1,5 @@
+import json
+
 from bulkinout.core.models import (
     ClinicalCase,
     ImagingDecision,
@@ -29,7 +31,7 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
             self.path = path
 
         def build_context(self, received_case):
-            assert received_case is case
+            assert received_case == case
             return {"matched_scenarios": []}
 
     class FakeDecisionEngine:
@@ -37,7 +39,7 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
             self.model = model
 
         def decide(self, received_case, missing_questions, reference_context=None):
-            assert received_case is case
+            assert received_case == case
             assert reference_context == {"matched_scenarios": []}
             return decision
 
@@ -91,8 +93,9 @@ def test_run_request_applies_safety_guards_and_builds_result(monkeypatch, tmp_pa
         "Implant?",
     }
     assert result.teleradiology_request.status == "blocked"
-    assert radiology_case.referral["reference_context"] == {"matched_scenarios": []}
-    assert radiology_case.audit[-1]["event"] == "request_workflow_completed"
+    assert result.radiology_case.referral["reference_context"] == {"matched_scenarios": []}
+    assert result.radiology_case.audit[-1]["event"] == "request_workflow_completed"
+    assert radiology_case.referral == {}
 
 
 def test_run_request_applies_answers_and_nonblocking_material_guard(monkeypatch, tmp_path):
@@ -219,3 +222,61 @@ def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
         "extraction_model": "extraction-model",
         "decision_model": "decision-model",
     }
+
+
+def test_run_request_from_core_reuses_extraction_without_mutating_baseline(monkeypatch, tmp_path):
+    base_case = ClinicalCase()
+    core_result = CoreResult(RadiologyCase(clinical=base_case), LLMExtraction(), [])
+    calls = []
+
+    class EmptyReferenceEngine:
+        reference_revision = "revision"
+        scenarios = []
+
+        def __init__(self, path):
+            self.path = path
+
+        def build_context(self, received_case):
+            return {"matched_scenarios": []}
+
+    class AnswerAwareDecisionEngine:
+        def decide(self, received_case, missing_questions, reference_context=None):
+            pregnancy = received_case.imaging_safety.get("pregnancy")
+            calls.append(pregnancy.value if pregnancy else None)
+            return ImagingDecision(
+                decision_status="selected" if pregnancy is not None else "insufficient_information",
+                primary=ImagingRecommendation(modality="US", exam_name="Ultrasound"),
+                clinician_call_required=pregnancy is None,
+                decision_ready_for_human_approval=pregnancy is not None,
+            )
+
+    monkeypatch.setattr(service, "ReferenceEngine", EmptyReferenceEngine)
+    monkeypatch.setattr(service, "generic_missing_questions", lambda case: [])
+    monkeypatch.setattr(service, "recommendation_specific_questions", lambda case, decision: [])
+    monkeypatch.setattr(
+        service,
+        "build_radiology_case",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Core repeated")),
+    )
+    first = service.run_request_from_core(
+        core_result,
+        decision_engine=AnswerAwareDecisionEngine(),
+    )
+    answers_path = tmp_path / "answers.json"
+    answers_path.write_text(
+        json.dumps({"answers": {"imaging_safety.pregnancy": False}}),
+        encoding="utf-8",
+    )
+    second = service.run_request_from_core(
+        core_result,
+        answers_path=answers_path,
+        decision_engine=AnswerAwareDecisionEngine(),
+    )
+
+    assert calls == [None, False]
+    assert "pregnancy" not in core_result.radiology_case.clinical.imaging_safety
+    assert "pregnancy" not in first.clinical_case.imaging_safety
+    assert second.clinical_case.imaging_safety["pregnancy"].value is False
+    assert second.imaging_decision.decision_status == "selected"
+    assert second.run_manifest is not None
+    assert [item.filename for item in second.run_manifest.inputs] == ["answers.json"]

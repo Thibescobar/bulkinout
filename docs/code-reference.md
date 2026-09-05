@@ -6,7 +6,7 @@ This inventory describes the public services and the private helpers that define
 
 Source: `src/bulkinout/__init__.py`
 
-The public Python facade exports `build_radiology_case()`, `run_request()`, provider-neutral `CoreExtractor` and `RequestDecisionEngine` protocols, JSON output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
+The public Python facade exports `build_radiology_case()`, `run_request()`, `run_request_from_core()`, provider-neutral `CoreExtractor` and `RequestDecisionEngine` protocols, output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
 
 ## `bulkinout.errors` and `bulkinout.types`
 
@@ -22,7 +22,7 @@ Runs only Core and writes its two JSON outputs.
 
 ### `cmd_request_run(args)`
 
-Calls the Request service, writes every request output, and displays the final statuses.
+Calls the Request service, optionally runs one local browser clarification round, writes every request output, and displays final statuses plus actionable file-based guidance for unresolved required questions.
 
 ### `cmd_request_golden(args)`
 
@@ -58,7 +58,23 @@ Writes `radiology_case.json` and `llm_extraction.json`.
 
 ### `write_request_outputs(result: RequestResult, output_dir: Path)`
 
-Writes the nine documented Request snapshots, including the answer template and run manifest.
+Writes ten documented JSON snapshots plus the self-contained HTML radiology handoff, including the answer template and run manifest.
+
+## `bulkinout.clarification_browser`
+
+Source: `src/bulkinout/clarification_browser.py`
+
+### `collect_clinician_answers(questions, *, on_submit=None, timeout_seconds=600) -> BrowserClarification | None`
+
+Runs one browser form on a random loopback port with a single-use token. It returns typed answers or direct-escalation intent and returns `None` after browser failure or timeout. When supplied, `on_submit` performs the final Request calculation synchronously and returns the final handoff HTML in the same browser response before the server closes.
+
+### `next_interactive_answer_path(output_dir: Path) -> Path`
+
+Selects the first unused `answers.interactive.N.json` path.
+
+### `write_interactive_answers(path: Path, answer_file: AnswerFile)`
+
+Creates a new UTF-8 answer file without overwriting an existing one and requests owner-only permissions.
 
 ## `bulkinout.evaluation`
 
@@ -248,7 +264,31 @@ Loads an answer file in either dictionary or list form.
 
 ### `apply_answers(case: ClinicalCase, answer_file: AnswerFile, filename: str) -> ClinicalCase`
 
-Adds answers to the `ClinicalCase` as sourced observed facts.
+Adds non-empty answers to the `ClinicalCase` as sourced observed facts and records clarification metadata. Boolean `false` and numeric `0` remain valid; null and blank strings remain unresolved.
+
+## `bulkinout.request.clarification`
+
+Source: `src/bulkinout/request/clarification.py`
+
+### `required_clarification_questions(questions: list[MissingQuestion]) -> list[MissingQuestion]`
+
+Returns required or blocking questions in a stable clinical priority order. The CLI and answer-template writer share this selector.
+
+## `bulkinout.request.handoff`
+
+Source: `src/bulkinout/request/handoff.py`
+
+### `RadiologyHandoff`
+
+Schema-v1 remote-review package containing the request, proposal or escalation state, sourced facts, safety facts, clarification trace, unresolved questions, decision trace, and scenario-level citations.
+
+### `build_radiology_handoff(...) -> RadiologyHandoff`
+
+Builds the review package without converting model output or reference background into clinical approval.
+
+### `render_radiology_handoff_html(handoff: RadiologyHandoff) -> str`
+
+Produces an escaped, self-contained French review page. Blocked states display any retained model examination only as considered and not proposed.
 
 ## `bulkinout.request.decision_guard`
 
@@ -420,8 +460,12 @@ Source: `src/bulkinout/request/service.py`
 
 ### `RequestResult`
 
-Slot-based dataclass containing every in-memory artifact of one Request run.
+Slot-based dataclass containing every in-memory artifact of one Request run, including the optional run manifest and radiology handoff.
 
 ### `run_request(input_dir: Path, *, reference_dir: Path | None = None, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
 
 Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. The packaged reference is used when no override is supplied. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.
+
+### `run_request_from_core(core_result: CoreResult, *, reference_dir: Path | None = None, model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+
+Deep-copies one Core baseline and executes Request without document discovery, upload, or extraction. This is the in-process resumption boundary used by interactive clarification.
