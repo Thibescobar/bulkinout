@@ -17,12 +17,18 @@ from bulkinout.request.answers import apply_answers
 from bulkinout.request.handoff import build_radiology_handoff, render_radiology_handoff_html
 
 
-def observed(value, filename="note.md"):
+def observed(value, filename="note.md", excerpt=None):
     return ClinicalField(
         value=value,
         status=FieldStatus.observed,
         confidence=0.95,
-        sources=[SourceRef(document_id=f"input:{filename}", filename=filename)],
+        sources=[
+            SourceRef(
+                document_id=f"input:{filename}",
+                filename=filename,
+                excerpt=excerpt,
+            )
+        ],
     )
 
 
@@ -142,7 +148,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Examen proposé au radiologue" in html
     assert "Synthèse clinique transmise" in html
     assert "Douleur aiguë depuis six heures." in html
-    assert "DFG : 92" in html
+    assert "DFG estimé (mL/min/1,73 m²) : 92" in html
     assert "Modifie la stratégie d&#x27;imagerie." in html
     assert "2026-09-04T10:30:00Z" in html
     assert "Médecin urgentiste" in html
@@ -220,6 +226,19 @@ def test_blocked_handoff_does_not_present_raw_model_exam_as_a_recommendation():
 
 def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace():
     case = ClinicalCase(
+        patient={"age": observed(58), "sex": observed("male")},
+        history={
+            "relevant_conditions": observed(
+                ["hypertension", "dyslipidemia"],
+                excerpt="Hypertension artérielle et dyslipidémie.",
+            )
+        },
+        medications={
+            "anticoagulation": observed(
+                "No usual anticoagulant known.",
+                excerpt="Aucun traitement anticoagulant habituel connu.",
+            )
+        },
         allergies={
             "iodinated_contrast_reaction": ClinicalField(
                 value="Diffuse urticaria after iodinated contrast injection",
@@ -235,30 +254,68 @@ def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace()
                 ],
             )
         },
-        current_problem={"laterality": observed("right")},
+        labs={"egfr_ml_min_1_73m2": observed(51)},
+        current_problem={
+            "indication": observed(
+                "Suspected pulmonary embolism",
+                excerpt="Suspicion clinique d'embolie pulmonaire.",
+            ),
+            "laterality": observed("right"),
+        },
     )
     decision = ImagingDecision(
         decision_status="insufficient_information",
-        primary=ImagingRecommendation(contrast="yes", urgency="urgent"),
+        primary=ImagingRecommendation(
+            contrast="no",
+            urgency="urgent",
+            relevant_prior_imaging=[
+                "Radiographie thoracique du 04/09/2026 : pas d'anomalie aiguë."
+            ],
+            safety_considerations=["Aucun produit de contraste requis."],
+        ),
         clinician_call_required=False,
+    )
+    request = TeleradiologyRequest(
+        status="draft",
+        patient_summary="58 ans, male",
+        indication="Suspected pulmonary embolism",
+        contrast="no",
+        urgency="urgent",
+        relevant_history=["ATCD pertinents: ['hypertension', 'dyslipidemia']"],
+        medications_and_allergies=["Anticoagulation: No usual anticoagulant known."],
+        relevant_prior_imaging=[
+            "modalité=chest radiograph; région=chest; résultat=No acute abnormality"
+        ],
     )
     handoff = build_radiology_handoff(
         case,
         decision,
         [],
-        TeleradiologyRequest(status="draft"),
+        request,
         {"matched_scenarios": []},
     )
+    handoff_before_render = handoff.model_dump(mode="json")
 
     html = render_radiology_handoff_html(handoff)
     clinical_view, technical_trace = html.split("<details>", maxsplit=1)
 
+    assert handoff.model_dump(mode="json") == handoff_before_render
+    assert "58 ans, Homme" in clinical_view
+    assert "Suspicion clinique d&#x27;embolie pulmonaire." in clinical_view
+    assert "Hypertension artérielle et dyslipidémie." in clinical_view
+    assert "Aucun traitement anticoagulant habituel connu." in clinical_view
+    assert "DFG estimé (mL/min/1,73 m²) : 51" in clinical_view
+    assert "Radiographie thoracique du 04/09/2026 : pas d&#x27;anomalie aiguë." in clinical_view
+    assert "Aucun produit de contraste requis." in clinical_view
     assert "Réaction antérieure au produit de contraste iodé" in clinical_view
     assert "Urticaire diffus après injection de produit iodé." in clinical_view
     assert "Côté concerné" in clinical_view
     assert ">Droit<" in clinical_view
-    assert "<strong>Contraste :</strong> Oui" in clinical_view
+    assert "<strong>Contraste :</strong> Non" in clinical_view
     assert "<strong>Urgence :</strong> Urgente" in clinical_view
+    assert "ATCD pertinents: [" not in clinical_view
+    assert "No usual anticoagulant known." not in clinical_view
+    assert "modalité=chest radiograph" not in clinical_view
     assert "allergies.iodinated_contrast_reaction" not in clinical_view
     assert "Diffuse urticaria after iodinated contrast injection" not in clinical_view
     assert ">observed<" not in clinical_view

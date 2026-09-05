@@ -37,6 +37,23 @@ _SAFETY_FIELDS = {
     "medications.anticoagulation",
     "medications.metformin",
 }
+_HISTORY_SUMMARY_FIELDS = {
+    "history.oncology",
+    "history.surgery",
+    "history.trauma",
+    "history.relevant_conditions",
+}
+_MEDICATION_ALLERGY_SUMMARY_FIELDS = {
+    "medications.anticoagulation",
+    "medications.metformin",
+    "allergies.iodinated_contrast_reaction",
+    "allergies.gadolinium_reaction",
+}
+_LAB_SUMMARY_FIELDS = {
+    "labs.egfr_ml_min_1_73m2",
+    "labs.creatinine",
+    "labs.pregnancy_test",
+}
 _FIELD_LABELS = {
     "patient.age": "Âge",
     "patient.sex": "Sexe",
@@ -410,7 +427,7 @@ def _clinical_fact_value(fact: HandoffFact) -> str:
     translated = _translated_canonical_value(fact.value)
     if translated is not None:
         return translated
-    if fact.value is True or fact.value is False or fact.value is None:
+    if isinstance(fact.value, (int, float)) or fact.value is None:
         return _display_value(fact.value)
     excerpts = [source.excerpt for source in fact.sources if source.excerpt]
     if excerpts and not any(source.document_id.startswith("answers:") for source in fact.sources):
@@ -426,6 +443,36 @@ def _clinical_fact_status(fact: HandoffFact) -> str:
     ):
         return "Renseigné par le clinicien"
     return _STATUS_LABELS[fact.status]
+
+
+def _fact_for_field(facts: list[HandoffFact], field: str) -> HandoffFact | None:
+    return next((fact for fact in facts if fact.field == field), None)
+
+
+def _clinical_summary_items(
+    facts: list[HandoffFact], fields: set[str], *, omit_falsy: bool = False
+) -> list[str]:
+    return [
+        f"{_field_label(fact.field)} : {_clinical_fact_value(fact)}"
+        for fact in facts
+        if fact.field in fields and (not omit_falsy or bool(fact.value))
+    ]
+
+
+def _clinical_patient_summary(handoff: RadiologyHandoff) -> str | None:
+    age = _fact_for_field(handoff.supporting_facts, "patient.age")
+    sex = _fact_for_field(handoff.supporting_facts, "patient.sex")
+    parts: list[str] = []
+    if age is not None:
+        parts.append(f"{_clinical_fact_value(age)} ans")
+    if sex is not None:
+        parts.append(_clinical_fact_value(sex))
+    return ", ".join(parts) or handoff.request.patient_summary
+
+
+def _clinical_indication(handoff: RadiologyHandoff) -> str | None:
+    indication = _fact_for_field(handoff.supporting_facts, "current_problem.indication")
+    return _clinical_fact_value(indication) if indication else handoff.request.indication
 
 
 def _clinical_source(source: SourceRef) -> str:
@@ -569,8 +616,27 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
     )
     proposal_label = "Examen proposé" if proposal_is_reviewable else "Examen envisagé, non proposé"
     proposal_name = proposal.exam_name or request.requested_exam or "Aucun examen renseigné"
-    contrast = request.contrast or _clinical_value(proposal.contrast)
-    urgency = request.urgency or _clinical_value(proposal.urgency)
+    contrast = _clinical_value(request.contrast or proposal.contrast)
+    urgency = _clinical_value(request.urgency or proposal.urgency)
+    history = (
+        _clinical_summary_items(handoff.supporting_facts, _HISTORY_SUMMARY_FIELDS, omit_falsy=True)
+        or request.relevant_history
+    )
+    medications_and_allergies = (
+        _clinical_summary_items(handoff.supporting_facts, _MEDICATION_ALLERGY_SUMMARY_FIELDS)
+        or request.medications_and_allergies
+    )
+    labs = _clinical_summary_items(handoff.supporting_facts, _LAB_SUMMARY_FIELDS) or (
+        request.relevant_labs
+    )
+    prior_imaging = proposal.relevant_prior_imaging or request.relevant_prior_imaging
+    safety_information = (
+        proposal.safety_considerations
+        or _clinical_summary_items(
+            handoff.safety_facts, {fact.field for fact in handoff.safety_facts}
+        )
+        or request.safety_information
+    )
     rationale_title = (
         "Justification de la proposition"
         if proposal_is_reviewable
@@ -607,19 +673,19 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h1>Dossier de revue radiologique</h1><p class="status">{escape(status)}</p>
 {proposal_notice}
 <h2>Demande clinique</h2>
-<p><strong>Patient :</strong> {escape(request.patient_summary or "Non renseigné")}</p>
-<p><strong>Indication :</strong> {escape(request.indication or "Non renseignée")}</p>
+<p><strong>Patient :</strong> {escape(_clinical_patient_summary(handoff) or "Non renseigné")}</p>
+<p><strong>Indication :</strong> {escape(_clinical_indication(handoff) or "Non renseignée")}</p>
 <p><strong>Question clinique :</strong> {escape(request.clinical_question or proposal.clinical_question_for_radiologist or "Non renseignée")}</p>
 <p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>
 <p><strong>Protocole :</strong> {escape(request.protocol_requested or proposal.protocol or "Non renseigné")} —
 <strong>Contraste :</strong> {escape(contrast)} —
 <strong>Urgence :</strong> {escape(urgency)}</p>
 <h2>Synthèse clinique transmise</h2>
-<h3>Antécédents pertinents</h3>{_items(request.relevant_history)}
-<h3>Traitements et allergies</h3>{_items(request.medications_and_allergies)}
-<h3>Biologie pertinente</h3>{_items(request.relevant_labs)}
-<h3>Imagerie antérieure</h3>{_items(request.relevant_prior_imaging)}
-<h3>Informations de sécurité</h3>{_items(request.safety_information)}
+<h3>Antécédents pertinents</h3>{_items(history)}
+<h3>Traitements et allergies</h3>{_items(medications_and_allergies)}
+<h3>Biologie pertinente</h3>{_items(labs)}
+<h3>Imagerie antérieure</h3>{_items(prior_imaging)}
+<h3>Informations de sécurité</h3>{_items(safety_information)}
 <h2>{escape(rationale_title)}</h2>{_items(request.rationale_for_exam or proposal.rationale)}
 <h2>Alternatives considérées</h2>{_items(proposal.alternatives)}
 <h2>Clarifications du clinicien</h2>{_clarification_table(handoff.clarifications)}
