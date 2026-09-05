@@ -64,9 +64,9 @@ Writes ten documented JSON snapshots plus the self-contained HTML radiology hand
 
 Source: `src/bulkinout/clarification_browser.py`
 
-### `collect_clinician_answers(questions, *, timeout_seconds=600) -> BrowserClarification | None`
+### `collect_clinician_answers(questions, *, on_submit=None, timeout_seconds=600) -> BrowserClarification | None`
 
-Runs one browser form on a random loopback port with a single-use token. It returns typed answers or direct-escalation intent and returns `None` after browser failure or timeout.
+Runs one browser form on a random loopback port with a single-use token. It returns typed answers or direct-escalation intent and returns `None` after browser failure or timeout. When supplied, `on_submit` performs the final Request calculation synchronously and returns the final handoff HTML in the same browser response before the server closes.
 
 ### `next_interactive_answer_path(output_dir: Path) -> Path`
 

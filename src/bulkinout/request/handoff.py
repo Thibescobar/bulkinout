@@ -402,7 +402,10 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             "Un échange direct avec le téléradiologue est requis.</p>"
         )
     else:
-        proposal_notice = ""
+        proposal_notice = (
+            '<section class="proposal"><span>Examen proposé au radiologue</span>'
+            f"<strong>{escape(proposal_name)}</strong></section>"
+        )
     unresolved = [question.question for question in handoff.unresolved_questions]
     scenarios = [
         f"{item.title} ({item.scenario_id}, version {item.version}, statut {item.validation_status})"
@@ -416,6 +419,8 @@ body{{font:16px/1.5 system-ui,sans-serif;color:#173042;background:#f5f8fa;margin
 main{{max-width:1050px;margin:32px auto;background:white;padding:36px;border-radius:14px}}
 h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;padding-bottom:6px}}
 .status{{display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1dc;color:#8a4b00}}
+.proposal{{display:flex;flex-direction:column;gap:4px;margin:20px 0;padding:18px 22px;border-radius:12px;background:#e9f7f7;border-left:5px solid #087f8c}}
+.proposal span{{color:#405b66}}.proposal strong{{font-size:1.35rem;color:#075b66}}
 .warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
 .muted,small{{color:#5c6f78}}table{{width:100%;border-collapse:collapse}}
 th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}

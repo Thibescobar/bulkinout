@@ -104,7 +104,7 @@ The command reports the combined service run before processing:
 Running the Core and Request workflow...
 ```
 
-It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, the request status, and the HTML handoff path. When interactive mode is off and a required answer remains, the terminal also lists each question, points to `answers.template.json`, and prints the `--answers` rerun pattern.
+It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, the request status, the safely proposed examination or abstention, and the HTML handoff path. When interactive mode is off and a required answer remains, the terminal also lists each question, points to `answers.template.json`, and prints the `--answers` rerun pattern.
 
 ### Interactive clarification
 
@@ -117,9 +117,9 @@ bulkinout request run \
   --interactive
 ```
 
-The form opens only when a required or blocking question exists. A submitted answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by a new Request calculation from the existing Core result. Source documents are extracted and uploaded only once during this command. Selecting direct escalation, leaving all answers unavailable, browser failure, or timeout preserves the guarded initial result and prints the file-based instructions.
+The form opens only when a required or blocking question exists and groups all questions known at that point. Request is not rerun between individual answers. A submitted answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by a new Request calculation from the existing Core result. The same page waits for that calculation and then displays the final radiology handoff, including the safely proposed examination or direct-escalation state. Source documents are extracted and uploaded only once during this command. Selecting direct escalation, leaving all answers unavailable, browser failure, or timeout preserves the guarded initial result and prints the file-based instructions.
 
-The server binds only to `127.0.0.1` on a random port, serves no remote assets, accepts one token-protected form submission, and closes after submission or ten minutes. It is a local UI, not an authenticated HTTP API or a signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
+The server binds only to `127.0.0.1` on a random port, serves no remote assets, accepts one token-protected form submission, allows ten minutes for that submission, and closes after returning the final handoff in the same browser page. It is a local UI, not an authenticated HTTP API or a signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
 
 ### File-based clarification
 

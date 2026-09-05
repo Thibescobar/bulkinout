@@ -33,12 +33,17 @@ class BrowserClarification:
     escalated: bool = False
 
 
+SubmissionHandler = Callable[[BrowserClarification], str]
+
+
 @dataclass(slots=True)
 class _Session:
     token: str
     questions: list[MissingQuestion]
+    on_submit: SubmissionHandler | None = None
     port: int = 0
     outcome: BrowserClarification | None = None
+    submission_error: Exception | None = None
 
 
 def _clinical_reason(question: MissingQuestion) -> str:
@@ -89,6 +94,7 @@ legend{{font-weight:700;padding:0 8px}}select,input{{box-sizing:border-box;width
 .continue{{background:#087f8c;color:#fff}}.escalate{{background:#fff0e5;color:#8a420c}}
 </style></head><body><main><h1>Clarification clinique</h1>
 <p>Bulkinout a besoin des informations suivantes avant de recalculer sa proposition.</p>
+<p>Après validation, gardez cette page ouverte pendant le recalcul : le résultat final s'affichera ici.</p>
 <p class="warning">Les réponses seront tracées mais ne constituent ni une authentification ni une signature clinique.</p>
 <form method="post" action="/{session.token}/submit">
 <label for="role">Rôle du répondant</label><select id="role" name="role">
@@ -214,12 +220,26 @@ class _ClarificationHandler(BaseHTTPRequestHandler):
             self._respond(400, "Réponses invalides")
             return
         session.outcome = outcome
-        self._respond(200, "Réponses enregistrées. Vous pouvez fermer cette fenêtre.")
+        if session.on_submit is None:
+            self._respond(200, "Réponses enregistrées. Vous pouvez fermer cette fenêtre.")
+            return
+        try:
+            review_html = session.on_submit(outcome)
+        except Exception as error:
+            session.submission_error = error
+            self._respond(
+                500,
+                "Le recalcul a échoué. La proposition n'a pas été transmise ; "
+                "consultez le terminal.",
+            )
+            return
+        self._respond(200, review_html)
 
 
 def collect_clinician_answers(
     questions: list[MissingQuestion],
     *,
+    on_submit: SubmissionHandler | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     opener: Callable[[str], bool] = webbrowser.open_new_tab,
     server_factory: type[HTTPServer] = HTTPServer,
@@ -228,7 +248,11 @@ def collect_clinician_answers(
 
     if not questions:
         return None
-    session = _Session(token=secrets.token_urlsafe(32), questions=questions)
+    session = _Session(
+        token=secrets.token_urlsafe(32),
+        questions=questions,
+        on_submit=on_submit,
+    )
     server = server_factory(("127.0.0.1", 0), _ClarificationHandler)
     setattr(server, "clarification_session", session)
     session.port = int(server.server_address[1])
@@ -244,6 +268,8 @@ def collect_clinician_answers(
         while session.outcome is None and time.monotonic() < deadline:
             server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
             server.handle_request()
+        if session.submission_error is not None:
+            raise session.submission_error
         return session.outcome
     finally:
         server.server_close()

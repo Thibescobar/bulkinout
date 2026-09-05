@@ -126,6 +126,66 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
     assert "Decision: selected" in capsys.readouterr().out
 
 
+def test_request_run_prints_selected_examination(monkeypatch, tmp_path, capsys):
+    from bulkinout.request import service as request_service
+
+    result = request_result()
+    result.missing_questions = []
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(request_service, "run_request", lambda input_dir, **kwargs: result)
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path),
+            output=str(tmp_path / "out"),
+            answers=None,
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            interactive=False,
+        )
+    )
+
+    assert "Examen proposé au radiologue : CT abdomen" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("insufficient_information", "aucun à ce stade — échange direct requis"),
+        ("no_imaging_recommended", "aucun — imagerie initiale non recommandée"),
+    ],
+)
+def test_request_run_never_prints_blocked_exam_as_proposed(
+    monkeypatch, tmp_path, capsys, status, expected
+):
+    from bulkinout.request import service as request_service
+
+    result = request_result()
+    result.missing_questions = []
+    result.imaging_decision.decision_status = status
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(request_service, "run_request", lambda input_dir, **kwargs: result)
+
+    cli.cmd_request_run(
+        SimpleNamespace(
+            input=str(tmp_path),
+            output=str(tmp_path / "out"),
+            answers=None,
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            interactive=False,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert f"Examen proposé au radiologue : {expected}" in output
+    assert "Examen proposé au radiologue : CT abdomen" not in output
+
+
 def test_request_run_explains_noninteractive_clarification_handoff(monkeypatch, tmp_path, capsys):
     from bulkinout.request import service as request_service
 
@@ -179,10 +239,9 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
         return first if kwargs.get("answers_path") is None else second
 
     monkeypatch.setattr(request_service, "run_request_from_core", run_from_core)
-    monkeypatch.setattr(
-        clarification_browser,
-        "collect_clinician_answers",
-        lambda questions: BrowserClarification(
+
+    def collect_answers(questions, *, on_submit):
+        outcome = BrowserClarification(
             answer_file=AnswerFile(
                 answers=[
                     AnswerItem(
@@ -191,7 +250,14 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
                     )
                 ]
             )
-        ),
+        )
+        assert "Résultat disponible dans le terminal" in on_submit(outcome)
+        return outcome
+
+    monkeypatch.setattr(
+        clarification_browser,
+        "collect_clinician_answers",
+        collect_answers,
     )
     output = tmp_path / "out"
 
@@ -234,10 +300,16 @@ def test_interactive_request_falls_back_or_escalates_without_recalculation(
         "run_request_from_core",
         lambda received_core, **kwargs: calls.append(kwargs) or request_result(),
     )
+
+    def collect_answers(questions, *, on_submit):
+        if outcome is not None:
+            on_submit(outcome)
+        return outcome
+
     monkeypatch.setattr(
         clarification_browser,
         "collect_clinician_answers",
-        lambda questions: outcome,
+        collect_answers,
     )
     args = SimpleNamespace(
         input=str(tmp_path / "input"),

@@ -132,6 +132,7 @@ sequenceDiagram
         Form-->>CLI: typed answer file or escalation
         CLI->>Service: run_request_from_core(CoreResult, answers)
         Note over CLI,Service: Core extraction is not repeated
+        Service-->>Form: final handoff in the same page
     end
     CLI-->>Operator: JSON outputs + HTML handoff + status
 ```

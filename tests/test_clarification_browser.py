@@ -184,6 +184,71 @@ def test_http_handler_serves_form_with_security_headers_and_accepts_one_submissi
     post_handler.log_message("ignored", "value")
 
 
+def test_http_handler_keeps_same_page_until_review_is_ready():
+    received = []
+
+    def build_review(outcome):
+        received.append(outcome.answer_file.answers[0].value)
+        return "<!doctype html><html lang=fr><body>Examen final proposé</body></html>"
+
+    session = _Session(
+        token="secret",
+        questions=[question()],
+        on_submit=build_review,
+        port=43125,
+    )
+    body = urllib.parse.urlencode(
+        {"role": "clinician", "action": "continue", "answer_0": "false"}
+    ).encode()
+    handler = _memory_handler(
+        session,
+        path="/secret/submit",
+        headers={
+            "Host": "127.0.0.1:43125",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": str(len(body)),
+        },
+        body=body,
+    )
+
+    handler.do_POST()
+
+    assert handler.statuses == [200]
+    assert received == [False]
+    assert "Examen final proposé" in handler.wfile.getvalue().decode()
+
+
+def test_http_handler_retains_submission_error_and_does_not_claim_transmission():
+    def fail(_outcome):
+        raise RuntimeError("decision failed")
+
+    session = _Session(
+        token="secret",
+        questions=[question()],
+        on_submit=fail,
+        port=43125,
+    )
+    body = urllib.parse.urlencode(
+        {"role": "clinician", "action": "continue", "answer_0": "false"}
+    ).encode()
+    handler = _memory_handler(
+        session,
+        path="/secret/submit",
+        headers={
+            "Host": "127.0.0.1:43125",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": str(len(body)),
+        },
+        body=body,
+    )
+
+    handler.do_POST()
+
+    assert handler.statuses == [500]
+    assert isinstance(session.submission_error, RuntimeError)
+    assert "n'a pas été transmise" in handler.wfile.getvalue().decode()
+
+
 @pytest.mark.parametrize(
     ("path", "host"),
     [("/wrong", "127.0.0.1:43125"), ("/secret", "malicious.example")],
@@ -300,6 +365,33 @@ def test_collect_answers_uses_loopback_random_port_and_closes_server():
     assert outcome is not None
     assert outcome.answer_file.answers[0].value is True
     assert opened[0].startswith("http://127.0.0.1:43125/")
+    assert server.closed is True
+
+
+def test_collect_answers_propagates_recalculation_failure_and_closes_server():
+    class FailedServer:
+        server_address = ("127.0.0.1", 43125)
+        timeout = None
+
+        def __init__(self):
+            self.closed = False
+
+        def handle_request(self):
+            self.clarification_session.outcome = BrowserClarification(AnswerFile())
+            self.clarification_session.submission_error = RuntimeError("decision failed")
+
+        def server_close(self):
+            self.closed = True
+
+    server = FailedServer()
+
+    with pytest.raises(RuntimeError, match="decision failed"):
+        collect_clinician_answers(
+            [question()],
+            opener=lambda url: True,
+            server_factory=lambda *args: server,
+        )
+
     assert server.closed is True
 
 

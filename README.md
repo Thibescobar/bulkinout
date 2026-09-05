@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-157%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-163%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -66,7 +66,7 @@ Run the complete pre-exam workflow:
 bulkinout request run --input input --output output
 ```
 
-Add `--interactive` to open a short-lived browser form when required clinical answers are missing. Answers are stored with their question, declared responder role, timestamp, and provenance; Request is recalculated without extracting the source documents again.
+Add `--interactive` to open a short-lived browser form when required clinical answers are missing. All currently known required questions appear together. After submission, the same page remains open while Request is recalculated without extracting the source documents again, then displays the examination proposed to the radiologist or the direct-escalation state.
 
 ```bash
 bulkinout request run --input input --output output --interactive

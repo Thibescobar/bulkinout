@@ -139,6 +139,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Demande clinique" in html
     assert "Appendicite ?" in html
     assert "Examen proposé" in html
+    assert "Examen proposé au radiologue" in html
     assert "Synthèse clinique transmise" in html
     assert "Douleur aiguë depuis six heures." in html
     assert "DFG : 92" in html

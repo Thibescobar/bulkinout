@@ -24,7 +24,7 @@ flowchart TD
     H --> K[Remote radiologist review]
 ```
 
-The first Request evaluation discovers reference, model-generated, and modality-specific questions. An interactive answer triggers a second Request evaluation but not another Core extraction or source-document upload. The refreshed reference context, safeguards, request, manifest, and handoff are written over the initial snapshots in the selected output directory.
+The first Request evaluation discovers reference, model-generated, and modality-specific questions. All currently known required or blocking questions appear together in one form; Request is not run between individual answers. Submitting the form triggers a second Request evaluation but not another Core extraction or source-document upload. The same browser request remains open during this calculation, then the form is replaced by the final review handoff. The refreshed reference context, safeguards, request, manifest, and handoff are written over the initial snapshots in the selected output directory.
 
 ## Interactive mode
 
@@ -43,10 +43,10 @@ The form:
 - uses a high-entropy, single-use URL token;
 - contains no remote scripts, fonts, images, or analytics;
 - rejects an unexpected host, path, form shape, or oversized request;
-- closes after submission or ten minutes;
+- allows ten minutes to submit, remains open during recalculation, and closes its local server only after serving the final handoff;
 - writes `answers.interactive.N.json` with owner-only permissions where supported.
 
-Browser failure or timeout leaves the initial guarded result intact and returns the operator to the file-based workflow. `--interactive` and `--answers` are mutually exclusive for one invocation.
+Browser failure or submission timeout leaves the initial guarded result intact and returns the operator to the file-based workflow. `--interactive` and `--answers` are mutually exclusive for one invocation. A new required question discovered only after recalculation is shown in the final handoff and terminal guidance; v0 deliberately performs one bounded interactive round.
 
 ## Non-interactive mode
 

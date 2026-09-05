@@ -51,7 +51,7 @@ bulkinout request run \
   --interactive
 ```
 
-After submission, confirm that `answers.interactive.1.json` retains the typed response and that `run_manifest.json` fingerprints it. Open `radiology_handoff.html` and verify that the final status, clinical question, clarification, source evidence, rationale or abstention, safety information, and scenario references support remote review without implying approval.
+All initially known questions should appear in the same form. After submission, confirm that the page remains active during recalculation and becomes the final handoff without opening another tab. Verify that `answers.interactive.1.json` retains the typed response and that `run_manifest.json` fingerprints it. The page and saved `radiology_handoff.html` must show the final status and safely proposed examination or abstention, together with the clinical question, clarification, source evidence, rationale, safety information, and scenario references without implying approval.
 
 Evaluate the generated artifacts against the case assertions:
 
