@@ -2,7 +2,13 @@ import tomllib
 from pathlib import Path
 
 from bulkinout import __version__
-from bulkinout import build_radiology_case, run_request, write_core_outputs, write_request_outputs
+from bulkinout import (
+    build_radiology_case,
+    run_request,
+    run_request_from_core,
+    write_core_outputs,
+    write_request_outputs,
+)
 
 
 def test_runtime_version_matches_package_metadata():
@@ -32,6 +38,13 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
             calls.append(("request", input_dir, kwargs)) or "request-result"
         ),
     )
+    monkeypatch.setattr(
+        request_service,
+        "run_request_from_core",
+        lambda core_result, **kwargs: (
+            calls.append(("request-from-core", core_result, kwargs)) or "continued-result"
+        ),
+    )
 
     assert build_radiology_case(tmp_path, model="model", extractor=extractor) == "core-result"
     assert (
@@ -46,6 +59,17 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
         )
         == "request-result"
     )
+    assert (
+        run_request_from_core(
+            "core-result",
+            reference_dir=tmp_path / "reference",
+            model="model",
+            decision_model="decision-model",
+            answers_path=tmp_path / "answers.json",
+            decision_engine=decision_engine,
+        )
+        == "continued-result"
+    )
     assert calls == [
         ("core", tmp_path, {"model": "model", "extractor": extractor}),
         (
@@ -58,6 +82,17 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "decision_model": "decision-model",
                 "answers_path": None,
                 "extractor": extractor,
+                "decision_engine": decision_engine,
+            },
+        ),
+        (
+            "request-from-core",
+            "core-result",
+            {
+                "reference_dir": tmp_path / "reference",
+                "model": "model",
+                "decision_model": "decision-model",
+                "answers_path": tmp_path / "answers.json",
                 "decision_engine": decision_engine,
             },
         ),

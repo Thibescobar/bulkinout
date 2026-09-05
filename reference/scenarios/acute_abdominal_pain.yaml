@@ -19,12 +19,14 @@ questions:
     reason: "Localization may select a more specific scenario."
   - id: fever
     field: current_problem.fever
+    answer_kind: boolean
     question: "Fièvre présente ?"
     priority: 2
     material: true
     reason: "Distinguishes clinically important scenario variants."
   - id: recent_surgery
     field: history.recent_surgery
+    answer_kind: boolean
     question: "Chirurgie abdominale récente ?"
     priority: 2
     material: true

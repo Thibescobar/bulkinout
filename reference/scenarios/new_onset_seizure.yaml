@@ -14,18 +14,21 @@ entry:
 questions:
   - id: trauma
     field: history.trauma
+    answer_kind: boolean
     question: "La crise survient-elle dans un contexte traumatique récent ?"
     priority: 1
     material: true
     reason: "In a traumatic context, noncontrast head CT is particularly relevant initially."
   - id: first_seizure
     field: current_problem.first_seizure
+    answer_kind: boolean
     question: "S'agit-il bien d'une première crise ?"
     priority: 1
     material: true
     reason: "Guidance differs from unchanged known epilepsy."
   - id: persistent_deficit
     field: current_problem.neurologic_deficit
+    answer_kind: boolean
     question: "Déficit neurologique persistant ou altération prolongée ?"
     priority: 2
     material: true

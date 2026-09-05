@@ -13,6 +13,7 @@ entry:
 questions:
   - id: rule_positive
     field: current_problem.cspine_rule_positive
+    answer_kind: boolean
     question: "Les critères CCR ou NEXUS indiquent-ils une imagerie ?"
     priority: 1
     material: true
@@ -20,6 +21,7 @@ questions:
     reason: "ACR imaging selection depends on these criteria."
   - id: neurologic_deficit
     field: current_problem.neurologic_deficit
+    answer_kind: boolean
     question: "Déficit neurologique ou suspicion de lésion médullaire/radiculaire ?"
     priority: 1
     material: true

@@ -17,12 +17,13 @@ from ..core.models import (
     TeleradiologyRequest,
 )
 from ..core.interfaces import CoreExtractor
-from ..core.service import build_radiology_case
+from ..core.service import CoreResult, build_radiology_case
 from ..run_manifest import UNREPORTED, RunManifest, build_run_manifest
 from ..types import JsonObject
 from .answers import apply_answers, load_answers
 from .decision_guard import enforce_decision_guard
 from .decision_llm import OpenAIRequestDecision
+from .handoff import RadiologyHandoff, build_radiology_handoff
 from .interfaces import RequestDecisionEngine
 from .reference_engine import ReferenceEngine
 from .request_builder import build_teleradiology_request
@@ -53,6 +54,7 @@ class RequestResult:
     teleradiology_request: TeleradiologyRequest
     source_paths: list[Path]
     run_manifest: RunManifest | None = None
+    radiology_handoff: RadiologyHandoff | None = None
 
 
 def _record_missing_requirements(
@@ -85,6 +87,10 @@ def _reference_missing_questions(reference_context: ReferenceContext) -> list[Mi
                     material=reference_question.get("material", False),
                     required_to_choose=required,
                     blocking=blocking,
+                    answer_kind=reference_question.get("answer_kind", "text"),
+                    clinical_reason=(
+                        "Cette information est nécessaire pour choisir l'examen ou le protocole."
+                    ),
                 )
             )
     return questions
@@ -107,6 +113,8 @@ def _llm_missing_questions(case: ClinicalCase, decision: ImagingDecision) -> lis
                 reason=question.why_it_matters,
                 material=True,
                 required_to_choose=question.required_to_choose,
+                answer_kind=question.answer_kind,
+                clinical_reason=question.possible_decision_impact,
             )
         )
     return questions
@@ -213,7 +221,28 @@ def run_request(
         model=extraction_model or model,
         extractor=extractor,
     )
-    radiology_case = core_result.radiology_case
+    return run_request_from_core(
+        core_result,
+        reference_dir=reference_dir,
+        model=model,
+        decision_model=decision_model,
+        answers_path=answers_path,
+        decision_engine=decision_engine,
+    )
+
+
+def run_request_from_core(
+    core_result: CoreResult,
+    *,
+    reference_dir: Path | None = None,
+    model: str | None = None,
+    decision_model: str | None = None,
+    answers_path: Path | None = None,
+    decision_engine: RequestDecisionEngine | None = None,
+) -> RequestResult:
+    """Run Request from an existing Core result without extracting documents again."""
+
+    radiology_case = core_result.radiology_case.model_copy(deep=True)
     case = radiology_case.clinical
 
     if answers_path is not None:
@@ -245,10 +274,18 @@ def run_request(
     _apply_question_guards(decision, all_questions, specific_questions)
 
     request = build_teleradiology_request(case, decision, all_questions)
+    handoff = build_radiology_handoff(
+        case,
+        decision,
+        all_questions,
+        request,
+        reference_context,
+    )
     radiology_case.referral = {
         "reference_context": cast(JsonObject, reference_context),
         "imaging_decision": cast(JsonObject, decision.model_dump(mode="json")),
         "teleradiology_request": cast(JsonObject, request.model_dump(mode="json")),
+        "radiology_handoff": cast(JsonObject, handoff.model_dump(mode="json")),
     }
     radiology_case.audit.append(
         {"event": "request_workflow_completed", "decision_status": decision.decision_status}
@@ -285,6 +322,7 @@ def run_request(
         missing_questions=all_questions,
         imaging_decision=decision,
         teleradiology_request=request,
-        source_paths=core_result.source_paths,
+        source_paths=list(core_result.source_paths),
         run_manifest=run_manifest,
+        radiology_handoff=handoff,
     )

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ...types import JsonObject, JsonValue
+
+AnswerKind: TypeAlias = Literal["boolean", "integer", "number", "text"]
 
 
 class FieldStatus(str, Enum):
@@ -92,6 +95,8 @@ class MissingQuestion(BaseModel):
     required_to_choose: bool = False
     blocking: bool = False
     answerable_from_existing_docs: bool = False
+    answer_kind: AnswerKind = "text"
+    clinical_reason: str | None = None
 
 
 class CandidateExam(BaseModel):
@@ -116,6 +121,7 @@ class DiscriminatingQuestion(BaseModel):
     candidate_ids_affected: list[str] = Field(default_factory=list)
     possible_decision_impact: str
     required_to_choose: bool = True
+    answer_kind: AnswerKind = "text"
 
 
 class ImagingRecommendation(BaseModel):
@@ -217,7 +223,14 @@ class AnswerItem(BaseModel):
     field: str
     value: JsonValue
     note: str | None = None
+    question: str | None = None
+    reason: str | None = None
+    possible_decision_impact: str | None = None
+    responder_role: Literal["clinician", "emergency_clinician"] | None = None
+    answered_at: datetime | None = None
+    response_method: Literal["answer_file", "interactive_browser"] | None = None
 
 
 class AnswerFile(BaseModel):
     answers: list[AnswerItem] = Field(default_factory=list)
+    interaction_action: Literal["continue", "escalate"] | None = None

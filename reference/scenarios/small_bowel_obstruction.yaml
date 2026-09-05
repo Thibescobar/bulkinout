@@ -20,12 +20,14 @@ questions:
     reason: "Distinguishes acute obstruction from intermittent or low-grade obstruction."
   - id: complication
     field: current_problem.suspected_complication
+    answer_kind: boolean
     question: "Existe-t-il des signes de strangulation, ischémie, perforation ou sepsis ?"
     priority: 1
     material: true
     reason: "Clarifies urgency and the diagnostic question."
   - id: surgery
     field: history.abdominal_surgery
+    answer_kind: boolean
     question: "Antécédent de chirurgie abdominale ?"
     priority: 3
     material: false

@@ -13,12 +13,14 @@ entry:
 questions:
   - id: complication
     field: current_problem.suspected_complication
+    answer_kind: boolean
     question: "Y a-t-il des signes faisant suspecter une complication (péritonite, abcès, sepsis, occlusion) ?"
     priority: 1
     material: true
     reason: "Suspected complications refine the objective and protocol."
   - id: pregnancy
     field: imaging_safety.pregnancy
+    answer_kind: boolean
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true

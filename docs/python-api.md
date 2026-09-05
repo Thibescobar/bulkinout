@@ -22,7 +22,7 @@ if result.imaging_decision.decision_ready_for_human_approval:
 write_request_outputs(result, Path("output"))
 ```
 
-`run_request()` performs no local writes. It returns a slot-based `RequestResult`, then `write_request_outputs()` optionally creates the same nine snapshots as `bulkinout request run`.
+`run_request()` performs no local writes. It returns a slot-based `RequestResult`, then `write_request_outputs()` optionally creates the same ten JSON snapshots and HTML review page as `bulkinout request run`.
 
 ```text
 run_request()
@@ -33,6 +33,7 @@ run_request()
 ├── missing_questions[]
 ├── imaging_decision
 ├── teleradiology_request
+├── radiology_handoff
 ├── source_paths[]
 └── run_manifest
 ```
@@ -40,6 +41,28 @@ run_request()
 The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
 `run_manifest` contains hashes and technical identities rather than source contents. Schema version 2 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, and `prompt_sha256`; omitted metadata is recorded as `unreported` without changing the provider-neutral protocols.
+
+## Recalculating Request from an existing Core result
+
+Use `run_request_from_core()` for an in-process clarification round. It deep-copies the Core clinical record, applies the supplied answer file, and recalculates matching, model comparison, guards, request text, manifest, and radiology handoff. It does not re-read, re-upload, or re-extract source documents.
+
+```python
+from pathlib import Path
+
+from bulkinout import build_radiology_case, run_request_from_core
+
+core = build_radiology_case(Path("input"), model="<multimodal-model>")
+initial = run_request_from_core(core, decision_model="<decision-model>")
+
+# After writing and completing an answer file:
+updated = run_request_from_core(
+    core,
+    answers_path=Path("answers.json"),
+    decision_model="<decision-model>",
+)
+```
+
+The original `CoreResult` remains unchanged. Each returned result has its own clinical state and manifest; the answer file is included in that run's input fingerprints. A separate CLI invocation with `--answers` remains a fresh complete run and repeats Core extraction.
 
 ## Core only
 

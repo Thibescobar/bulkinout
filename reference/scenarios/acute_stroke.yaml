@@ -20,6 +20,7 @@ questions:
     reason: "Critical information for urgency and neurovascular strategy."
   - id: resolved
     field: current_problem.symptoms_resolved
+    answer_kind: boolean
     question: "Les symptômes sont-ils résolus ?"
     priority: 2
     material: true

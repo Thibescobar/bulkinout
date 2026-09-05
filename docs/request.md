@@ -1,6 +1,6 @@
 # Bulkinout Request
 
-Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, uses the packaged or explicitly overridden YAML reference to constrain an LLM comparison, applies deterministic guards, and builds a French teleradiology request draft.
+Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, uses the packaged or explicitly overridden YAML reference to constrain an LLM comparison, applies deterministic guards, and builds a French teleradiology request plus an evidence-backed review handoff.
 
 ## Complete execution order
 
@@ -17,10 +17,11 @@ flowchart TD
     H --> I[Generate modality-specific questions]
     I --> J[Deduplicate and enforce strongest constraints]
     J --> K[Build TeleradiologyRequest]
-    K --> L[Write outputs and audit event]
+    K --> L[Build cited RadiologyHandoff]
+    L --> M[Write outputs and audit event]
 ```
 
-The orchestration lives in `run_request()` in `src/bulkinout/request/service.py`. Both the CLI and Python integrations use this service, so answer handling, guard order, and clinical behavior have one implementation.
+The orchestration lives in `run_request()` and `run_request_from_core()` in `src/bulkinout/request/service.py`. The first includes Core extraction; the second safely deep-copies an existing `CoreResult` and recalculates Request without processing source documents again. Both use the same answer handling, guard order, and clinical behavior.
 
 ## 1. Optional clarification answers
 
@@ -49,7 +50,9 @@ or the full form:
 }
 ```
 
-`apply_answers()` accepts only recognized top-level clinical sections. It stores each value as `observed`, gives it confidence `1.0`, records the answer filename as provenance, and leaves `validated=False`. The filename is also appended to `ClinicalCase.metadata.answer_files`.
+`apply_answers()` accepts only recognized top-level clinical sections. It stores each non-empty value as `observed`, gives it confidence `1.0`, records the answer filename as provenance, and leaves `validated=False`. `false` and `0` remain valid typed answers; `null`, empty strings, and whitespace remain unresolved. The filename and structured clarification record are retained in `ClinicalCase.metadata`.
+
+The CLI may generate this file through `--interactive`. The loopback browser form records the original French question, clinical impact, typed value, declared responder role, UTC timestamp, and response method. This metadata provides traceability but not authentication or signature. See [Interactive clarification and radiology handoff](interactive-handoff.md).
 
 ## 2. Generic completeness questions
 
@@ -144,27 +147,36 @@ The request status is:
 
 `validated_by_clinician` remains false, and the French warning explicitly prohibits transmission without clinical validation.
 
+## 8. Radiologist handoff
+
+`build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. It preserves known and conflicting facts with their document sources, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, alternatives, and scenario-level reference citations.
+
+The handoff links the primary examination to a reference candidate only after an exact match against an applicable YAML examination name. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
+
+`ready_for_radiologist_review` means a proposal can be reviewed. `clinician_contact_required` means Bulkinout abstained or remains blocked and direct discussion is required. Neither state records radiologist acceptance.
+
 ## Clarification loop example
 
 ```text
-Run 1
+Interactive run
   CT with contrast proposed
   └── iodinated-contrast history unknown
       ├── imaging_decision: insufficient_information
       ├── request: blocked
-      └── answers.template.json generated
+      └── local browser form opened
 
 Clinician response
-  └── answer stored in answers.json with its field path
+  └── typed answer stored in answers.interactive.1.json
 
-Run 2 --answers answers.json
-  ├── documents are processed again
-  ├── answer overwrites the corresponding case field
+Request recalculation in the same process
+  ├── Core extraction is reused
+  ├── answer updates the corresponding case field
   ├── reference and LLM decision are recalculated
-  └── guards evaluate the new state
+  ├── guards evaluate the new state
+  └── cited radiology handoff is rebuilt
 ```
 
-Each pass is a fresh run. The manifest and offline evaluator support external comparison, but the workflow does not merge runs, guarantee idempotency, or persist a conversation state.
+The file-based `--answers` workflow remains a fresh independent run and repeats extraction. Interactive mode performs one bounded clarification round in memory and retains the answer file in the final manifest. It does not provide durable workflow state, authenticated identity, or a remote session.
 
 ## Debugging order
 
@@ -176,6 +188,7 @@ When the final draft is wrong, inspect artifacts from earliest to latest:
 4. `imaging_decision.json`: what did the LLM propose, and which status survived the guard?
 5. `missing_questions.json`: which merged generic, reference, model, or modality questions remain?
 6. `teleradiology_request.json`: was reliable information assembled correctly?
-7. `run_manifest.json`: which inputs, components, prompts, schemas, and reference revision produced the run?
+7. `radiology_handoff.json` or `.html`: can the remote radiologist follow facts, answers, safety, rationale, alternatives, and references?
+8. `run_manifest.json`: which inputs, components, prompts, schemas, and reference revision produced the run?
 
 This artifact-by-artifact approach identifies the owning layer before code or reference data is changed.

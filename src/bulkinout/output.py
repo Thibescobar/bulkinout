@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from .core.models import MissingQuestion
+from .request.clarification import required_clarification_questions
 from .types import JsonObject, JsonValue
 
 if TYPE_CHECKING:
@@ -22,11 +23,7 @@ def write_json(path: Path, payload: JsonValue) -> None:
 
 
 def _answer_template(questions: list[MissingQuestion]) -> JsonObject:
-    importance = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    required = sorted(
-        (question for question in questions if question.required_to_choose or question.blocking),
-        key=lambda question: (importance[question.importance], question.field),
-    )
+    required = required_clarification_questions(questions)
     return {
         "answers": [
             {
@@ -75,5 +72,14 @@ def write_request_outputs(result: RequestResult, output_dir: Path) -> None:
         payloads["run_manifest.json"] = cast(
             JsonObject, result.run_manifest.model_dump(mode="json")
         )
+    if result.radiology_handoff is not None:
+        payloads["radiology_handoff.json"] = cast(
+            JsonObject, result.radiology_handoff.model_dump(mode="json")
+        )
     for filename, payload in payloads.items():
         write_json(output_dir / filename, payload)
+    if result.radiology_handoff is not None:
+        from .request.handoff import render_radiology_handoff_html
+
+        html = render_radiology_handoff_html(result.radiology_handoff)
+        (output_dir / "radiology_handoff.html").write_text(html, encoding="utf-8")

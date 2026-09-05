@@ -14,12 +14,14 @@ entry:
 questions:
   - id: hemodynamic_status
     field: current_problem.hemodynamic_instability
+    answer_kind: boolean
     question: "Le patient est-il hémodynamiquement instable ?"
     priority: 1
     material: true
     reason: "May change the feasible modality and urgency."
   - id: pain_extent
     field: current_problem.pain_extent
+    answer_kind: boolean
     question: "La douleur ou les signes cliniques font-ils suspecter une extension abdomino-pelvienne ?"
     priority: 1
     material: true
@@ -27,6 +29,7 @@ questions:
     reason: "Determines the anatomical extent to cover."
   - id: neuro_malperfusion
     field: current_problem.malperfusion_signs
+    answer_kind: boolean
     question: "Signes neurologiques, ischémiques viscéraux ou de membre suggérant une malperfusion ?"
     priority: 2
     material: true

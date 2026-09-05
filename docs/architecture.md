@@ -26,17 +26,21 @@ flowchart TB
         GUARD[Deterministic decision guard]
         SAFETY[Modality-specific checks]
         BUILD[Request builder]
+        HANDOFF[Radiology handoff]
     end
 
+    CLARIFY[Optional local clarification]
     REVIEW[Human clinical approval]
     REPORT[Report workflow — standby]
 
     DOCS --> INGEST --> EXTRACT --> CASE --> RECORD
     ANSWERS --> CASE
     YAML --> MATCH
-    RECORD --> MATCH --> DECIDE --> GUARD --> SAFETY --> BUILD
+    RECORD --> MATCH --> DECIDE --> GUARD --> SAFETY --> BUILD --> HANDOFF
+    GUARD -. required questions .-> CLARIFY
+    CLARIFY -. typed answers .-> MATCH
     BUILD --> RECORD
-    BUILD --> REVIEW
+    HANDOFF --> REVIEW
     RECORD -. future .-> REPORT
 ```
 
@@ -66,7 +70,9 @@ Request owns pre-exam decision support. It:
 4. asks an LLM to compare candidate examinations;
 5. merges generic, required reference, model-generated, and modality-specific questions;
 6. rejects a selected state when a required or blocking question is unresolved;
-7. builds a French teleradiology request draft and a reproducibility manifest.
+7. builds a French teleradiology request draft, evidence-backed radiology handoff, and reproducibility manifest.
+
+The CLI may collect one clarification round through a short-lived loopback browser form. Its answers are persisted as a typed input file, then only Request is recalculated from an immutable Core baseline. This UI is an adapter around the application services, not workflow state owned by Core.
 
 Request may import Core models. Core must never import Request. This one-way dependency prevents pre-exam rules from leaking into the shared clinical record.
 
@@ -101,6 +107,7 @@ sequenceDiagram
     participant Model as LLM provider
     participant Ref as ReferenceEngine
     participant Guard as Deterministic guards
+    participant Form as Local browser form
 
     Operator->>CLI: request run --input ...
     CLI->>Service: run_request()
@@ -120,10 +127,16 @@ sequenceDiagram
     Service->>Guard: add modality-specific checks
     Service->>Service: build_teleradiology_request()
     Service-->>CLI: RequestResult
-    CLI-->>Operator: JSON outputs + manifest + status
+    opt Interactive and required answers remain
+        CLI->>Form: one-time loopback form
+        Form-->>CLI: typed answer file or escalation
+        CLI->>Service: run_request_from_core(CoreResult, answers)
+        Note over CLI,Service: Core extraction is not repeated
+    end
+    CLI-->>Operator: JSON outputs + HTML handoff + status
 ```
 
-If clarification is necessary, the operator completes `answers.template.json` and starts a new run with `--answers`. v0 does not maintain an interactive server-side session; the answer file is the handoff between passes.
+If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
 
 A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v2 run manifest fingerprints the distributed Python source as well as the inputs and configured components, so changed safeguards cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
@@ -135,7 +148,8 @@ A separate `request evaluate` command reads one saved run and its schema-v1 E2E 
 | LLM → clinical case | Model interpretation and omissions | Typed fields, statuses, confidence, provenance |
 | Reference → decision | Scenario scope and local suitability | Versioned YAML, deterministic matching, validation tests |
 | LLM → selected state | Candidate reasoning | Required-question guard and modality-specific checks |
-| Draft → clinical action | Generated wording and proposal | External qualified human approval |
+| Local form → answer fact | Declared role and clinical value | Typed input, one-time token, explicit provenance; no authenticated identity |
+| Draft or handoff → clinical action | Generated wording and proposal | External qualified human approval |
 
 Pydantic validation proves structural conformity, not clinical correctness. Golden cases prove encoded rule behavior, not guideline completeness. Human review remains a separate and mandatory boundary.
 
@@ -164,6 +178,8 @@ output directory       replaceable run snapshot
 radiology_case.json    aggregate record for that run
 intermediate JSON      evidence for debugging and review
 run_manifest.json      reproducibility fingerprints for that run
+radiology_handoff.*    structured and human-readable radiologist review package
+answers.interactive.*  private local clarification input when requested
 ```
 
 There is no concurrency control, durable workflow engine, identity model, or persistence service in v0. Production integration would need to define ownership, retention, access control, idempotency, and audit durability around these files.

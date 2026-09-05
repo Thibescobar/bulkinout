@@ -92,6 +92,7 @@ bulkinout request run \
 | `--input` | `input` | Clinical document directory processed by Core. |
 | `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
 | `--answers` | none | Optional answer JSON from a previous clarification pass. |
+| `--interactive` | off | Open a short-lived loopback browser form for required answers. Mutually exclusive with `--answers`. |
 | `--reference` | packaged reference | Optional scenario-directory override. |
 | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
 | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
@@ -103,9 +104,24 @@ The command reports the combined service run before processing:
 Running the Core and Request workflow...
 ```
 
-It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, and the request status. Detailed step order belongs to the shared Request service and is identical for CLI and Python callers.
+It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, the request status, and the HTML handoff path. When interactive mode is off and a required answer remains, the terminal also lists each question, points to `answers.template.json`, and prints the `--answers` rerun pattern.
 
-### Clarification pass
+### Interactive clarification
+
+Use the optional local browser workflow when the requesting clinician is present:
+
+```bash
+bulkinout request run \
+  --input input \
+  --output output_interactive \
+  --interactive
+```
+
+The form opens only when a required or blocking question exists. A submitted answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by a new Request calculation from the existing Core result. Source documents are extracted and uploaded only once during this command. Selecting direct escalation, leaving all answers unavailable, browser failure, or timeout preserves the guarded initial result and prints the file-based instructions.
+
+The server binds only to `127.0.0.1` on a random port, serves no remote assets, accepts one token-protected form submission, and closes after submission or ten minutes. It is a local UI, not an authenticated HTTP API or a signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
+
+### File-based clarification
 
 The first run may write `answers.template.json`:
 
@@ -133,7 +149,7 @@ bulkinout request run \
   --output output_after_answers
 ```
 
-This is a complete rerun: documents are extracted again, answers are then applied, and the reference, decision, guards, and outputs are recalculated.
+This separate invocation is a complete rerun: documents are extracted again, answers are then applied, and the reference, decision, guards, and outputs are recalculated. Use a new output directory to retain the earlier evidence.
 
 ## `bulkinout request catalog`
 
@@ -194,12 +210,12 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. A Request run writes nine snapshots, including the schema-v2 `run_manifest.json`, whose hashes identify its package version, distributed Python source, inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files.
+JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v2 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
 
 Use a fresh output directory for important runs:
 
 ```bash
-bulkinout request run --input input --output output/run_2026_09_04
+bulkinout request run --input input --output output/run_2026_09_05
 ```
 
 Generated `output*/` directories are ignored by Git and may contain sensitive clinical content.
@@ -216,6 +232,7 @@ Generated `output*/` directories are ignored by Git and may contain sensitive cl
 | No matched scenarios | Extracted field paths or terms do not satisfy any entry predicate. | Inspect `case.json` and `reference_context.json`; add tested synonyms when appropriate. |
 | `insufficient_information` | A required or high-impact fact remains unknown/conflicting. | Complete `answers.template.json` after clinical clarification. |
 | `safety_blocked` | A blocking safety fact is unresolved. | Obtain and record the missing safety information. |
+| Interactive form does not open or expires | No usable local browser or no submission within ten minutes. | Follow the printed `answers.template.json` and `--answers` instructions. |
 | Evaluation exits 1 | At least one encoded Core or Request assertion failed. | Read the stage-specific failures and inspect the named artifacts. |
 | Evaluation exits 2 | `expected.json` or a required run artifact is missing or invalid. | Correct the fixture or run directory before interpreting model quality. |
 

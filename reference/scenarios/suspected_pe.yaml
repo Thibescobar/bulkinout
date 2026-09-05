@@ -27,6 +27,7 @@ questions:
     reason: "A negative result with low or intermediate pretest probability may avoid imaging."
   - id: pregnancy
     field: imaging_safety.pregnancy
+    answer_kind: boolean
     question: "Une grossesse est-elle possible ou en cours ?"
     priority: 1
     material: true

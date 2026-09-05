@@ -12,6 +12,7 @@ entry:
 questions:
   - id: sudden_maximal
     field: current_problem.thunderclap
+    answer_kind: boolean
     question: "La céphalée a-t-elle atteint son intensité maximale en moins d'une heure ?"
     priority: 1
     material: true

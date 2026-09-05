@@ -14,6 +14,7 @@ entry:
 questions:
   - id: known_obstruction
     field: current_problem.mechanical_obstruction_suspected
+    answer_kind: boolean
     question: "Une obstruction mécanique est-elle déjà suspectée sur la clinique, la biologie ou une première imagerie ?"
     priority: 1
     material: true

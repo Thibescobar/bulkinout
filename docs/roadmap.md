@@ -4,7 +4,7 @@
 
 This document orders the work required to turn the current Request proof of concept into a reliable and evaluable system. It combines confirmed defects, known v0 limitations, clinical-assurance requirements, operational gaps, and future product work. Priorities express dependency and risk, while status records whether work belongs to the current proof-of-concept scope.
 
-The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, provenance, and mandatory human review.
+The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, provenance, optional local clarification, an evidence-backed radiology handoff, and mandatory human review.
 
 ## Scope and status
 
@@ -15,7 +15,7 @@ The following foundations are already in place and should be preserved: strict t
 - **Standby**: deliberately deferred until Request correctness and evaluation are established.
 - **Optional**: implemented only when a demonstrated need justifies it.
 
-The current implementation scope is R01–R04. R05 and R06 define gates for clinical claims and real patient data. R07–R15 remain on standby unless the scope is explicitly changed.
+The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define gates for clinical claims and real patient data. R07–R15 remain on standby unless the scope is explicitly changed. R16 does not satisfy the authenticated service, durable state, or signed approval work described by R13 and R14.
 
 ## Work register
 
@@ -36,6 +36,7 @@ The current implementation scope is R01–R04. R05 and R06 define gates for clin
 | R13 | No authenticated HTTP service, durable workflow state, or clinical-system integration exists | Platform limitation | P3 | Standby | Service boundary |
 | R14 | Human approval is external and has no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
 | R15 | Report and post-exam processing are placeholders | Product roadmap | P4 | Standby | Report |
+| R16 | Required clarifications lacked a local interaction path and remote radiologists lacked an evidence-backed handoff | Request usability | P1 | Completed | Clinical handoff |
 
 ## P0 — Stabilize Request
 
@@ -161,6 +162,7 @@ Until then, Report remains an explicitly documented architectural placeholder.
 P0  reference integrity — completed
  └─ package integrity — completed
      └─ P1 model evaluation boundary — completed
+         ├─ local clarification + radiology handoff — completed
          ├─ reference-validation gate
          ├─ real-patient data-lifecycle gate
          └─ optional local-provider evaluation — standby
