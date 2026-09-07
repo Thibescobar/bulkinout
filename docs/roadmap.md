@@ -15,7 +15,7 @@ The following foundations are already in place and should be preserved: strict t
 - **Standby**: deliberately deferred until Request correctness and evaluation are established.
 - **Optional**: implemented only when a demonstrated need justifies it.
 
-The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define gates for clinical claims and real patient data. R07–R15 remain on standby unless the scope is explicitly changed. R16 does not satisfy the authenticated service, durable state, or signed approval work described by R13 and R14.
+The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define gates for clinical claims and real patient data. R07–R15 and R17 remain on standby unless the scope is explicitly changed. R16 does not satisfy the authenticated service, durable state, or signed approval work described by R13 and R14.
 
 ## Work register
 
@@ -37,6 +37,7 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R14 | Clinician preselection and human approval are external and have no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
 | R15 | Report and post-exam processing are placeholders | Product roadmap | P4 | Standby | Report |
 | R16 | Required clarifications lacked a local interaction path and remote radiologists lacked an evidence-backed handoff | Request usability | P1 | Completed | Clinical handoff |
+| R17 | Scenario YAML receives only shallow structural validation before runtime use | Reference-authoring limitation | P1 | Standby | Reference governance |
 
 ## P0 — Stabilize Request
 
@@ -98,6 +99,7 @@ Exit criteria:
 2. Record reviewer, evidence, date, scope, version, and limitations.
 3. Change `needs_local_validation` only through an explicit approval process.
 4. Expand scenario coverage only after the validation workflow and negative golden cases exist.
+5. Define and enforce a complete runtime schema for nested predicates, questions, candidates, rules, and source metadata before treating externally authored reference catalogs as supported inputs.
 
 ### Data lifecycle
 
@@ -163,6 +165,7 @@ P0  reference integrity — completed
  └─ package integrity — completed
      └─ P1 model evaluation boundary — completed
          ├─ local clarification + radiology handoff — completed
+         ├─ reference-schema validation — standby
          ├─ reference-validation gate
          ├─ real-patient data-lifecycle gate
          └─ optional local-provider evaluation — standby
@@ -173,11 +176,12 @@ P0  reference integrity — completed
 
 Suggested sequence for work that remains:
 
-1. `governance/reference_validation`
-2. `security/data_lifecycle`
-3. `feature/clinical_normalization`
-4. `feature/runtime_operations`
-5. `feature/report`
+1. `fix/reference_schema_validation`
+2. `governance/reference_validation`
+3. `security/data_lifecycle`
+4. `feature/clinical_normalization`
+5. `feature/runtime_operations`
+6. `feature/report`
 
 ## Definition of done
 

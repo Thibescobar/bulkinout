@@ -412,7 +412,7 @@ Service class whose methods are documented below.
 
 ### `ReferenceEngine.__init__(self, reference_dir: Path | None = None)`
 
-Loads all scenario YAML files from an explicit directory or from the packaged reference by default. Missing, unreadable, invalid, or empty references raise `ReferenceDataError`.
+Loads all scenario YAML files from an explicit directory or from the packaged reference by default. Missing, unreadable, empty, syntactically invalid, or structurally invalid top-level references raise `ReferenceDataError`; nested schema validation is not yet comprehensive.
 
 ### `ReferenceEngine.match(self, case: ClinicalCase) -> list[ScenarioMatch]`
 
