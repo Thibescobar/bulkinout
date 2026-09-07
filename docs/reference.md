@@ -4,6 +4,8 @@ The reference is a versioned, auditable input to Request. Each YAML file describ
 
 All 18 bundled scenarios are marked `needs_local_validation`. They are implementation examples derived from public guidance, primarily ACR Appropriateness Criteria; they are not a complete or locally approved protocol library.
 
+The current loader validates YAML syntax, a mapping at the document root, and string `id` and `title` fields. It does not yet validate every nested predicate, question, candidate, rule, or source against a complete runtime schema. Bundled scenarios are exercised by tests and golden cases, but a malformed custom reference may still fail only when the affected structure is evaluated. This limitation is tracked as R17 in the [roadmap](roadmap.md).
+
 ## Scenario anatomy
 
 ```yaml

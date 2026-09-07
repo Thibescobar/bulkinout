@@ -55,7 +55,6 @@ PDF / TXT / Markdown / images
 conda create --name bulkinout python=3.11 -y
 conda activate bulkinout
 python -m pip install -e ".[dev]"
-cp .env.example .env               # or export the variables manually
 export OPENAI_API_KEY="..."
 export BULKINOUT_MODEL="<compatible-model>"
 ```
@@ -214,6 +213,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 - **No dedicated terminology normalization:** canonical field names are defined, but free-text concepts are not yet mapped through a controlled clinical terminology service.
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
+- **Shallow reference-schema validation:** loading checks YAML syntax and basic top-level fields, but nested predicates, questions, candidates, and rules are not yet validated against a complete runtime schema.
 - **Simple reference paths:** matching reads first-level `section.field` values and does not traverse arbitrary nested clinical structures.
 - **No HTTP service:** the complete workflow has a public Python API. The optional loopback form is a short-lived local UI, not an authenticated service endpoint; transport, request isolation, persistence, and HTTP API contracts are not implemented.
 - **No post-exam workflow:** `Report`, image-analysis integration, findings, impression, and final-report generation are placeholders.
