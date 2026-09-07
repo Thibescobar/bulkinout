@@ -90,7 +90,7 @@ The package contains:
 
 The visible review layer uses French clinical labels, translated display values for known canonical concepts, and source wording for free-text evidence. Developer-facing field paths, raw canonical values, confidence, validation flags, exact answer filenames, and scenario metadata remain unchanged in JSON and are grouped under the collapsed **Afficher la traçabilité technique** section. This separation changes presentation only; it does not translate source excerpts or modify clinical data.
 
-When a proposal is ready for review, the page ends with a disabled **Ajouter au bon de demande** placeholder. It performs no persistence, transmission, or prescription action in v0.
+When a proposal is ready for review, its narrative alternatives appear immediately below it as visually selectable cards. This local selection changes only the highlighted card: it does not alter or persist the generated request. The page ends with a disabled **Ajouter au bon de demande** placeholder, which performs no persistence, transmission, or prescription action in v0.
 
 A proposed examination is linked to a YAML candidate only when its examination name exactly matches an applicable reference candidate. Model-generated candidate IDs are retained separately and must not be mistaken for validated reference IDs.
 

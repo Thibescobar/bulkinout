@@ -145,7 +145,13 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Demande clinique" in html
     assert "Appendicite ?" in html
     assert "Examen proposé" in html
-    assert "Examen proposé au radiologue" in html
+    assert "Choix à présenter au radiologue" in html
+    assert "Proposition privilégiée" in html
+    assert "Alternative" in html
+    assert "Sélection visuelle uniquement" in html
+    assert html.count('name="exam-choice"') == 2
+    assert html.count(" checked>") == 1
+    assert ".exam-option input:checked + span" in html
     assert "Synthèse clinique transmise" in html
     assert "Douleur aiguë depuis six heures." in html
     assert "DFG estimé (mL/min/1,73 m²) : 92" in html
@@ -200,6 +206,7 @@ def test_blocked_handoff_keeps_unanswered_questions_and_escapes_html():
     assert "Aucune proposition transmissible à ce stade" in html
     assert "Examen envisagé, non proposé" in html
     assert "Ajouter au bon de demande" not in html
+    assert 'name="exam-choice"' not in html
 
 
 def test_blocked_handoff_does_not_present_raw_model_exam_as_a_recommendation():

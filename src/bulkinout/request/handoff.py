@@ -647,11 +647,25 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             '<p class="warning"><strong>Aucune proposition transmissible à ce stade.</strong> '
             "Un échange direct avec le téléradiologue est requis.</p>"
         )
+        alternatives_section = f"<h2>Alternatives considérées</h2>{_items(proposal.alternatives)}"
     else:
-        proposal_notice = (
-            '<section class="proposal"><span>Examen proposé au radiologue</span>'
-            f"<strong>{escape(proposal_name)}</strong></section>"
+        exam_options = [
+            '<label class="exam-option"><input type="radio" name="exam-choice" checked>'
+            "<span><small>Proposition privilégiée</small>"
+            f"<strong>{escape(proposal_name)}</strong></span></label>"
+        ]
+        exam_options.extend(
+            '<label class="exam-option"><input type="radio" name="exam-choice">'
+            f"<span><small>Alternative</small><strong>{escape(alternative)}</strong></span></label>"
+            for alternative in proposal.alternatives
         )
+        proposal_notice = (
+            '<section class="proposal"><h2>Choix à présenter au radiologue</h2>'
+            f'<div class="exam-options">{"".join(exam_options)}</div>'
+            '<p class="muted">Sélection visuelle uniquement — ce choix n’est pas enregistré.</p>'
+            "</section>"
+        )
+        alternatives_section = ""
     request_order_action = (
         '<div class="handoff-action"><button type="button" disabled '
         'title="Fonction à venir">Ajouter au bon de demande</button></div>'
@@ -667,8 +681,12 @@ body{{font:16px/1.5 system-ui,sans-serif;color:#173042;background:#f5f8fa;margin
 main{{max-width:1050px;margin:32px auto;background:white;padding:36px;border-radius:14px}}
 h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;padding-bottom:6px}}
 .status{{display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1dc;color:#8a4b00}}
-.proposal{{display:flex;flex-direction:column;gap:4px;margin:20px 0;padding:18px 22px;border-radius:12px;background:#e9f7f7;border-left:5px solid #087f8c}}
-.proposal span{{color:#405b66}}.proposal strong{{font-size:1.35rem;color:#075b66}}
+.proposal{{margin:20px 0}}.proposal h2{{margin-top:0}}
+.exam-options{{display:grid;gap:10px}}.exam-option{{cursor:pointer;position:relative}}
+.exam-option input{{position:absolute;opacity:0}}.exam-option span{{display:flex;flex-direction:column;gap:4px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
+.exam-option input:checked + span{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
+.exam-option input:focus-visible + span{{outline:3px solid #ef7d32;outline-offset:2px}}
+.exam-option span small{{color:#405b66}}.exam-option span strong{{font-size:1.15rem;color:#075b66}}
 .warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
 .muted,small{{color:#5c6f78}}table{{width:100%;border-collapse:collapse}}
 th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
@@ -694,7 +712,7 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h3>Imagerie antérieure</h3>{_items(prior_imaging)}
 <h3>Informations de sécurité</h3>{_items(safety_information)}
 <h2>{escape(rationale_title)}</h2>{_items(request.rationale_for_exam or proposal.rationale)}
-<h2>Alternatives considérées</h2>{_items(proposal.alternatives)}
+{alternatives_section}
 <h2>Clarifications du clinicien</h2>{_clarification_table(handoff.clarifications)}
 <h2>Informations cliniques retenues et sources</h2>{_clinical_fact_table(handoff.supporting_facts)}
 <h2>Sécurité</h2>{_clinical_fact_table(handoff.safety_facts)}
