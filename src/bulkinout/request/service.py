@@ -210,6 +210,7 @@ def run_request(
     model: str | None = None,
     extraction_model: str | None = None,
     decision_model: str | None = None,
+    cold: bool = False,
     answers_path: Path | None = None,
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
@@ -219,6 +220,7 @@ def run_request(
     core_result = build_radiology_case(
         input_dir,
         model=extraction_model or model,
+        cold=cold,
         extractor=extractor,
     )
     return run_request_from_core(
@@ -226,6 +228,7 @@ def run_request(
         reference_dir=reference_dir,
         model=model,
         decision_model=decision_model,
+        cold=cold,
         answers_path=answers_path,
         decision_engine=decision_engine,
     )
@@ -237,6 +240,7 @@ def run_request_from_core(
     reference_dir: Path | None = None,
     model: str | None = None,
     decision_model: str | None = None,
+    cold: bool = False,
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
 ) -> RequestResult:
@@ -254,7 +258,8 @@ def run_request_from_core(
     reference_context = reference_engine.build_context(case)
     reference_questions = _reference_missing_questions(reference_context)
     selected_decision_engine = decision_engine or OpenAIRequestDecision(
-        model=decision_model or model
+        model=decision_model or model,
+        cold=cold,
     )
     decision = selected_decision_engine.decide(
         case,

@@ -15,6 +15,8 @@ The LLM-backed CLI commands currently use the built-in OpenAI adapters and requi
 
 For `run_request()`, the exact priority is stage-specific argument, shared `model=` argument, stage-specific environment variable, then `BULKINOUT_MODEL`. The CLI applies the same order with `--extraction-model`, `--decision-model`, and `--model`. `build_radiology_case(model=...)` configures extraction only. Python callers may inject custom components; their configuration is owned by those components.
 
+`--cold` or `cold=True` requests `temperature=0` for the built-in OpenAI components. It is applied only to model families known to support that parameter with Bulkinout's configuration. An incompatible stage emits a warning, keeps `reasoning_effort=medium`, and uses provider-controlled sampling. Never assume cold mode was applied without checking the warning and `run_manifest.json`.
+
 The application does **not** load `.env` files itself. Export the variables in the shell, source a protected file through your process manager, or inject them through the deployment environment:
 
 ```bash
@@ -81,7 +83,7 @@ The extraction prompt prohibits invented facts and treats absent information as 
 | `imaging_decision.json` | LLM proposal after deterministic guards |
 | `teleradiology_request.json` | French clinical draft; never an automatically approved transmission |
 | `answers.template.json` | Required discriminating questions to complete before rerunning |
-| `run_manifest.json` | Technical fingerprints for the package, code, inputs, components, prompts, schemas, and reference used |
+| `run_manifest.json` | Technical fingerprints for the package, code, inputs, components, inference settings, prompts, schemas, and reference used |
 | `radiology_handoff.json` | Structured proposal or abstention with evidence, clarifications, rules, safety facts, and scenario-level citations |
 | `radiology_handoff.html` | Escaped, self-contained French page for remote radiologist review |
 | `answers.interactive.N.json` | Owner-readable typed input created by an interactive round; numbered to avoid overwriting prior answers |

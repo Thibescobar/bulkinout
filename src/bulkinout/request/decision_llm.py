@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..core.models import ClinicalCase, ImagingDecision
 from ..errors import ConfigurationError
 from ..fingerprints import sha256_text
+from ..openai_compat import resolve_openai_inference_settings
 from ..types import JsonObject, JsonValue
 from .types import ReferenceContext
 
@@ -61,7 +62,7 @@ class OpenAIRequestDecision:
     name = "bulkinout_request_openai_decision_v1"
     prompt_sha256 = sha256_text(DECISION_PROMPT)
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, *, cold: bool = False):
         self.model = model or os.getenv("BULKINOUT_DECISION_MODEL") or os.getenv("BULKINOUT_MODEL")
         if not self.model:
             raise ConfigurationError(
@@ -70,6 +71,13 @@ class OpenAIRequestDecision:
             )
         if not os.getenv("OPENAI_API_KEY"):
             raise ConfigurationError("OPENAI_API_KEY is missing.")
+        settings = resolve_openai_inference_settings(
+            self.model,
+            cold=cold,
+            component="Request",
+        )
+        self._request_parameters = settings.request_parameters()
+        self.inference_parameters = settings.manifest_parameters()
         self.client = OpenAI()
 
     def decide(
@@ -84,10 +92,9 @@ class OpenAIRequestDecision:
             "reference_context": cast(JsonObject, reference_context or {}),
         }
         responses = cast(Any, self.client.responses)
-        response = responses.parse(
-            model=self.model,
-            reasoning={"effort": "medium"},
-            input=[
+        request_parameters: dict[str, object] = {
+            "model": self.model,
+            "input": [
                 {"role": "developer", "content": [{"type": "input_text", "text": DECISION_PROMPT}]},
                 {
                     "role": "user",
@@ -96,8 +103,10 @@ class OpenAIRequestDecision:
                     ],
                 },
             ],
-            text_format=ImagingDecision,
-        )
+            "text_format": ImagingDecision,
+            **self._request_parameters,
+        }
+        response = responses.parse(**request_parameters)
         parsed = getattr(response, "output_parsed", None)
         if parsed is not None:
             return ImagingDecision.model_validate(parsed)

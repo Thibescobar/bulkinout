@@ -65,7 +65,21 @@ def test_structured_call_uses_configured_model(monkeypatch):
 
     assert result == LLMExtraction()
     assert responses.calls[0]["model"] == "test-model"
+    assert responses.calls[0]["reasoning"] == {"effort": "medium"}
+    assert "temperature" not in responses.calls[0]
     assert responses.calls[0]["text_format"] is LLMExtraction
+
+
+def test_cold_extractor_sends_temperature_to_compatible_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    responses = FakeResponses(SimpleNamespace(output_text='{"facts": []}'))
+    monkeypatch.setattr(llm, "OpenAI", lambda: SimpleNamespace(responses=responses))
+    extractor = llm.OpenAICoreExtractor(model="gpt-4.1-mini-2025-04-14", cold=True)
+
+    extractor._call_structured("prompt", [{"type": "input_text"}], LLMExtraction)
+
+    assert responses.calls[0]["temperature"] == 0.0
+    assert "reasoning" not in responses.calls[0]
 
 
 def test_extractor_requires_openai_key(monkeypatch):

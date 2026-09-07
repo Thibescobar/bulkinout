@@ -46,7 +46,7 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
     monkeypatch.setattr(
         service,
         "build_radiology_case",
-        lambda input_dir, model, extractor: CoreResult(radiology_case, extraction, []),
+        lambda input_dir, model, cold, extractor: CoreResult(radiology_case, extraction, []),
     )
     monkeypatch.setattr(service, "ReferenceEngine", FakeReferenceEngine)
     monkeypatch.setattr(service, "generic_missing_questions", lambda received_case: initial)
@@ -199,12 +199,14 @@ def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
     )
     captured = {}
 
-    def build_case(input_dir, model, extractor):
+    def build_case(input_dir, model, cold, extractor):
         captured["extraction_model"] = model
+        captured["extraction_cold"] = cold
         return CoreResult(radiology_case, LLMExtraction(), [])
 
-    def build_decision_engine(model):
+    def build_decision_engine(model, cold):
         captured["decision_model"] = model
+        captured["decision_cold"] = cold
         return decision_engine
 
     monkeypatch.setattr(service, "build_radiology_case", build_case)
@@ -216,11 +218,14 @@ def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
         model="shared-model",
         extraction_model="extraction-model",
         decision_model="decision-model",
+        cold=True,
     )
 
     assert captured == {
         "extraction_model": "extraction-model",
+        "extraction_cold": True,
         "decision_model": "decision-model",
+        "decision_cold": True,
     }
 
 

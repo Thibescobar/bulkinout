@@ -77,6 +77,7 @@ bulkinout/
 │   ├── errors.py             public application exception hierarchy
 │   ├── evaluation.py         offline Core and Request assertions
 │   ├── fingerprints.py       workflow-neutral SHA-256 helpers
+│   ├── openai_compat.py      model-aware OpenAI inference settings
 │   ├── output.py             JSON snapshot writers
 │   ├── run_manifest.py       reproducibility fingerprints
 │   └── types.py              shared JSON-compatible types

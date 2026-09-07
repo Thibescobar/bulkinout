@@ -100,7 +100,7 @@ The canonical value can be English while the evidence excerpt remains exactly as
 
 ## Step 4: aggregate record
 
-`build_radiology_case(input_dir, model, *, extractor=None)` coordinates discovery, extraction, and conversion. When `extractor` is omitted it constructs `OpenAICoreExtractor`; an injected extractor bypasses OpenAI configuration. Core stores provider-neutral component metadata under `ClinicalCase.metadata.extractor_manifest` so Request can fingerprint a run without importing a concrete provider. It returns a typed `CoreResult`, which remains tuple-unpackable:
+`build_radiology_case(input_dir, model, *, cold=False, extractor=None)` coordinates discovery, extraction, and conversion. When `extractor` is omitted it constructs `OpenAICoreExtractor`; an injected extractor bypasses OpenAI configuration. Cold mode requests temperature 0 from a compatible built-in model without weakening an incompatible model's reasoning level. Core stores provider-neutral component and inference metadata under `ClinicalCase.metadata.extractor_manifest` so Request can fingerprint a run without importing a concrete provider. It returns a typed `CoreResult`, which remains tuple-unpackable:
 
 ```python
 record, extraction, source_paths = build_radiology_case(...)

@@ -13,6 +13,7 @@ result = run_request(
     Path("input"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
+    cold=True,
     answers_path=None,
 )
 
@@ -40,7 +41,9 @@ run_request()
 
 The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
-`run_manifest` contains hashes and technical identities rather than source contents. Schema version 2 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, and `prompt_sha256`; omitted metadata is recorded as `unreported` without changing the provider-neutral protocols.
+`run_manifest` contains hashes and technical identities rather than source contents. Schema version 3 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, applied inference settings, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, `prompt_sha256`, and `inference_parameters`; omitted metadata is recorded as `unreported` or an empty parameter object without changing the provider-neutral protocols.
+
+Pass `cold=True` to request `temperature=0` from every default OpenAI component. Known GPT-4.1 and GPT-4o models receive it without a `reasoning` parameter. Incompatible models retain `reasoning_effort=medium`, omit temperature, and emit `ColdModeWarning`; the manifest records the requested and applied values. Injected components own their sampling configuration and ignore this convenience option.
 
 ## Recalculating Request from an existing Core result
 
@@ -51,14 +54,15 @@ from pathlib import Path
 
 from bulkinout import build_radiology_case, run_request_from_core
 
-core = build_radiology_case(Path("input"), model="<multimodal-model>")
-initial = run_request_from_core(core, decision_model="<decision-model>")
+core = build_radiology_case(Path("input"), model="<multimodal-model>", cold=True)
+initial = run_request_from_core(core, decision_model="<decision-model>", cold=True)
 
 # After writing and completing an answer file:
 updated = run_request_from_core(
     core,
     answers_path=Path("answers.json"),
     decision_model="<decision-model>",
+    cold=True,
 )
 ```
 
@@ -71,7 +75,7 @@ from pathlib import Path
 
 from bulkinout import build_radiology_case, write_core_outputs
 
-result = build_radiology_case(Path("input"), model="<compatible-model>")
+result = build_radiology_case(Path("input"), model="<compatible-model>", cold=True)
 print(result.radiology_case.clinical)
 write_core_outputs(result, Path("output_core"))
 ```

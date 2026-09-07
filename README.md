@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-164%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-171%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -102,6 +102,7 @@ bulkinout
 | `core structure` | `--input` | `input` | Directory scanned recursively for supported documents. |
 |  | `--output` | `output` | Directory receiving Core JSON outputs. |
 |  | `--model` | extraction&nbsp;→&nbsp;shared&nbsp;env | Model used for structured extraction. |
+|  | `--cold` | off | Request temperature 0 when the extraction model supports it. |
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
@@ -110,6 +111,7 @@ bulkinout
 |  | `--extraction-model` | extraction&nbsp;env | Model used by Core. |
 |  | `--decision-model` | decision&nbsp;env | Model used by Request. |
 |  | `--model` | shared&nbsp;env | Optional shared fallback for both stages. |
+|  | `--cold` | off | Request temperature 0 independently for each compatible model stage. |
 | `request catalog` | `--reference` | packaged&nbsp;reference | Optional reference directory to summarize instead. |
 | `request golden` | `--cases` | `tests/golden` | Directory containing deterministic golden cases. |
 |  | `--reference` | packaged&nbsp;reference | Optional reference override evaluated by the golden cases. |
@@ -117,7 +119,7 @@ bulkinout
 |  | `--run` | required | Directory containing saved Request artifacts. |
 |  | `--report` | none | Optional path for a machine-readable evaluation report. |
 
-Here, extraction env, decision env, and shared env mean `BULKINOUT_EXTRACTION_MODEL`, `BULKINOUT_DECISION_MODEL`, and `BULKINOUT_MODEL`, respectively. The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then the shared environment variable. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
+Here, extraction env, decision env, and shared env mean `BULKINOUT_EXTRACTION_MODEL`, `BULKINOUT_DECISION_MODEL`, and `BULKINOUT_MODEL`, respectively. The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then the shared environment variable. `--cold` applies `temperature=0` to known compatible GPT-4.1 and GPT-4o models. Incompatible stages continue with their configured reasoning and emit a warning; no reasoning level is changed silently. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
 ## Python integration
 
@@ -132,6 +134,7 @@ result = run_request(
     Path("input"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
+    cold=True,
 )
 
 print(result.imaging_decision.decision_status)
@@ -155,7 +158,7 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
-| `run_manifest.json` | Package, code, input, component, prompt, schema, and reference fingerprints for comparison. |
+| `run_manifest.json` | Package, code, input, component, inference-setting, prompt, schema, and reference fingerprints for comparison. |
 | `radiology_handoff.json` | Structured proposal or escalation package linking facts, clarifications, rules, safety checks, and references. |
 | `radiology_handoff.html` | Self-contained French review page intended for the remote radiologist. |
 | `answers.interactive.N.json` | Private typed answer record created only by an interactive clarification round. |

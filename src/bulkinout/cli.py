@@ -35,7 +35,11 @@ def cmd_core_structure(args: argparse.Namespace) -> None:
     from .core.service import build_radiology_case
 
     output_dir = Path(args.output)
-    result = build_radiology_case(Path(args.input), model=args.model)
+    result = build_radiology_case(
+        Path(args.input),
+        model=args.model,
+        cold=getattr(args, "cold", False),
+    )
     write_core_outputs(result, output_dir)
     print(f"Core structuring completed: {output_dir / 'radiology_case.json'}")
 
@@ -57,6 +61,7 @@ def cmd_request_run(args: argparse.Namespace) -> None:
             model=args.model,
             extraction_model=args.extraction_model,
             decision_model=args.decision_model,
+            cold=getattr(args, "cold", False),
             answers_path=Path(args.answers) if args.answers else None,
         )
         write_request_outputs(result, Path(args.output))
@@ -116,12 +121,14 @@ def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
     core_result = build_radiology_case(
         input_dir,
         model=args.extraction_model or args.model,
+        cold=getattr(args, "cold", False),
     )
     result = run_request_from_core(
         core_result,
         reference_dir=reference_dir,
         model=args.model,
         decision_model=args.decision_model,
+        cold=getattr(args, "cold", False),
     )
     write_request_outputs(result, output_dir)
     questions = required_clarification_questions(result.missing_questions)
@@ -150,6 +157,7 @@ def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
                 reference_dir=reference_dir,
                 model=args.model,
                 decision_model=args.decision_model,
+                cold=getattr(args, "cold", False),
                 answers_path=answer_path,
             )
             write_request_outputs(result, output_dir)
@@ -256,6 +264,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=("Extraction model (default: BULKINOUT_EXTRACTION_MODEL, then BULKINOUT_MODEL)"),
     )
+    structure.add_argument(
+        "--cold",
+        action="store_true",
+        help="Request temperature 0 when the selected model supports it",
+    )
     structure.set_defaults(func=cmd_core_structure)
 
     request = top.add_parser("request", help="Pre-exam workflow")
@@ -297,6 +310,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--decision-model",
         default=None,
         help="Request decision model (default: BULKINOUT_DECISION_MODEL, then shared fallback)",
+    )
+    run.add_argument(
+        "--cold",
+        action="store_true",
+        help="Request temperature 0 for each compatible OpenAI model stage",
     )
     run.set_defaults(func=cmd_request_run)
 

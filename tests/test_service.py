@@ -57,6 +57,7 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
             "name": "test_extractor",
             "model": "local-model",
             "prompt_sha256": "unreported",
+            "inference_parameters": {},
         },
     }
     assert [artifact.artifact_id for artifact in case.artifacts] == [

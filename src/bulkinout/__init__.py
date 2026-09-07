@@ -34,13 +34,14 @@ def build_radiology_case(
     input_dir: Path,
     model: str | None = None,
     *,
+    cold: bool = False,
     extractor: CoreExtractor | None = None,
 ) -> CoreResult:
     """Run the Core service without eagerly importing provider dependencies."""
 
     from .core.service import build_radiology_case as build
 
-    return build(input_dir, model=model, extractor=extractor)
+    return build(input_dir, model=model, cold=cold, extractor=extractor)
 
 
 def run_request(
@@ -50,6 +51,7 @@ def run_request(
     model: str | None = None,
     extraction_model: str | None = None,
     decision_model: str | None = None,
+    cold: bool = False,
     answers_path: Path | None = None,
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
@@ -64,6 +66,7 @@ def run_request(
         model=model,
         extraction_model=extraction_model,
         decision_model=decision_model,
+        cold=cold,
         answers_path=answers_path,
         extractor=extractor,
         decision_engine=decision_engine,
@@ -76,6 +79,7 @@ def run_request_from_core(
     reference_dir: Path | None = None,
     model: str | None = None,
     decision_model: str | None = None,
+    cold: bool = False,
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
 ) -> RequestResult:
@@ -88,6 +92,7 @@ def run_request_from_core(
         reference_dir=reference_dir,
         model=model,
         decision_model=decision_model,
+        cold=cold,
         answers_path=answers_path,
         decision_engine=decision_engine,
     )

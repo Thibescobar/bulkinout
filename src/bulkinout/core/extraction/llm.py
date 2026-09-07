@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from ...errors import ConfigurationError
 from ...fingerprints import sha256_text
+from ...openai_compat import resolve_openai_inference_settings
 from ...types import JsonObject, JsonValue
 from ..models import (
     ClinicalCase,
@@ -91,7 +92,7 @@ class OpenAICoreExtractor:
     name = "bulkinout_core_openai_multimodal_v1"
     prompt_sha256 = sha256_text(EXTRACTION_PROMPT)
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, *, cold: bool = False):
         self.model = (
             model or os.getenv("BULKINOUT_EXTRACTION_MODEL") or os.getenv("BULKINOUT_MODEL")
         )
@@ -102,19 +103,27 @@ class OpenAICoreExtractor:
             )
         if not os.getenv("OPENAI_API_KEY"):
             raise ConfigurationError("OPENAI_API_KEY is missing.")
+        settings = resolve_openai_inference_settings(
+            self.model,
+            cold=cold,
+            component="Core",
+        )
+        self._request_parameters = settings.request_parameters()
+        self.inference_parameters = settings.manifest_parameters()
         self.client = OpenAI()
 
     def _call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T:
         responses = cast(Any, self.client.responses)
-        response = responses.parse(
-            model=self.model,
-            reasoning={"effort": "medium"},
-            input=[
+        request_parameters: dict[str, object] = {
+            "model": self.model,
+            "input": [
                 {"role": "developer", "content": [{"type": "input_text", "text": prompt}]},
                 {"role": "user", "content": content},
             ],
-            text_format=model_cls,
-        )
+            "text_format": model_cls,
+            **self._request_parameters,
+        }
+        response = responses.parse(**request_parameters)
         parsed = getattr(response, "output_parsed", None)
         if parsed is not None:
             return model_cls.model_validate(parsed)

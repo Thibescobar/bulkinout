@@ -189,6 +189,6 @@ When the final draft is wrong, inspect artifacts from earliest to latest:
 5. `missing_questions.json`: which merged generic, reference, model, or modality questions remain?
 6. `teleradiology_request.json`: was reliable information assembled correctly?
 7. `radiology_handoff.json` or `.html`: can the remote radiologist follow facts, answers, safety, rationale, alternatives, and references?
-8. `run_manifest.json`: which inputs, components, prompts, schemas, and reference revision produced the run?
+8. `run_manifest.json`: which inputs, components, inference settings, prompts, schemas, and reference revision produced the run?
 
 This artifact-by-artifact approach identifies the owning layer before code or reference data is changed.
