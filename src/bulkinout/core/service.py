@@ -22,6 +22,7 @@ def build_radiology_case(
     input_dir: Path,
     model: str | None = None,
     *,
+    cold: bool = False,
     extractor: CoreExtractor | None = None,
 ) -> CoreResult:
     """Build a radiology case with the default or an injected extractor."""
@@ -30,7 +31,7 @@ def build_radiology_case(
     if not paths:
         raise InputError(f"No supported document found in {input_dir}")
 
-    selected_extractor = extractor or OpenAICoreExtractor(model=model)
+    selected_extractor = extractor or OpenAICoreExtractor(model=model, cold=cold)
     extraction = selected_extractor.extract(paths)
     clinical = extraction_to_case(extraction)
     clinical.metadata["extractor"] = selected_extractor.name
@@ -41,6 +42,7 @@ def build_radiology_case(
         "name": selected_extractor.name,
         "model": selected_extractor.model,
         "prompt_sha256": getattr(selected_extractor, "prompt_sha256", "unreported"),
+        "inference_parameters": getattr(selected_extractor, "inference_parameters", {}),
     }
 
     case = RadiologyCase(

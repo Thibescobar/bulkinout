@@ -70,7 +70,7 @@ def run_guarded_workflow(
     monkeypatch.setattr(
         service,
         "build_radiology_case",
-        lambda input_dir, model, extractor: CoreResult(radiology_case, LLMExtraction(), []),
+        lambda input_dir, model, cold, extractor: CoreResult(radiology_case, LLMExtraction(), []),
     )
     monkeypatch.setattr(service, "generic_missing_questions", lambda received_case: [])
     monkeypatch.setattr(

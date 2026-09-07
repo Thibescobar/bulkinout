@@ -62,10 +62,16 @@ def test_core_structure_writes_outputs(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     result = CoreResult(RadiologyCase(), LLMExtraction(), [])
-    monkeypatch.setattr(core_service, "build_radiology_case", lambda input_dir, model: result)
+    monkeypatch.setattr(
+        core_service,
+        "build_radiology_case",
+        lambda input_dir, model, cold: result,
+    )
     output = tmp_path / "out"
 
-    cli.cmd_core_structure(SimpleNamespace(input=str(tmp_path), output=str(output), model="model"))
+    cli.cmd_core_structure(
+        SimpleNamespace(input=str(tmp_path), output=str(output), model="model", cold=True)
+    )
 
     assert (output / "radiology_case.json").exists()
     assert (output / "llm_extraction.json").exists()
@@ -95,6 +101,7 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
             model="model",
             extraction_model="extraction-model",
             decision_model="decision-model",
+            cold=True,
         )
     )
 
@@ -106,6 +113,7 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
                 "model": "model",
                 "extraction_model": "extraction-model",
                 "decision_model": "decision-model",
+                "cold": True,
                 "answers_path": answers,
             },
         )
@@ -231,7 +239,9 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
     monkeypatch.setattr(
         core_service,
         "build_radiology_case",
-        lambda input_dir, model: calls.append(("core", input_dir, model)) or core_result,
+        lambda input_dir, model, cold: (
+            calls.append(("core", input_dir, model, cold)) or core_result
+        ),
     )
 
     def run_from_core(received_core, **kwargs):
@@ -271,11 +281,13 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
             extraction_model="extraction-model",
             decision_model="decision-model",
             interactive=True,
+            cold=True,
         )
     )
 
     assert [call[0] for call in calls] == ["core", "request", "request"]
     assert calls[0][2] == "extraction-model"
+    assert calls[0][3] is True
     answer_path = output / "answers.interactive.1.json"
     assert calls[2][2]["answers_path"] == answer_path
     assert json.loads(answer_path.read_text())["answers"][0]["value"] == ("Suspicion d'appendicite")
@@ -294,7 +306,11 @@ def test_interactive_request_falls_back_or_escalates_without_recalculation(
 
     calls = []
     core_result = CoreResult(RadiologyCase(), LLMExtraction(), [])
-    monkeypatch.setattr(core_service, "build_radiology_case", lambda input_dir, model: core_result)
+    monkeypatch.setattr(
+        core_service,
+        "build_radiology_case",
+        lambda input_dir, model, cold: core_result,
+    )
     monkeypatch.setattr(
         request_service,
         "run_request_from_core",
@@ -318,6 +334,7 @@ def test_interactive_request_falls_back_or_escalates_without_recalculation(
         model="model",
         extraction_model=None,
         decision_model=None,
+        cold=False,
     )
 
     cli._run_interactive_request(args)
@@ -463,6 +480,7 @@ def test_request_run_help_describes_its_arguments(capsys):
     assert "--extraction-model" in output
     assert "--decision-model" in output
     assert "--interactive" in output
+    assert "--cold" in output
 
 
 def test_request_run_rejects_answer_file_with_interactive_mode(capsys):

@@ -48,6 +48,8 @@ For `request run`, each stage resolves its model in this order:
 
 `core structure --model` configures extraction only, then falls back to `BULKINOUT_EXTRACTION_MODEL` and `BULKINOUT_MODEL`. `.env.example` documents variable names, but Bulkinout does not load `.env` files itself.
 
+`--cold` requests `temperature=0` from each built-in OpenAI component. Bulkinout applies it to known compatible GPT-4.1 and GPT-4o models and omits their unsupported `reasoning` parameter. For other models, including GPT-5.6 with the current `medium` reasoning effort, it preserves reasoning, omits temperature, and emits a `ColdModeWarning`. This is a best-effort stability control, not a determinism guarantee.
+
 ```bash
 export OPENAI_API_KEY="..."
 export BULKINOUT_MODEL="<compatible-model>"
@@ -69,6 +71,7 @@ bulkinout core structure \
 | `--input` | `input` | Directory recursively scanned for PDF, TXT, Markdown, JPEG, PNG, and WebP files. |
 | `--output` | `output` | Destination directory. Parent directories are created when outputs are written. |
 | `--model` | `BULKINOUT_EXTRACTION_MODEL`, then `BULKINOUT_MODEL` | Model used by `OpenAICoreExtractor`. |
+| `--cold` | off | Request temperature 0 when the selected model supports it. |
 
 Outputs:
 
@@ -97,6 +100,7 @@ bulkinout request run \
 | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
 | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
 | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
+| `--cold` | off | Request temperature 0 independently for each compatible stage. |
 
 The command reports the combined service run before processing:
 
@@ -210,7 +214,7 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v2 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, components, prompts, schemas, and reference revision. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
+JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v3 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, components, applied inference settings, prompts, schemas, and reference revision. It records whether cold mode was requested, applied, or rejected by the model configuration. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
 
 Use a fresh output directory for important runs:
 

@@ -139,7 +139,7 @@ sequenceDiagram
 
 If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
 
-A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v2 run manifest fingerprints the distributed Python source as well as the inputs and configured components, so changed safeguards cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v3 run manifest fingerprints the distributed Python source as well as the inputs, configured components, and applied inference settings, so changed safeguards or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 

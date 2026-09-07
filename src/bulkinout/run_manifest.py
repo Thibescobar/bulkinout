@@ -7,11 +7,12 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .core.models import ImagingDecision, LLMExtraction
 from .fingerprints import sha256_python_tree, sha256_text
 from .request.types import ReferenceContext, ReferenceScenario
+from .types import JsonObject
 
 UNREPORTED = "unreported"
 
@@ -27,6 +28,7 @@ class ComponentFingerprint(BaseModel):
     model: str
     prompt_sha256: str
     schema_sha256: str
+    inference_parameters: JsonObject = Field(default_factory=dict)
 
 
 class ReferenceScenarioFingerprint(BaseModel):
@@ -41,7 +43,7 @@ class ReferenceFingerprint(BaseModel):
 
 
 class RunManifest(BaseModel):
-    schema_version: int = 2
+    schema_version: int = 3
     package_version: str
     code_sha256: str
     inputs: list[InputFingerprint]
@@ -69,6 +71,15 @@ def _reported(component: object, attribute: str, fallback: str | None = None) ->
     return value if isinstance(value, str) and value else UNREPORTED
 
 
+def _reported_inference_parameters(component: object) -> JsonObject:
+    value = (
+        component.get("inference_parameters", {})
+        if isinstance(component, Mapping)
+        else getattr(component, "inference_parameters", {})
+    )
+    return value.copy() if isinstance(value, dict) else {}
+
+
 def _component_fingerprint(
     component: object,
     schema: type[BaseModel],
@@ -81,6 +92,7 @@ def _component_fingerprint(
         model=_reported(component, "model", model_fallback),
         prompt_sha256=_reported(component, "prompt_sha256"),
         schema_sha256=_schema_sha256(schema),
+        inference_parameters=_reported_inference_parameters(component),
     )
 
 

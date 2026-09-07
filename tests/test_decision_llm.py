@@ -72,9 +72,30 @@ def test_decide_sends_case_questions_and_reference_context(monkeypatch):
     payload = json.loads(calls[0]["input"][1]["content"][0]["text"])
     assert result.primary.exam_name == "CT abdomen"
     assert calls[0]["model"] == "test-model"
+    assert calls[0]["reasoning"] == {"effort": "medium"}
+    assert "temperature" not in calls[0]
     assert calls[0]["text_format"] is ImagingDecision
     assert payload["unresolved_questions"] == [{"field": "patient.age"}]
     assert payload["reference_context"]["matched_scenarios"][0]["id"] == "example"
+
+
+def test_cold_decision_sends_temperature_to_compatible_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    calls = []
+    client = SimpleNamespace(
+        responses=SimpleNamespace(
+            parse=lambda **kwargs: (
+                calls.append(kwargs) or SimpleNamespace(output_text=decision_json())
+            )
+        )
+    )
+    monkeypatch.setattr(decision_llm, "OpenAI", lambda: client)
+    engine = decision_llm.OpenAIRequestDecision(model="gpt-4o-mini", cold=True)
+
+    engine.decide(ClinicalCase(), [])
+
+    assert calls[0]["temperature"] == 0.0
+    assert "reasoning" not in calls[0]
 
 
 def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):

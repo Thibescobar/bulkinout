@@ -46,7 +46,10 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
         ),
     )
 
-    assert build_radiology_case(tmp_path, model="model", extractor=extractor) == "core-result"
+    assert (
+        build_radiology_case(tmp_path, model="model", cold=True, extractor=extractor)
+        == "core-result"
+    )
     assert (
         run_request(
             tmp_path,
@@ -54,6 +57,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
             model="model",
             extraction_model="extraction-model",
             decision_model="decision-model",
+            cold=True,
             extractor=extractor,
             decision_engine=decision_engine,
         )
@@ -65,13 +69,14 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
             reference_dir=tmp_path / "reference",
             model="model",
             decision_model="decision-model",
+            cold=True,
             answers_path=tmp_path / "answers.json",
             decision_engine=decision_engine,
         )
         == "continued-result"
     )
     assert calls == [
-        ("core", tmp_path, {"model": "model", "extractor": extractor}),
+        ("core", tmp_path, {"model": "model", "cold": True, "extractor": extractor}),
         (
             "request",
             tmp_path,
@@ -80,6 +85,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "model": "model",
                 "extraction_model": "extraction-model",
                 "decision_model": "decision-model",
+                "cold": True,
                 "answers_path": None,
                 "extractor": extractor,
                 "decision_engine": decision_engine,
@@ -92,6 +98,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "reference_dir": tmp_path / "reference",
                 "model": "model",
                 "decision_model": "decision-model",
+                "cold": True,
                 "answers_path": tmp_path / "answers.json",
                 "decision_engine": decision_engine,
             },

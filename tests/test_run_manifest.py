@@ -23,6 +23,7 @@ class LocalExtractor:
     name = "test_extractor"
     model = "local-test-model"
     prompt_sha256 = "a" * 64
+    inference_parameters = {"temperature_status": "not_requested"}
 
     def extract(self, paths):
         assert [path.name for path in paths] == ["a.txt", "b.txt"]
@@ -39,6 +40,8 @@ class LocalExtractor:
 
 
 class LocalDecisionEngine:
+    inference_parameters = {"temperature_status": "applied", "temperature_applied": 0.0}
+
     def decide(self, case, missing_questions, reference_context=None):
         return ImagingDecision(primary=ImagingRecommendation())
 
@@ -92,7 +95,7 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
 
     manifest = result.run_manifest
     assert manifest is not None
-    assert manifest.schema_version == 2
+    assert manifest.schema_version == 3
     assert manifest.package_version == __version__
     assert manifest.code_sha256 == sha256_python_tree(Path(bulkinout.__file__).parent)
     assert [item.filename for item in manifest.inputs] == ["a.txt", "b.txt"]
@@ -101,11 +104,16 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
     assert manifest.core.component == "test_extractor"
     assert manifest.core.model == "local-test-model"
     assert manifest.core.prompt_sha256 == "a" * 64
+    assert manifest.core.inference_parameters == {"temperature_status": "not_requested"}
     assert len(manifest.core.schema_sha256) == 64
     assert manifest.request.provider == "unreported"
     assert manifest.request.component == "unreported"
     assert manifest.request.model == "unreported"
     assert manifest.request.prompt_sha256 == "unreported"
+    assert manifest.request.inference_parameters == {
+        "temperature_status": "applied",
+        "temperature_applied": 0.0,
+    }
     assert len(manifest.request.schema_sha256) == 64
     assert len(manifest.reference.revision) == 64
     assert manifest.reference.matched_scenarios[0].scenario_id == "custom_scenario"

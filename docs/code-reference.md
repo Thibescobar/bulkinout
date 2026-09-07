@@ -98,7 +98,7 @@ Source: `src/bulkinout/run_manifest.py`
 
 ### `RunManifest`
 
-Schema-v2 technical fingerprints for one Request run: package version, distributed Python source, inputs, components, prompts, schemas, reference revision, and matched scenarios.
+Schema-v3 technical fingerprints for one Request run: package version, distributed Python source, inputs, components, inference settings, prompts, schemas, reference revision, and matched scenarios.
 
 ### `build_run_manifest(...) -> RunManifest`
 
@@ -109,6 +109,14 @@ Builds stable SHA-256 metadata without retaining prompt or source-document conte
 Source: `src/bulkinout/fingerprints.py`
 
 Workflow-neutral SHA-256 helpers used by Core adapters and Request run manifests. Keeping these helpers independent prevents Core from importing Request-specific manifest types.
+
+## `bulkinout.openai_compat`
+
+Source: `src/bulkinout/openai_compat.py`
+
+### `resolve_openai_inference_settings(model: str, *, cold: bool, component: str) -> OpenAIInferenceSettings`
+
+Resolves the built-in OpenAI request parameters without silently changing reasoning effort. Known compatible GPT-4.1 and GPT-4o models receive temperature 0 when cold mode is requested. Other configurations retain medium reasoning, omit temperature, and emit `ColdModeWarning`.
 
 ## `bulkinout.core.extraction.llm`
 
@@ -126,9 +134,9 @@ Retrieves JSON text from an SDK response, with a fallback over output content bl
 
 Service class whose methods are documented below.
 
-### `OpenAICoreExtractor.__init__(self, model: str | None = None)`
+### `OpenAICoreExtractor.__init__(self, model: str | None = None, *, cold: bool = False)`
 
-Initializes the OpenAI client and resolves the extraction model from the argument, `BULKINOUT_EXTRACTION_MODEL`, or `BULKINOUT_MODEL`.
+Initializes the OpenAI client, resolves the extraction model from the argument, `BULKINOUT_EXTRACTION_MODEL`, or `BULKINOUT_MODEL`, and applies compatible cold-mode settings.
 
 ### `OpenAICoreExtractor._call_structured(self, prompt: str, content: list[JsonObject], model_cls: type[T]) -> T`
 
@@ -250,7 +258,7 @@ Source: `src/bulkinout/core/service.py`
 
 Typed, tuple-compatible Core result containing the radiology case, extraction, and source paths.
 
-### `build_radiology_case(input_dir: Path, model: str | None = None, *, extractor: CoreExtractor | None = None) -> CoreResult`
+### `build_radiology_case(input_dir: Path, model: str | None = None, *, cold: bool = False, extractor: CoreExtractor | None = None) -> CoreResult`
 
 Builds a `RadiologyCase` from a document directory through the default OpenAI extractor or an injected implementation.
 
@@ -318,7 +326,7 @@ Extracts JSON text from the decision-engine response.
 
 Service class whose methods are documented below.
 
-### `OpenAIRequestDecision.__init__(self, model: str | None = None)`
+### `OpenAIRequestDecision.__init__(self, model: str | None = None, *, cold: bool = False)`
 
 Initializes the OpenAI client and resolves the decision model from the argument, `BULKINOUT_DECISION_MODEL`, or `BULKINOUT_MODEL`.
 
@@ -462,10 +470,10 @@ Source: `src/bulkinout/request/service.py`
 
 Slot-based dataclass containing every in-memory artifact of one Request run, including the optional run manifest and radiology handoff.
 
-### `run_request(input_dir: Path, *, reference_dir: Path | None = None, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+### `run_request(input_dir: Path, *, reference_dir: Path | None = None, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, cold: bool = False, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
 
 Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. The packaged reference is used when no override is supplied. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.
 
-### `run_request_from_core(core_result: CoreResult, *, reference_dir: Path | None = None, model: str | None = None, decision_model: str | None = None, answers_path: Path | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+### `run_request_from_core(core_result: CoreResult, *, reference_dir: Path | None = None, model: str | None = None, decision_model: str | None = None, cold: bool = False, answers_path: Path | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
 
 Deep-copies one Core baseline and executes Request without document discovery, upload, or extraction. This is the in-process resumption boundary used by interactive clarification.

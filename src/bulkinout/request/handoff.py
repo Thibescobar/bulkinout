@@ -652,6 +652,12 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             '<section class="proposal"><span>Examen proposé au radiologue</span>'
             f"<strong>{escape(proposal_name)}</strong></section>"
         )
+    request_order_action = (
+        '<div class="handoff-action"><button type="button" disabled '
+        'title="Fonction à venir">Ajouter au bon de demande</button></div>'
+        if proposal_is_reviewable
+        else ""
+    )
     unresolved = [question.question for question in handoff.unresolved_questions]
     return f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
@@ -668,6 +674,7 @@ h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;pad
 th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
 details{{margin-top:32px;border:1px solid #d9e4e8;border-radius:10px;padding:14px}}
 summary{{color:#405b66;font-weight:700;cursor:pointer}}details h3{{margin-top:24px}}
+.handoff-action{{margin-top:32px}}.handoff-action button{{border:0;border-radius:7px;padding:12px 16px;background:#087f8c;color:white;font-weight:700;opacity:.6}}
 code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:white}}main{{margin:0;padding:0}}}}
 </style></head><body><main>
 <h1>Dossier de revue radiologique</h1><p class="status">{escape(status)}</p>
@@ -699,4 +706,5 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h3>Structured clinical facts</h3>{_technical_fact_table(handoff.supporting_facts)}
 <h3>Reference scenarios</h3>{_technical_scenario_list(handoff.decision_trace)}
 </details>
+{request_order_action}
 </main></body></html>"""
