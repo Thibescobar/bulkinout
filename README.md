@@ -3,8 +3,8 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-196%20passed-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-212%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
@@ -15,7 +15,7 @@
 
 ## Why Bulkinout
 
-Clinical information arrives across letters, emergency notes, laboratory results, prior reports, and images. Bulkinout consolidates these inputs into one structured case while preserving the status, provenance, and uncertainty of each fact.
+Clinical information arrives across letters, emergency notes, laboratory results, prior reports, and images. Bulkinout consolidates these inputs into one structured case while preserving repeated evidence, temporal status, contradictions, provenance, and uncertainty.
 
 This shared case is designed to support two complementary workflows:
 
@@ -38,6 +38,7 @@ PDF / TXT / Markdown / images
 └── Bulkinout Core
     ├── multimodal extraction
     ├── canonical clinical facts
+    ├── cross-document reconciliation and timeline
     ├── conservative terminology annotations
     ├── provenance and contradictions
     └── structured RadiologyCase
@@ -152,7 +153,7 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 |---|---|
 | `radiology_case.json` | Longitudinal container with clinical data, workflow products, artifacts, and audit events. |
 | `llm_extraction.json` | Raw structured extraction returned by Core. |
-| `case.json` | Current structured `ClinicalCase` view used by Request. |
+| `case.json` | Reconciled `ClinicalCase` decision view, sourced event timeline, and explicit conflicts used by Request. |
 | `reference_context.json` | Matched scenarios, candidate examinations, questions, and triggered rules. |
 | `missing_questions.json` | Deduplicated generic, reference, model-generated, and modality-specific questions. |
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
@@ -195,6 +196,7 @@ The evaluator checks Core and Request independently with structured assertions a
 | Ingestion, extraction, provenance, and case construction | [`docs/core.md`](docs/core.md) |
 | Models, statuses, and serialized data | [`docs/data-model.md`](docs/data-model.md) |
 | Terminology model, providers, licensing, and fallback | [`docs/terminology.md`](docs/terminology.md) |
+| Cross-document reconciliation, temporal states, and limits | [`docs/reconciliation-timeline.md`](docs/reconciliation-timeline.md) |
 | Decision sequence, clarification, and safeguards | [`docs/request.md`](docs/request.md) |
 | Interactive questions and teleradiology handoff | [`docs/interactive-handoff.md`](docs/interactive-handoff.md) |
 | Scenario YAML, matching, rules, and authoring | [`docs/reference.md`](docs/reference.md) |
@@ -213,7 +215,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 
 - **LLM-dependent extraction and decision support:** results vary with the configured model. The E2E evaluator makes saved runs comparable, but coverage remains synthetic and deterministic guards do not validate every clinical statement produced by the model.
 - **Limited terminology normalization:** clinical fields can carry provider-supplied coded concepts and common units receive conservative UCUM annotations. No SNOMED CT, LOINC, or RadLex dataset or terminology server is bundled; most clinical content therefore remains free text unless an approved provider is injected.
-- **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
+- **Conservative rather than general temporal reasoning:** repeated observations and explicit current, historical, resolved, or unknown states are retained and reconciled, but temporal classification still depends on extraction. Bulkinout does not infer ambiguous dates, episode boundaries, medication windows, or a universal “recent laboratory” duration.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
 - **Shallow reference-schema validation:** loading checks YAML syntax and basic top-level fields, but nested predicates, questions, candidates, and rules are not yet validated against a complete runtime schema.
 - **Simple reference paths:** matching reads first-level `section.field` values and does not traverse arbitrary nested clinical structures.

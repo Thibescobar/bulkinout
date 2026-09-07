@@ -9,16 +9,38 @@ from ..core.models import (
     ImagingDecision,
     MissingQuestion,
     PriorImaging,
+    TemporalStatus,
     TeleradiologyRequest,
 )
 from ..types import JsonValue
 
 
-def _clean_value(section: dict[str, ClinicalField], key: str) -> JsonValue:
+def _clean_value(
+    section: dict[str, ClinicalField], key: str, *, current_required: bool = False
+) -> JsonValue:
     f = section.get(key)
     if not f or f.status in {FieldStatus.unknown, FieldStatus.conflicting}:
         return None
+    if current_required and f.temporal_status != TemporalStatus.current:
+        return None
     return f.value
+
+
+def _temporal_suffix(field: ClinicalField) -> str:
+    labels = {
+        TemporalStatus.current: "actuel",
+        TemporalStatus.historical: "antérieur",
+        TemporalStatus.resolved: "résolu",
+        TemporalStatus.unknown: "temporalité à confirmer",
+    }
+    details = [labels[field.temporal_status]]
+    if field.observed_at:
+        details.append(field.observed_at)
+    return (
+        ""
+        if field.temporal_status == TemporalStatus.current and not field.observed_at
+        else (f" ({', '.join(details)})")
+    )
 
 
 def _patient_summary(case: ClinicalCase) -> str | None:
@@ -39,9 +61,11 @@ def _labeled_values(
 ) -> list[str]:
     values: list[str] = []
     for section, key, label in fields:
+        field = section.get(key)
         value = _clean_value(section, key)
         if value is not None and (not omit_falsy or bool(value)):
-            values.append(f"{label}: {value}")
+            assert field is not None
+            values.append(f"{label}: {value}{_temporal_suffix(field)}")
     return values
 
 
@@ -116,7 +140,10 @@ def build_teleradiology_request(
     return TeleradiologyRequest(
         status=_request_status(decision, questions),
         patient_summary=_patient_summary(case),
-        indication=cast(str | None, _clean_value(case.current_problem, "indication")),
+        indication=cast(
+            str | None,
+            _clean_value(case.current_problem, "indication", current_required=True),
+        ),
         requested_exam=primary.exam_name
         or " ".join(filter(None, [primary.modality, primary.body_region])),
         protocol_requested=primary.protocol,

@@ -1,0 +1,10 @@
+id: resolved_pe_not_current
+facts:
+  current_problem.suspected_diagnosis: pulmonary_embolism
+fact_metadata:
+  current_problem.suspected_diagnosis:
+    temporal_status: resolved
+    observed_at: "2024-03-10"
+expected:
+  must_not_match:
+    - suspected_pulmonary_embolism

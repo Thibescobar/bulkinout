@@ -1,6 +1,16 @@
 import json
+from datetime import UTC, datetime
 
-from bulkinout.core.models import AnswerFile, AnswerItem, ClinicalCase, FieldStatus
+from bulkinout.core.models import (
+    AnswerFile,
+    AnswerItem,
+    ClinicalCase,
+    ClinicalField,
+    FieldStatus,
+    SourceRef,
+    TemporalStatus,
+    TimelineEvent,
+)
 from bulkinout.request.answers import apply_answers, load_answers
 
 
@@ -97,3 +107,52 @@ def test_apply_answers_preserves_false_and_zero_as_typed_observations():
         "answered",
         "answered",
     ]
+
+
+def test_clinician_answer_resolves_conflict_without_discarding_evidence():
+    previous_source = SourceRef(document_id="llm:lab.txt", filename="lab.txt")
+    case = ClinicalCase(
+        labs={
+            "egfr_ml_min_1_73m2": ClinicalField(
+                value=[42, 78],
+                status=FieldStatus.conflicting,
+                sources=[previous_source],
+            )
+        },
+        timeline=[
+            TimelineEvent(
+                field="labs.egfr_ml_min_1_73m2",
+                value=42,
+                status=FieldStatus.observed,
+                temporal_status=TemporalStatus.current,
+                sources=[previous_source],
+            )
+        ],
+    )
+    answered_at = datetime(2026, 9, 7, 9, 30, tzinfo=UTC)
+    answers = AnswerFile(
+        answers=[
+            AnswerItem(
+                field="labs.egfr_ml_min_1_73m2",
+                value=42,
+                answered_at=answered_at,
+                response_method="interactive_browser",
+            )
+        ]
+    )
+
+    result = apply_answers(case, answers, "answers.interactive.1.json")
+
+    field = result.labs["egfr_ml_min_1_73m2"]
+    assert field.value == 42
+    assert field.status == FieldStatus.observed
+    assert field.temporal_status == TemporalStatus.current
+    assert field.observed_at == answered_at.isoformat()
+    assert [source.filename for source in field.sources] == [
+        "lab.txt",
+        "answers.interactive.1.json",
+    ]
+    assert len(result.timeline) == 2
+    assert result.metadata["reconciliation"]["resolutions"][0]["method"] == (
+        "explicit_clinician_answer"
+    )

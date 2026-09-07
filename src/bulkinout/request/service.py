@@ -9,11 +9,13 @@ from typing import cast
 from .. import __version__
 from ..core.models import (
     ClinicalCase,
+    ClinicalField,
     FieldStatus,
     ImagingDecision,
     LLMExtraction,
     MissingQuestion,
     RadiologyCase,
+    TemporalStatus,
     TeleradiologyRequest,
 )
 from ..core.interfaces import CoreExtractor
@@ -103,7 +105,18 @@ def _llm_missing_questions(case: ClinicalCase, decision: ImagingDecision) -> lis
         section_name, separator, key = question.field.partition(".")
         section = getattr(case, section_name, None)
         field = section.get(key) if separator and isinstance(section, dict) else None
-        if field is not None and field.status not in {FieldStatus.unknown, FieldStatus.conflicting}:
+        known = isinstance(field, ClinicalField) and field.status not in {
+            FieldStatus.unknown,
+            FieldStatus.conflicting,
+        }
+        if (
+            known
+            and isinstance(field, ClinicalField)
+            and (
+                question.field.startswith(("patient.", "history."))
+                or field.temporal_status == TemporalStatus.current
+            )
+        ):
             continue
         questions.append(
             MissingQuestion(

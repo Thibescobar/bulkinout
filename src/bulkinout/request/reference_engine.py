@@ -8,7 +8,7 @@ from typing import cast
 
 import yaml
 
-from ..core.models import ClinicalCase, ClinicalField, FieldStatus
+from ..core.models import ClinicalCase, ClinicalField, FieldStatus, TemporalStatus
 from ..errors import ReferenceDataError
 from ..types import JsonValue
 from .reference_resources import load_reference_documents
@@ -23,6 +23,8 @@ from .types import (
     ReferenceScenario,
     TriggeredRule,
 )
+
+_CURRENT_FACT_SECTIONS = {"current_problem", "labs", "medications", "imaging_safety"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +48,8 @@ def _clinical_field(case: ClinicalCase, field: str) -> ClinicalField | None:
         FieldStatus.unknown,
         FieldStatus.conflicting,
     }:
+        return None
+    if section_name in _CURRENT_FACT_SECTIONS and cf.temporal_status != TemporalStatus.current:
         return None
     return cf
 
@@ -188,7 +192,11 @@ class ReferenceEngine:
         for q in scenario.get("questions", []):
             if q["field"] == "imaging_safety.pregnancy" and not pregnancy_is_relevant(case):
                 continue
-            _, known = _raw(case, q["field"])
+            clinical_field = _clinical_field(case, q["field"])
+            known = clinical_field is not None
+            if known and not q["field"].startswith(("patient.", "history.")):
+                assert clinical_field is not None
+                known = clinical_field.temporal_status == TemporalStatus.current
             is_relevant = (
                 q.get("material", False)
                 or q.get("required_to_choose", False)

@@ -145,13 +145,13 @@ bulkinout request evaluate \
   --report output_e2e/case_001/evaluation.json
 ```
 
-The evaluator reports Core and Request independently. Expectations assert structured facts, forbidden inventions or values, required or forbidden scenarios, numeric tolerances, statuses, examinations, questions, and groups of acceptable French presentation terms. Omitted keys make no assertion; variable prose is never compared in full. See `tests/e2e/README.md` for the schema.
+The evaluator reports Core and Request independently. Expectations assert structured facts, forbidden inventions or values, required or forbidden scenarios, numeric tolerances, evidence and temporal statuses, minimum timeline-event counts, examinations, questions, and groups of acceptable French presentation terms. Omitted keys make no assertion; variable prose is never compared in full. See `tests/e2e/README.md` for the schema.
 
 ### Review order
 
 1. Run the offline evaluator and inspect Core and Request failures separately.
 2. Confirm that required Core fields were extracted and prohibited facts were not invented.
-3. Inspect provenance and contradictions.
+3. Inspect provenance, temporal states, timeline events, and contradictions.
 4. Confirm scenario matching and decision status.
 5. Check questions, proposed examination, and safety surfaces.
 6. Review the complete French teleradiology draft for correctness and clarity.
@@ -184,6 +184,7 @@ CI validates the deterministic repository and its installable package boundaries
 |---|---|---|
 | Fact missing or invented | `llm_extraction.json` | Extraction test with a simulated response; retain an E2E fixture for model evaluation. |
 | Fact stored under wrong path | `case.json` | `test_extraction.py` conversion case. |
+| Older fact silently overwrites or hides another | `case.json` timeline and reconciliation metadata | `test_reconciliation.py` plus a temporal E2E assertion. |
 | Scenario not matched | `reference_context.json` | French and English reference-engine tests plus a golden case. |
 | Wrong rule triggered | `reference_context.json` | Focused golden case. |
 | Unsafe selected state | `imaging_decision.json` | Decision-guard or Request-service test. |
