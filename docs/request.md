@@ -89,7 +89,7 @@ The Request service depends on `RequestDecisionEngine`. Its default implementati
 }
 ```
 
-Every implementation must return an `ImagingDecision`. The default prompt tells the model to use reference context as the local normative context, compare candidates, ask the minimum number of material questions, avoid fabricated safety facts, and abstain when required information is missing.
+Every implementation must return an `ImagingDecision`. The default prompt tells the model to use reference context as the local normative context, compare candidates, ask the minimum number of material questions, avoid fabricated safety facts, and abstain when required information is missing. It also requires every alternative worth radiologist review to use the same complete `ImagingRecommendation` structure under `secondary`; ruled-out candidates remain comparison evidence rather than selectable proposals.
 
 The model is still a variable component. Its schema constrains shape, not clinical truth or reproducibility. Injecting another provider does not bypass the deterministic guards that re-evaluate critical state transitions in the following steps.
 
@@ -149,11 +149,11 @@ The request status is:
 
 ## 8. Radiologist handoff
 
-`build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. It preserves known and conflicting facts with their document sources, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, alternatives, and scenario-level reference citations.
+`build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. Its schema-v2 output preserves the primary and secondary proposals as the same `ImagingRecommendation` type, alongside known and conflicting facts with their document sources, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, and scenario-level reference citations. Narrative `primary.alternatives` remain compatibility notes rather than selectable proposals.
 
 The handoff links the primary examination to a reference candidate only after an exact match against an applicable YAML examination name. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
 
-`ready_for_radiologist_review` means a proposal can be reviewed. `clinician_contact_required` means Bulkinout abstained or remains blocked and direct discussion is required. Neither state records radiologist acceptance.
+`ready_for_radiologist_review` means the preferred and secondary proposals can be reviewed. Their model-generated rationales are labelled as requiring verification and are not treated as source-linked proof. Only the preferred proposal determines the current run's modality-specific checks; secondary proposals are explicitly presented for radiologist discussion. `clinician_contact_required` means Bulkinout abstained or remains blocked and direct discussion is required. Neither state records clinician preselection or radiologist acceptance.
 
 ## Clarification loop example
 

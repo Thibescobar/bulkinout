@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import time
 import webbrowser
@@ -21,6 +22,7 @@ from .types import JsonValue
 
 _MAX_BODY_BYTES = 64 * 1024
 _DEFAULT_TIMEOUT_SECONDS = 600.0
+_BREAKABLE_FRENCH_PUNCTUATION = re.compile(r" (?=[?!:;])")
 
 
 def _security_policy(nonce: str) -> str:
@@ -86,7 +88,7 @@ def _render_form(session: _Session) -> str:
             f'<p class="reason">{escape(_clinical_reason(question))}</p>'
             f'<p class="tag">{importance}</p>{_answer_control(index, question)}</fieldset>'
         )
-    return f"""<!doctype html>
+    html = f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <meta name="referrer" content="no-referrer"><title>Clarification clinique — Bulkinout</title>
 <style>
@@ -133,6 +135,7 @@ form.addEventListener("submit", (event) => {{
     : "Préparation de l’appel au téléradiologue…";
 }});
 </script></main></body></html>"""
+    return _BREAKABLE_FRENCH_PUNCTUATION.sub("\u202f", html)
 
 
 def _parse_answer(raw: str, question: MissingQuestion) -> JsonValue:

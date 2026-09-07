@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from html import escape
 from typing import Literal
 
@@ -135,6 +136,7 @@ _RESPONSE_METHOD_LABELS = {
     "answer_file": "Fichier de réponses",
     "interactive_browser": "Formulaire interactif",
 }
+_BREAKABLE_FRENCH_PUNCTUATION = re.compile(r" (?=[?!:;])")
 
 
 class HandoffFact(BaseModel):
@@ -188,10 +190,11 @@ class HandoffDecisionTrace(BaseModel):
 
 
 class RadiologyHandoff(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     status: Literal["ready_for_radiologist_review", "clinician_contact_required", "draft"]
     request: TeleradiologyRequest
     proposal: ImagingRecommendation
+    alternative_proposals: list[ImagingRecommendation] = Field(default_factory=list)
     supporting_facts: list[HandoffFact] = Field(default_factory=list)
     safety_facts: list[HandoffFact] = Field(default_factory=list)
     clarifications: list[HandoffClarification] = Field(default_factory=list)
@@ -368,21 +371,27 @@ def build_radiology_handoff(
     trace = _scenario_trace(reference_context)
     trace.selected_reference_candidate = _reference_candidate(decision, reference_context)
     trace.model_candidate_ids = [candidate.candidate_id for candidate in decision.candidates]
+    warnings = [
+        "Proposition d'aide à la décision : validation par un radiologue requise.",
+        "Les références citées ont informé le référentiel local ; elles ne constituent pas une approbation de cette proposition particulière.",
+        "Les réponses déclarées ne constituent ni une authentification ni une signature clinique.",
+    ]
+    if decision.secondary:
+        warnings.append(
+            "Les alternatives sont présentées pour discussion ; seule la proposition privilégiée a déterminé les vérifications de cette analyse."
+        )
     return RadiologyHandoff(
         status=_handoff_status(decision, request),
         request=request,
         proposal=decision.primary,
+        alternative_proposals=decision.secondary,
         supporting_facts=facts,
         safety_facts=[fact for fact in facts if _is_safety_fact(fact)],
         clarifications=_clarifications(case, questions),
         unresolved_questions=questions,
         decision_trace=trace,
         citations=_citations(reference_context),
-        warnings=[
-            "Proposition d'aide à la décision : validation par un radiologue requise.",
-            "Les références citées ont informé le référentiel local ; elles ne constituent pas une approbation de cette proposition particulière.",
-            "Les réponses déclarées ne constituent ni une authentification ni une signature clinique.",
-        ],
+        warnings=warnings,
     )
 
 
@@ -601,6 +610,51 @@ def _technical_scenario_list(trace: HandoffDecisionTrace) -> str:
     return _items(scenarios, empty="No matched scenario")
 
 
+def _recommendation_name(recommendation: ImagingRecommendation) -> str:
+    return (
+        recommendation.exam_name
+        or " ".join(
+            value for value in [recommendation.modality, recommendation.body_region] if value
+        )
+        or "Examen non renseigné"
+    )
+
+
+def _recommendation_option(
+    recommendation: ImagingRecommendation,
+    *,
+    option_value: str,
+    position: str,
+    checked: bool = False,
+) -> str:
+    checked_attribute = " checked" if checked else ""
+    details = " — ".join(
+        [
+            f"Protocole : {recommendation.protocol or 'non renseigné'}",
+            f"Contraste : {_clinical_value(recommendation.contrast)}",
+            f"Urgence : {_clinical_value(recommendation.urgency)}",
+        ]
+    )
+    rationale = " ".join(recommendation.rationale) or "Argumentaire non renseigné."
+    conditions = recommendation.safety_considerations + recommendation.missing_information
+    conditions_html = (
+        f'<span class="exam-conditions">Points d’attention : {escape(" ".join(conditions))}</span>'
+        if conditions
+        else ""
+    )
+    return (
+        '<label class="exam-option">'
+        f'<input type="radio" name="exam-choice" value="{escape(option_value)}"'
+        f"{checked_attribute}>"
+        f'<span class="exam-card"><small>{escape(position)}</small>'
+        f"<strong>{escape(_recommendation_name(recommendation))}</strong>"
+        f'<span class="exam-details">{escape(details)}</span>'
+        '<span class="exam-rationale"><b>Argumentaire généré par Bulkinout — à vérifier</b>'
+        f"{escape(rationale)}</span>"
+        f"{conditions_html}</span></label>"
+    )
+
+
 def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
     """Render a self-contained, escaped French review page without remote assets."""
 
@@ -637,10 +691,11 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         )
         or request.safety_information
     )
-    rationale_title = (
-        "Justification de la proposition"
+    abstention_rationale = (
+        ""
         if proposal_is_reviewable
-        else "Éléments ayant conduit à l'abstention"
+        else "<h2>Éléments ayant conduit à l'abstention</h2>"
+        + _items(request.rationale_for_exam or proposal.rationale)
     )
     if not proposal_is_reviewable:
         proposal_notice = (
@@ -650,22 +705,33 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         alternatives_section = f"<h2>Alternatives considérées</h2>{_items(proposal.alternatives)}"
     else:
         exam_options = [
-            '<label class="exam-option"><input type="radio" name="exam-choice" checked>'
-            "<span><small>Proposition privilégiée</small>"
-            f"<strong>{escape(proposal_name)}</strong></span></label>"
+            _recommendation_option(
+                proposal,
+                option_value="primary",
+                position="Proposition privilégiée par Bulkinout",
+                checked=True,
+            )
         ]
         exam_options.extend(
-            '<label class="exam-option"><input type="radio" name="exam-choice">'
-            f"<span><small>Alternative</small><strong>{escape(alternative)}</strong></span></label>"
-            for alternative in proposal.alternatives
+            _recommendation_option(
+                alternative,
+                option_value=f"secondary-{index}",
+                position=f"Alternative {index}",
+            )
+            for index, alternative in enumerate(handoff.alternative_proposals, start=1)
         )
         proposal_notice = (
             '<section class="proposal"><h2>Choix à présenter au radiologue</h2>'
             f'<div class="exam-options">{"".join(exam_options)}</div>'
-            '<p class="muted">Sélection visuelle uniquement — ce choix n’est pas enregistré.</p>'
+            '<p class="muted">Présélection visuelle uniquement — ce choix n’est pas enregistré '
+            "et ne modifie pas la demande générée.</p>"
             "</section>"
         )
-        alternatives_section = ""
+        alternatives_section = (
+            f"<h2>Notes sur les alternatives</h2>{_items(proposal.alternatives)}"
+            if proposal.alternatives
+            else ""
+        )
     request_order_action = (
         '<div class="handoff-action"><button type="button" disabled '
         'title="Fonction à venir">Ajouter au bon de demande</button></div>'
@@ -673,7 +739,7 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         else ""
     )
     unresolved = [question.question for question in handoff.unresolved_questions]
-    return f"""<!doctype html>
+    html = f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <meta name="referrer" content="no-referrer"><title>Dossier de revue radiologique</title>
 <style>
@@ -683,10 +749,11 @@ h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;pad
 .status{{display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1dc;color:#8a4b00}}
 .proposal{{margin:20px 0}}.proposal h2{{margin-top:0}}
 .exam-options{{display:grid;gap:10px}}.exam-option{{cursor:pointer;position:relative}}
-.exam-option input{{position:absolute;opacity:0}}.exam-option span{{display:flex;flex-direction:column;gap:4px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
-.exam-option input:checked + span{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
-.exam-option input:focus-visible + span{{outline:3px solid #ef7d32;outline-offset:2px}}
-.exam-option span small{{color:#405b66}}.exam-option span strong{{font-size:1.15rem;color:#075b66}}
+.exam-option input{{position:absolute;opacity:0}}.exam-card{{display:flex;flex-direction:column;gap:5px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
+.exam-option input:checked + .exam-card{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
+.exam-option input:focus-visible + .exam-card{{outline:3px solid #ef7d32;outline-offset:2px}}
+.exam-card small{{color:#405b66}}.exam-card strong{{font-size:1.15rem;color:#075b66}}
+.exam-details{{color:#405b66}}.exam-rationale{{display:flex;flex-direction:column;gap:2px;margin-top:4px}}.exam-rationale b{{font-size:.9rem;color:#8a4b00}}.exam-conditions{{color:#8a4b00}}
 .warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
 .muted,small{{color:#5c6f78}}table{{width:100%;border-collapse:collapse}}
 th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
@@ -711,7 +778,7 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h3>Biologie pertinente</h3>{_items(labs)}
 <h3>Imagerie antérieure</h3>{_items(prior_imaging)}
 <h3>Informations de sécurité</h3>{_items(safety_information)}
-<h2>{escape(rationale_title)}</h2>{_items(request.rationale_for_exam or proposal.rationale)}
+{abstention_rationale}
 {alternatives_section}
 <h2>Clarifications du clinicien</h2>{_clarification_table(handoff.clarifications)}
 <h2>Informations cliniques retenues et sources</h2>{_clinical_fact_table(handoff.supporting_facts)}
@@ -726,3 +793,4 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 </details>
 {request_order_action}
 </main></body></html>"""
+    return _BREAKABLE_FRENCH_PUNCTUATION.sub("\u202f", html)

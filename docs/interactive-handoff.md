@@ -75,7 +75,7 @@ question ID and canonical field
 
 Every Request run writes two additive artifacts:
 
-- `radiology_handoff.json` is the canonical schema-v1 review package;
+- `radiology_handoff.json` is the canonical schema-v2 review package;
 - `radiology_handoff.html` is its escaped, self-contained French presentation.
 
 The package contains:
@@ -90,7 +90,9 @@ The package contains:
 
 The visible review layer uses French clinical labels, translated display values for known canonical concepts, and source wording for free-text evidence. Developer-facing field paths, raw canonical values, confidence, validation flags, exact answer filenames, and scenario metadata remain unchanged in JSON and are grouped under the collapsed **Afficher la traçabilité technique** section. This separation changes presentation only; it does not translate source excerpts or modify clinical data.
 
-When a proposal is ready for review, its narrative alternatives appear immediately below it as visually selectable cards. This local selection changes only the highlighted card: it does not alter or persist the generated request. The page ends with a disabled **Ajouter au bon de demande** placeholder, which performs no persistence, transmission, or prescription action in v0.
+When a proposal is ready for review, the preferred and secondary `ImagingRecommendation` objects appear together as visually selectable cards with their protocol, contrast, urgency, rationale, and attention points. Each rationale is explicitly labelled **Argumentaire généré par Bulkinout — à vérifier**; it supports review but is not presented as source-verified evidence. Legacy narrative alternatives appear separately as notes and are not selectable. The local preselection changes only the highlighted card: it does not alter or persist the generated request. Only the preferred proposal determined the current run's modality-specific checks. The page ends with a disabled **Ajouter au bon de demande** placeholder, which performs no persistence, transmission, or prescription action in v0.
+
+The HTML presentation uses non-breaking French punctuation spacing before `?`, `!`, `:`, and `;` so punctuation cannot be orphaned at the start of a rendered line. JSON values and source data remain unchanged.
 
 A proposed examination is linked to a YAML candidate only when its examination name exactly matches an applicable reference candidate. Model-generated candidate IDs are retained separately and must not be mistaken for validated reference IDs.
 

@@ -55,6 +55,9 @@ def test_browser_form_is_french_typed_self_contained_and_escapes_questions():
     assert "Recalcul en cours…" in html
     assert "Recalcul de la proposition en cours…" in html
     assert 'aria-busy", "true"' in html
+    assert "&lt;/script&gt;\u202f?" in html
+    assert "recalcul\u202f:" in html
+    assert "tracées mais" in html
     assert "https://" not in html
     assert "http://" not in html
 

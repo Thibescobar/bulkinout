@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-171%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-172%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -159,8 +159,8 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
 | `run_manifest.json` | Package, code, input, component, inference-setting, prompt, schema, and reference fingerprints for comparison. |
-| `radiology_handoff.json` | Structured proposal or escalation package linking facts, clarifications, rules, safety checks, and references. |
-| `radiology_handoff.html` | Self-contained French review page intended for the remote radiologist. |
+| `radiology_handoff.json` | Structured primary and alternative proposals, or an escalation package, with their supporting trace. |
+| `radiology_handoff.html` | Self-contained French review page with a non-persistent visual preselection. |
 | `answers.interactive.N.json` | Private typed answer record created only by an interactive clarification round. |
 
 ## Tests and validation
