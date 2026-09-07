@@ -116,6 +116,15 @@ def test_decide_defaults_missing_reference_context_to_empty(monkeypatch):
     assert payload["reference_context"] == {}
 
 
+def test_decision_prompt_requires_structured_secondary_proposals():
+    assert (
+        "same complete ImagingRecommendation structure as primary" in decision_llm.DECISION_PROMPT
+    )
+    assert "primary.alternatives only for short narrative compatibility notes" in (
+        decision_llm.DECISION_PROMPT
+    )
+
+
 def test_decision_engine_requires_openai_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 

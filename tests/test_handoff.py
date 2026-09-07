@@ -106,8 +106,20 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
             modality="CT",
             contrast="yes",
             rationale=["Tableau compatible avec une appendicite."],
-            alternatives=["Échographie selon le contexte."],
+            alternatives=["Le recours à l’échographie dépend de l’expertise disponible."],
         ),
+        secondary=[
+            ImagingRecommendation(
+                exam_name="Échographie abdomino-pelvienne",
+                modality="US",
+                body_region="abdomen and pelvis",
+                protocol="Étude ciblée de la fosse iliaque droite",
+                contrast="no",
+                urgency="urgent",
+                rationale=["Alternative sans irradiation selon le contexte clinique."],
+                safety_considerations=["Dépend de l’expertise et de la fenêtre acoustique."],
+            )
+        ],
         clinician_call_required=False,
         decision_ready_for_human_approval=True,
     )
@@ -124,6 +136,9 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     handoff = build_radiology_handoff(case, decision, [], request, reference_context())
 
     assert handoff.status == "ready_for_radiologist_review"
+    assert handoff.schema_version == 2
+    assert handoff.alternative_proposals == decision.secondary
+    assert "seule la proposition privilégiée" in handoff.warnings[-1]
     assert {fact.field for fact in handoff.supporting_facts} == {
         "current_problem.indication",
         "imaging_safety.pregnancy",
@@ -143,18 +158,26 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     html = render_radiology_handoff_html(handoff)
     assert "Proposition à valider par le radiologue" in html
     assert "Demande clinique" in html
-    assert "Appendicite ?" in html
+    assert "Appendicite\u202f?" in html
     assert "Examen proposé" in html
     assert "Choix à présenter au radiologue" in html
-    assert "Proposition privilégiée" in html
-    assert "Alternative" in html
-    assert "Sélection visuelle uniquement" in html
+    assert "Proposition privilégiée par Bulkinout" in html
+    assert "Alternative 1" in html
+    assert "Échographie abdomino-pelvienne" in html
+    assert "Étude ciblée de la fosse iliaque droite" in html
+    assert "Alternative sans irradiation selon le contexte clinique." in html
+    assert "Dépend de l’expertise et de la fenêtre acoustique." in html
+    assert html.count("Argumentaire généré par Bulkinout — à vérifier") == 2
+    assert "Justification de la proposition" not in html
+    assert "Présélection visuelle uniquement" in html
     assert html.count('name="exam-choice"') == 2
     assert html.count(" checked>") == 1
-    assert ".exam-option input:checked + span" in html
+    assert ".exam-option input:checked + .exam-card" in html
+    assert "Notes sur les alternatives" in html
+    assert "Le recours à l’échographie dépend de l’expertise disponible." in html
     assert "Synthèse clinique transmise" in html
     assert "Douleur aiguë depuis six heures." in html
-    assert "DFG estimé (mL/min/1,73 m²) : 92" in html
+    assert "DFG estimé (mL/min/1,73 m²)\u202f: 92" in html
     assert "Modifie la stratégie d&#x27;imagerie." in html
     assert "2026-09-04T10:30:00Z" in html
     assert "Médecin urgentiste" in html
@@ -314,15 +337,17 @@ def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace()
     assert "Suspicion clinique d&#x27;embolie pulmonaire." in clinical_view
     assert "Hypertension artérielle et dyslipidémie." in clinical_view
     assert "Aucun traitement anticoagulant habituel connu." in clinical_view
-    assert "DFG estimé (mL/min/1,73 m²) : 51" in clinical_view
-    assert "Radiographie thoracique du 04/09/2026 : pas d&#x27;anomalie aiguë." in clinical_view
+    assert "DFG estimé (mL/min/1,73 m²)\u202f: 51" in clinical_view
+    assert (
+        "Radiographie thoracique du 04/09/2026\u202f: pas d&#x27;anomalie aiguë." in clinical_view
+    )
     assert "Aucun produit de contraste requis." in clinical_view
     assert "Réaction antérieure au produit de contraste iodé" in clinical_view
     assert "Urticaire diffus après injection de produit iodé." in clinical_view
     assert "Côté concerné" in clinical_view
     assert ">Droit<" in clinical_view
-    assert "<strong>Contraste :</strong> Non" in clinical_view
-    assert "<strong>Urgence :</strong> Urgente" in clinical_view
+    assert "<strong>Contraste\u202f:</strong> Non" in clinical_view
+    assert "<strong>Urgence\u202f:</strong> Urgente" in clinical_view
     assert "ATCD pertinents: [" not in clinical_view
     assert "No usual anticoagulant known." not in clinical_view
     assert "modalité=chest radiograph" not in clinical_view
@@ -381,4 +406,4 @@ def test_draft_handoff_skips_unknown_and_malformed_metadata_without_losing_value
     assert [item.field for item in handoff.clarifications] == ["current_problem.detail"]
     assert "current_problem.unknown_detail" not in {fact.field for fact in handoff.supporting_facts}
     assert "Oui" in html
-    assert "douleur ; nausées" in html
+    assert "douleur\u202f; nausées" in html

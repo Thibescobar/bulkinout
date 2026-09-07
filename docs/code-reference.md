@@ -288,7 +288,7 @@ Source: `src/bulkinout/request/handoff.py`
 
 ### `RadiologyHandoff`
 
-Schema-v1 remote-review package containing the request, proposal or escalation state, sourced facts, safety facts, clarification trace, unresolved questions, decision trace, and scenario-level citations.
+Schema-v2 remote-review package containing the request, preferred and secondary `ImagingRecommendation` objects or escalation state, sourced facts, safety facts, clarification trace, unresolved questions, decision trace, and scenario-level citations.
 
 ### `build_radiology_handoff(...) -> RadiologyHandoff`
 
@@ -296,7 +296,7 @@ Builds the review package without converting model output or reference backgroun
 
 ### `render_radiology_handoff_html(handoff: RadiologyHandoff) -> str`
 
-Produces an escaped, self-contained French review page. Blocked states display any retained model examination only as considered and not proposed.
+Produces an escaped, self-contained French review page. Reviewable states display uniform, visually selectable proposal cards without persisting the selection. Blocked states display any retained model examination only as considered and not proposed.
 
 ## `bulkinout.request.decision_guard`
 

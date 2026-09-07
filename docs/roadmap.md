@@ -34,7 +34,7 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R11 | File snapshots are not atomic, versioned, locked, or concurrency-safe | Operational limitation | P3 | Standby | Runtime foundations |
 | R12 | Logging, retries, timeouts, monitoring, cost controls, and stable error codes are incomplete | Operational limitation | P3 | Standby | Runtime foundations |
 | R13 | No authenticated HTTP service, durable workflow state, or clinical-system integration exists | Platform limitation | P3 | Standby | Service boundary |
-| R14 | Human approval is external and has no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
+| R14 | Clinician preselection and human approval are external and have no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
 | R15 | Report and post-exam processing are placeholders | Product roadmap | P4 | Standby | Report |
 | R16 | Required clarifications lacked a local interaction path and remote radiologists lacked an evidence-backed handoff | Request usability | P1 | Completed | Clinical handoff |
 
@@ -140,7 +140,7 @@ Work in this milestone remains intentionally deferred until Request correctness 
 3. Replace sequential overwrite-only snapshots with atomic, versioned, concurrency-safe persistence.
 4. Define case ownership, workflow state, retention, and recovery behavior.
 5. Add an authenticated HTTP boundary only after persistence and isolation contracts are stable.
-6. Integrate identity, authorization, clinical-system transport, and a persisted approval record.
+6. Integrate identity, authorization, clinical-system transport, and a persisted approval record. Persist any clinician preselection or amendment separately from the original model preference, rerun applicable safeguards, and generate a versioned teleradiology request.
 
 Human approval remains an invariant. The goal is to authenticate and retain evidence of approval, not to automate it away.
 

@@ -38,7 +38,10 @@ Process:
    insufficient_information or safety_blocked, primary.recommended=false,
    clinician_call_required=true, decision_ready_for_human_approval=false.
 7. Select one primary exam only when justified.
-8. If imaging is not warranted, use no_imaging_recommended.
+8. Put each clinically plausible alternative worth radiologist review in secondary, using the
+   same complete ImagingRecommendation structure as primary. Keep ruled-out options in candidates
+   rather than secondary. Use primary.alternatives only for short narrative compatibility notes.
+9. If imaging is not warranted, use no_imaging_recommended.
 
 Do not fabricate contraindications, lab values, allergies, pregnancy status or device compatibility.
 """
