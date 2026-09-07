@@ -15,13 +15,15 @@ flowchart LR
     E --> G
     F --> G
     G --> H[LLMExtraction validation]
-    H --> I[extraction_to_case]
-    I --> N[TerminologyNormalizer]
+    H --> I[Cross-document reconciliation]
+    I --> T[Timeline construction]
+    I --> V[ClinicalCase decision view]
+    V --> N[TerminologyNormalizer]
     N --> J[ClinicalCase]
     J --> K[RadiologyCase + artifacts + audit]
 ```
 
-The important separation is between the model response and the application record. `LLMExtraction` reflects what the model returned; `ClinicalCase` reorganizes recognized facts into the structure consumed by downstream workflows. Deterministic normalization may annotate reliable matches, but it does not rewrite the extracted value.
+The important separation is between the model response and the application record. `LLMExtraction` reflects the observations returned by the model; reconciliation creates the `ClinicalField` view consumed downstream while `ClinicalCase.timeline` retains every sourced observation. Deterministic normalization may annotate reliable reconciled matches, but it does not rewrite their value.
 
 ## Step 1: file discovery
 
@@ -55,6 +57,8 @@ The prompt establishes these contracts:
 - distinguish observed and inferred facts;
 - retain provenance for every non-unknown fact;
 - preserve dates and units;
+- classify temporal state as current, historical, resolved, or unknown from source evidence;
+- emit separate observations for materially different values or temporal states;
 - report contradictions;
 - never infer renal function or device compatibility;
 - treat input language as unknown;
@@ -63,7 +67,7 @@ The prompt establishes these contracts:
 
 Schema validation answers “does this response have the required shape?” It does not answer “is this fact clinically correct?” That second question requires test fixtures and qualified review.
 
-## Step 3: extraction conversion
+## Step 3: reconciliation and timeline
 
 `extraction_to_case(extraction)` processes each `LLMFact.field` as a `section.key` path. Facts are accepted only for these sections:
 
@@ -77,7 +81,7 @@ labs
 imaging_safety
 ```
 
-Unknown sections or malformed paths are skipped. Accepted facts become `ClinicalField` objects with their value, status, sources, confidence, default `validated=False` state, and an initially empty `coded_concepts` list. `prior_imaging` entries are converted separately into `PriorImaging` objects.
+Unknown sections or malformed paths are skipped. Accepted facts first become lossless `TimelineEvent` observations. Reconciliation groups compatible values, retains every source, and creates one `ClinicalField` decision view. Different current values remain conflicting. One explicitly current value may supersede historical evidence, but the method is recorded and older events remain available. `prior_imaging` entries become both `PriorImaging` objects and historical timeline events.
 
 Example model fact:
 
@@ -87,6 +91,8 @@ Example model fact:
   "value": "right_lower_quadrant",
   "status": "observed",
   "confidence": 0.98,
+  "temporal_status": "current",
+  "observed_at": "2026-09-07T08:15:00+02:00",
   "sources": [
     {
       "filename": "emergency_note.pdf",
@@ -97,7 +103,7 @@ Example model fact:
 }
 ```
 
-The canonical value can be English while the evidence excerpt remains exactly as written in the French source. This is the intended language boundary.
+The canonical value can be English while the evidence excerpt remains exactly as written in the French source. This is the intended language boundary. See [Clinical reconciliation and timeline](reconciliation-timeline.md) for aggregation and safety rules.
 
 ## Step 4: terminology annotations
 
@@ -147,4 +153,4 @@ Request construction excludes unknown and conflicting fields from its reliable c
 
 ## Current gaps
 
-Normalization is a foundation rather than a complete terminology service: the default mapping scope is limited to common units, and clinical codes require an approved injected provider. Cross-document reconciliation and chronology still depend mainly on the model; the `reconciliation` and `timeline` packages remain placeholders. Every future transformation must preserve raw extraction and provenance so reviewers can trace it.
+Normalization remains a foundation rather than a complete terminology service: the default mapping scope is limited to common units, and clinical codes require an approved injected provider. Reconciliation and chronology prevent input-order overwrites and retain repeated evidence, but temporal classification still depends on the model or an explicit clinician answer. Core does not infer ambiguous dates, episode boundaries, medication exposure windows, or local recency thresholds.

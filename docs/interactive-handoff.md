@@ -69,19 +69,20 @@ question ID and canonical field
 └── answer filename used as fact provenance
 ```
 
-`apply_answers()` stores non-empty answers as observed facts with confidence `1.0` and `validated=false`. `false` and `0` are valid answers. `null`, an empty string, or whitespace remains unresolved. The role and timestamp are declarations, not authentication, identity proof, or an electronic signature.
+`apply_answers()` stores non-empty answers as current observed facts with confidence `1.0` and `validated=false`. The response timestamp becomes `observed_at`; previous document sources remain attached, and a new timeline event records the answer. If it resolves a contradiction, the explicit clinician resolution is recorded rather than rewriting the Core baseline. `false` and `0` are valid answers. `null`, an empty string, or whitespace remains unresolved. The role and timestamp are declarations, not authentication, identity proof, or an electronic signature.
 
 ## Teleradiology review package
 
 Every Request run writes two additive artifacts:
 
-- `radiology_handoff.json` is the canonical schema-v2 review package;
+- `radiology_handoff.json` is the canonical schema-v3 review package;
 - `radiology_handoff.html` is its escaped, self-contained French presentation.
 
 The package contains:
 
 - the proposal or explicit requirement for clinician contact;
-- all known and conflicting structured facts with document provenance;
+- all known and conflicting structured facts with temporal state, observation date, and document provenance;
+- a sourced chronology of dated, historical, resolved, unknown-temporality, or conflicting evidence;
 - a dedicated safety-fact view;
 - answered and unanswered clarifications;
 - matched scenario IDs, versions, validation statuses, candidates, and locally triggered rules;

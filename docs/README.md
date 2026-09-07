@@ -9,15 +9,16 @@ Bulkinout receives a directory of heterogeneous clinical documents. Core extract
 ```mermaid
 flowchart LR
     A[Clinical documents] --> B[Core extraction]
-    B --> C[ClinicalCase]
-    C --> D[Reference matching]
-    D --> E[LLM candidate comparison]
-    E --> F[Deterministic guards]
-    F --> G{Enough information?}
-    G -- No --> H[File or local browser clarification]
-    H --> C
-    G -- Yes --> I[Evidence-backed teleradiology handoff]
-    I --> J[Human approval outside v0]
+    B --> C[Reconciliation and timeline]
+    C --> D[ClinicalCase]
+    D --> E[Reference matching]
+    E --> F[LLM candidate comparison]
+    F --> G[Deterministic guards]
+    G --> H{Enough information?}
+    H -- No --> I[File or local browser clarification]
+    I --> D
+    H -- Yes --> J[Evidence-backed teleradiology handoff]
+    J --> K[Human approval outside v0]
 ```
 
 Three ideas are central:
@@ -33,9 +34,10 @@ Three ideas are central:
 1. [Architecture](architecture.md) for components, dependency direction, and the end-to-end sequence.
 2. [Data model](data-model.md) for the objects passed between layers.
 3. [Terminology normalization](terminology.md) for coded concepts, providers, licensing, and free-text fallback.
-4. [Core](core.md) and [Request](request.md) for detailed processing.
-5. [Reference](reference.md) for deterministic scenario behavior.
-6. [Interactive clarification and handoff](interactive-handoff.md) for the clinician-to-teleradiologist boundary.
+4. [Clinical reconciliation and timeline](reconciliation-timeline.md) for repeated evidence, temporal states, and safety behavior.
+5. [Core](core.md) and [Request](request.md) for detailed processing.
+6. [Reference](reference.md) for deterministic scenario behavior.
+7. [Interactive clarification and handoff](interactive-handoff.md) for the clinician-to-teleradiologist boundary.
 
 ### Run or troubleshoot the software
 
@@ -59,7 +61,7 @@ Three ideas are central:
 | Request | Implemented pre-exam workflow that prepares an imaging proposal and referral draft. |
 | Report | Reserved post-exam workflow; no processing is implemented in v0. |
 | `RadiologyCase` | Longitudinal container shared by current and future workflows. |
-| `ClinicalCase` | Current structured clinical facts used by Request. |
+| `ClinicalCase` | Reconciled clinical decision view plus a sourced observation timeline. |
 | Reference | Versioned YAML scenarios containing matching terms, questions, candidates, and simple rules. |
 | Golden case | Deterministic YAML fixture that checks reference behavior without an LLM. |
 | Decision guard | Code that prevents a selected state when a required discriminator is unresolved. |
@@ -70,7 +72,7 @@ Three ideas are central:
 ```text
 bulkinout/
 ├── src/bulkinout/
-│   ├── core/                 ingestion, extraction, terminology, case construction
+│   ├── core/                 ingestion, extraction, reconciliation, timeline, terminology
 │   ├── request/              reference, decision, guards, request generation
 │   ├── report/               post-exam placeholder
 │   ├── clarification_browser.py private loopback clarification form
@@ -95,4 +97,4 @@ bulkinout/
 
 ## v0 boundaries
 
-`core/normalization/` implements a small provider-neutral terminology foundation and conservative UCUM unit annotations. It is not a complete terminology service. `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` remain reserved architectural boundaries without substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service. The ordered path beyond these boundaries is maintained in the [roadmap](roadmap.md).
+`core/normalization/` implements a small provider-neutral terminology foundation and conservative UCUM unit annotations. `core/reconciliation/` and `core/timeline/` now retain repeated sourced observations and build a conservative temporal decision view; they are not a general clinical temporal-reasoning engine. `core/audit/` and `report/` remain reserved boundaries. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service. The ordered path beyond these boundaries is maintained in the [roadmap](roadmap.md).

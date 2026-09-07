@@ -12,13 +12,19 @@ from bulkinout.core.models import (
     LLMExtraction,
     MissingQuestion,
     RadiologyCase,
+    TemporalStatus,
 )
 from bulkinout.core.service import CoreResult
 from bulkinout.request import service
 
 
 def observed(value):
-    return ClinicalField(value=value, status=FieldStatus.observed, confidence=1.0)
+    return ClinicalField(
+        value=value,
+        status=FieldStatus.observed,
+        confidence=1.0,
+        temporal_status=TemporalStatus.current,
+    )
 
 
 def write_scenario(

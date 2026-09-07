@@ -1,0 +1,16 @@
+id: renal_colic_conflicting_pregnancy
+facts:
+  patient.sex: female
+  current_problem.suspected_diagnosis: renal_colic
+  current_problem.location: flank
+  imaging_safety.pregnancy:
+    - true
+    - false
+fact_metadata:
+  imaging_safety.pregnancy:
+    status: conflicting
+    temporal_status: unknown
+expected:
+  scenario: renal_colic
+  must_ask_fields:
+    - imaging_safety.pregnancy

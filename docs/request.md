@@ -50,7 +50,7 @@ or the full form:
 }
 ```
 
-`apply_answers()` accepts only recognized top-level clinical sections. It stores each non-empty value as `observed`, gives it confidence `1.0`, records the answer filename as provenance, and leaves `validated=False`. `false` and `0` remain valid typed answers; `null`, empty strings, and whitespace remain unresolved. The filename and structured clarification record are retained in `ClinicalCase.metadata`.
+`apply_answers()` accepts only recognized top-level clinical sections. It stores each non-empty value as `observed` and `current`, gives it confidence `1.0`, records the answer filename as provenance, and leaves `validated=False`. Earlier field sources and timeline events remain available. When an answer resolves a conflict or changes the decision view, `metadata.reconciliation.resolutions` records the explicit clinician method. `false` and `0` remain valid typed answers; `null`, empty strings, and whitespace remain unresolved.
 
 The CLI may generate this file through `--interactive`. The loopback browser form records the original French question, clinical impact, typed value, declared responder role, UTC timestamp, and response method. This metadata provides traceability but not authentication or signature. See [Interactive clarification and radiology handoff](interactive-handoff.md).
 
@@ -67,7 +67,7 @@ These checks are not a protocol matrix. Scenario-specific questions belong in th
 
 ## 3. Reference context
 
-`ReferenceEngine.build_context()` matches scenarios against known, nonconflicting case fields. By default it retains the top three matches and exposes, for each one:
+`ReferenceEngine.build_context()` matches scenarios against known, nonconflicting case fields. Current-problem, laboratory, medication, and imaging-safety predicates require an explicitly current value; old, resolved, or temporally unknown evidence cannot activate current matching or rules. Patient demographics, explicit history, and historical allergy evidence retain their natural semantics. By default the engine keeps the top three matches and exposes, for each one:
 
 - stable scenario ID, English title, version, and validation status;
 - source guidance metadata;
@@ -97,7 +97,7 @@ The model is still a variable component. Its schema constrains shape, not clinic
 
 The first guard inspects every LLM-generated discriminating question marked `required_to_choose=True`. The service then converts matched YAML questions marked `required_to_choose` or `blocking` into `MissingQuestion` objects independently of the model output. Generic, reference, model-generated, and modality-specific questions are deduplicated by canonical field while retaining the strongest requirement.
 
-If a required target field is absent, unknown, conflicting, malformed, or outside a dictionary section, the guards force:
+If a required target field is absent, unknown, conflicting, malformed, outside a dictionary section, or not current when current state is required, the guards force:
 
 ```text
 decision_status                  = insufficient_information
@@ -114,7 +114,7 @@ For `no_imaging_recommended`, the guard sets `primary.recommended=False` and per
 
 Checks are generated only after a primary modality exists, avoiding irrelevant questions for every patient.
 
-| Proposed examination | Unknown fact | Question behavior |
+| Proposed examination | Unresolved or noncurrent fact | Question behavior |
 |---|---|---|
 | Contrast CT | Prior iodinated-contrast reaction | High priority; blocks approval readiness until answered. |
 | Contrast CT | Recent eGFR | High priority; blocks approval readiness until answered. |
@@ -125,6 +125,8 @@ Checks are generated only after a primary modality exists, avoiding irrelevant q
 Pregnancy relevance is intentionally broad. It is skipped only for an observed male sex (`M`, `MALE`, or `HOMME`) or an observed age below 10 or above 60. Invalid age values restore the conservative default.
 
 The Request service marks high- and critical-priority modality questions as required for readiness. Explicitly blocking safety questions select `safety_blocked`; other required gaps normally select `insufficient_information`.
+
+These checks use declared temporal state, not a fixed age threshold. A historical renal result, temporally unclear pregnancy status, or old device record therefore cannot satisfy a current safety requirement by itself. Historical contrast reactions remain safety-relevant even when the acute reaction resolved.
 
 ## 7. Request construction
 
@@ -149,7 +151,7 @@ The request status is:
 
 ## 8. Radiologist handoff
 
-`build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. Its schema-v2 output preserves the primary and secondary proposals as the same `ImagingRecommendation` type, alongside known and conflicting facts with their document sources, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, and scenario-level reference citations. Narrative `primary.alternatives` remain compatibility notes rather than selectable proposals.
+`build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. Its schema-v3 output preserves the primary and secondary proposals as the same `ImagingRecommendation` type, alongside known and conflicting facts with temporal states and document sources, the sourced event timeline, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, and scenario-level reference citations. Narrative `primary.alternatives` remain compatibility notes rather than selectable proposals.
 
 The handoff links the primary examination to a reference candidate only after an exact match against an applicable YAML examination name. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
 

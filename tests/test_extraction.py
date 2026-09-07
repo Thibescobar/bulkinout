@@ -4,7 +4,13 @@ from types import SimpleNamespace
 import pytest
 
 from bulkinout.core.extraction import llm
-from bulkinout.core.models import FieldStatus, LLMExtraction, LLMFact, LLMSource
+from bulkinout.core.models import (
+    FieldStatus,
+    LLMExtraction,
+    LLMFact,
+    LLMSource,
+    TemporalStatus,
+)
 from bulkinout.errors import ConfigurationError
 
 
@@ -148,6 +154,8 @@ def test_extraction_to_case_preserves_facts_provenance_and_prior_imaging():
                 value=42,
                 status="observed",
                 confidence=0.9,
+                temporal_status="current",
+                observed_at="2026-09-07",
                 sources=[LLMSource(filename="letter.pdf", page=2, excerpt="42 ans")],
             ),
             LLMFact(field="invalid", value="ignored", status="observed", confidence=1.0),
@@ -177,7 +185,12 @@ def test_extraction_to_case_preserves_facts_provenance_and_prior_imaging():
     assert case.patient["age"].value == 42
     assert case.patient["age"].status == FieldStatus.observed
     assert case.patient["age"].sources[0].document_id == "llm:letter.pdf"
+    assert case.patient["age"].temporal_status == TemporalStatus.current
+    assert case.patient["age"].observed_at == "2026-09-07"
+    assert {event.field for event in case.timeline} == {"patient.age", "prior_imaging"}
     assert case.prior_imaging[0].result.value == "Normal"
+    assert case.prior_imaging[0].result.temporal_status == TemporalStatus.historical
+    assert case.prior_imaging[0].date.observed_at == "2025-01-02"
     assert case.prior_imaging[0].source_document == "prior.pdf"
     assert case.prior_imaging[1].modality.status == FieldStatus.unknown
     assert case.metadata["contradictions"] == ["allergy conflict"]

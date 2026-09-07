@@ -22,11 +22,18 @@
       },
       {
         "field": "labs.egfr_ml_min_1_73m2",
-        "status_in": ["conflicting"]
+        "status_in": ["conflicting"],
+        "temporal_status_in": ["unknown"]
       }
     ],
     "forbidden_facts": [],
-    "forbidden_values": []
+    "forbidden_values": [],
+    "timeline_counts": [
+      {
+        "field": "labs.egfr_ml_min_1_73m2",
+        "minimum": 2
+      }
+    ]
   },
   "request": {
     "matched_scenarios_all_of": ["rlq_appendicitis"],

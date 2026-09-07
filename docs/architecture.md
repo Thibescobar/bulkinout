@@ -15,7 +15,9 @@ flowchart TB
     subgraph Core
         INGEST[File discovery]
         EXTRACT[Structured LLM extraction]
-        CASE[ClinicalCase construction]
+        RECONCILE[Evidence reconciliation]
+        TIMELINE[Clinical timeline]
+        CASE[ClinicalCase decision view]
         NORMALIZE[Terminology annotations]
     end
 
@@ -34,7 +36,8 @@ flowchart TB
     REVIEW[Human clinical approval]
     REPORT[Report workflow — standby]
 
-    DOCS --> INGEST --> EXTRACT --> CASE --> NORMALIZE --> RECORD
+    DOCS --> INGEST --> EXTRACT --> RECONCILE --> CASE --> NORMALIZE --> RECORD
+    RECONCILE --> TIMELINE --> CASE
     ANSWERS --> NORMALIZE
     YAML --> MATCH
     RECORD --> MATCH --> DECIDE --> GUARD --> SAFETY --> BUILD --> HANDOFF
@@ -56,9 +59,10 @@ Core owns document ingestion and clinical fact representation. It:
 1. recursively discovers supported files;
 2. sends text, images, and uploaded documents to the configured model;
 3. validates the structured response as `LLMExtraction`;
-4. maps recognized `section.field` facts into `ClinicalCase`;
-5. adds conservative provider-backed terminology annotations;
-6. stores artifacts and an audit event in `RadiologyCase`.
+4. reconciles repeated `section.field` observations without discarding evidence;
+5. builds a sourced timeline and the `ClinicalCase` decision view;
+6. adds conservative provider-backed terminology annotations;
+7. stores artifacts and an audit event in `RadiologyCase`.
 
 Core must not choose an examination. Keeping that boundary allows the same record to support Request today and Report later.
 
@@ -83,6 +87,12 @@ Request may import Core models. Core must never import Request. This one-way dep
 Core depends on the small `TerminologyProvider` protocol rather than a terminology server, licensed dataset, or DICOM library. `TerminologyNormalizer` annotates `ClinicalField.coded_concepts`; it never replaces `ClinicalField.value`, source wording, or provenance. The built-in pipeline recognizes a limited set of UCUM units. SNOMED CT, LOINC, and RadLex content must come from an explicitly configured provider whose licensing and version are controlled by the deploying organization.
 
 Request reapplies the same normalizer after clinician answers are added. This operates on Request's deep copy and does not repeat extraction or mutate the Core baseline. Existing reference rules remain value-based unless a scenario explicitly uses `concept_is` or `concept_in`.
+
+### Reconciliation and timeline boundary
+
+Core treats each accepted `LLMFact` as an observation rather than an already reconciled truth. `core/reconciliation/` groups observations by canonical field and produces the `ClinicalField` consumed by Request. `core/timeline/` orders ISO-dated observations and keeps undated evidence visible.
+
+The decision view uses one value over older values only when an observation is explicitly marked `current`. That method is recorded, while every original event and `SourceRef` remains in `ClinicalCase.timeline`. Different current values and persistent safety contradictions remain `conflicting`. No input-order rule or hard-coded clinical recency interval chooses truth. See [Clinical reconciliation and timeline](reconciliation-timeline.md).
 
 ### Report
 
@@ -123,7 +133,8 @@ sequenceDiagram
     Service->>Core: build_radiology_case()
     Core->>Model: documents + extraction schema
     Model-->>Core: LLMExtraction JSON
-    Core->>Terms: known ClinicalField values
+    Core->>Core: reconcile observations + build timeline
+    Core->>Terms: reconciled ClinicalField values
     Terms-->>Core: reliable coded annotations or none
     Core-->>Service: CoreResult
     opt Answer file supplied
@@ -159,6 +170,7 @@ A separate `request evaluate` command reads one saved run and its schema-v1 E2E 
 |---|---|---|
 | Documents → extraction | Source format, wording, completeness | Supported extensions and Pydantic response schema |
 | LLM → clinical case | Model interpretation and omissions | Typed fields, statuses, confidence, provenance |
+| Observation → decision view | Conflicting values and uncertain dates | Lossless timeline, explicit conflicts, current-only resolutions |
 | Clinical field → terminology | Synonyms, ambiguity, terminology release | Conservative providers, original-text retention, unmapped fallback |
 | Reference → decision | Scenario scope and local suitability | Versioned YAML, deterministic matching, validation tests |
 | LLM → selected state | Candidate reasoning | Required-question guard and modality-specific checks |
@@ -174,6 +186,8 @@ The following rules should remain true across refactors:
 - Missing information remains `unknown`; absence of mention is not converted to a negative fact.
 - Every non-unknown extracted fact should carry provenance.
 - Conflicting evidence is represented rather than silently resolved.
+- Historical and resolved observations are not promoted to current based on input order.
+- Every reconciled extracted observation remains available in the clinical timeline.
 - Source language does not determine the canonical internal concept.
 - Terminology annotations never replace the original value or its provenance.
 - An uncertain or unavailable terminology mapping remains usable as free text.
@@ -203,8 +217,8 @@ There is no concurrency control, durable workflow engine, identity model, or per
 ## Extension points
 
 - Extend terminology through licensed providers behind `core/normalization/`; do not couple Core to a server or DICOM object model.
-- Add evidence reconciliation behind `core/reconciliation/` while preserving original provenance.
-- Build a chronological view behind `core/timeline/` from dated facts and prior imaging.
+- Extend reconciliation policies only with focused clinical evidence and tests; keep source events lossless.
+- Add richer temporal reasoning only behind `core/timeline/`, without turning inferred dates into facts.
 - Add scenarios under `reference/scenarios/` with golden cases before changing matching behavior.
 - Add an LLM provider by implementing `CoreExtractor` and/or `RequestDecisionEngine`; keep provider transport outside application services.
 - Add an authenticated HTTP boundary around the public Python service only after defining request isolation, persistence, and operational error contracts.

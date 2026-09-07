@@ -29,7 +29,7 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R06 | OpenAI uploads have no application-managed deletion, pseudonymization, or retention policy | Data-governance gate | P1 | Gate before real patient data | Data lifecycle |
 | R07 | No ready-to-use local LLM adapter is included | Provider capability | P1 | Standby, optional | Provider evaluation |
 | R08 | Terminology coverage is limited to provider-supplied mappings and common UCUM units | Domain limitation | P2 | Foundation implemented; vocabulary integration standby | Clinical data foundations |
-| R09 | Reconciliation, contradiction handling, and chronology remain limited | Domain limitation | P2 | Standby | Clinical data foundations |
+| R09 | Reconciliation, contradiction handling, and chronology remain conservative | Domain limitation | P2 | Foundation implemented; clinical temporal reasoning standby | Clinical data foundations |
 | R10 | Reference paths support only simple first-level `section.field` access | Domain limitation | P2 | Standby, conditional | Clinical data foundations |
 | R11 | File snapshots are not atomic, versioned, locked, or concurrency-safe | Operational limitation | P3 | Standby | Runtime foundations |
 | R12 | Logging, retries, timeouts, monitoring, cost controls, and stable error codes are incomplete | Operational limitation | P3 | Standby | Runtime foundations |
@@ -129,7 +129,9 @@ This work is separate from the P0 substring defect: P0 fixes incorrect matching 
 
 ### Reconciliation and timeline
 
-Implement evidence-aware reconciliation behind `core/reconciliation/` and chronological views behind `core/timeline/`. Equivalent observations may be grouped, but conflicting evidence must remain visible and source-grounded. Do not silently select one source as truth.
+The first evidence-aware foundation is implemented behind `core/reconciliation/` and `core/timeline/`. Repeated observations retain their sources and timeline events; compatible values are grouped; different current values remain conflicting; and an explicitly current value may supersede older nonpersistent evidence only with a recorded resolution. Persistent safety evidence is treated conservatively. Request asks again when modality-specific safety data is not current, and the radiology handoff exposes temporal state and chronology.
+
+Remaining work is intended-use-specific: validate temporal extraction on a larger multilingual corpus, define local recency requirements for laboratories, decide procedure-specific medication windows, model episode identity or recurrence only when justified, and obtain clinical review of persistent-safety policies. Do not add universal time thresholds or infer current state from document order.
 
 ### Reference paths
 
@@ -171,7 +173,7 @@ P0  reference integrity — completed
          ├─ reference-validation gate
          ├─ real-patient data-lifecycle gate
          └─ optional local-provider evaluation — standby
-             └─ P2 terminology + reconciliation + timeline — standby
+             └─ P2 terminology + reconciliation + timeline foundations — implemented
                  └─ P3 runtime and service foundations — standby
                      └─ P4 Report — standby
 ```
