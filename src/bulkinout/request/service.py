@@ -17,6 +17,7 @@ from ..core.models import (
     TeleradiologyRequest,
 )
 from ..core.interfaces import CoreExtractor
+from ..core.normalization import TerminologyNormalizer, default_terminology_normalizer
 from ..core.service import CoreResult, build_radiology_case
 from ..run_manifest import UNREPORTED, RunManifest, build_run_manifest
 from ..types import JsonObject
@@ -214,6 +215,7 @@ def run_request(
     answers_path: Path | None = None,
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> RequestResult:
     """Run Core, reference matching, decision support, and deterministic safeguards."""
 
@@ -222,6 +224,7 @@ def run_request(
         model=extraction_model or model,
         cold=cold,
         extractor=extractor,
+        terminology_normalizer=terminology_normalizer,
     )
     return run_request_from_core(
         core_result,
@@ -231,6 +234,7 @@ def run_request(
         cold=cold,
         answers_path=answers_path,
         decision_engine=decision_engine,
+        terminology_normalizer=terminology_normalizer,
     )
 
 
@@ -243,6 +247,7 @@ def run_request_from_core(
     cold: bool = False,
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> RequestResult:
     """Run Request from an existing Core result without extracting documents again."""
 
@@ -252,6 +257,9 @@ def run_request_from_core(
     if answers_path is not None:
         case = apply_answers(case, load_answers(answers_path), answers_path.name)
         radiology_case.clinical = case
+
+    normalizer = terminology_normalizer or default_terminology_normalizer()
+    normalizer.normalize_case(case)
 
     initial_questions = generic_missing_questions(case)
     reference_engine = ReferenceEngine(reference_dir)
@@ -310,6 +318,7 @@ def run_request_from_core(
         ),
         core_model=recorded_core_model if isinstance(recorded_core_model, str) else None,
         request_component=selected_decision_engine,
+        terminology_providers=normalizer.providers,
         reference_revision=(
             recorded_reference_revision
             if isinstance(recorded_reference_revision, str)

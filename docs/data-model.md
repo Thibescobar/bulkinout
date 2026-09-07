@@ -12,6 +12,7 @@ classDiagram
     ClinicalCase o-- ClinicalField
     ClinicalCase o-- PriorImaging
     ClinicalField o-- SourceRef
+    ClinicalField o-- CodedConcept
     ImagingDecision *-- ImagingRecommendation
     ImagingDecision o-- CandidateExam
     ImagingDecision o-- DiscriminatingQuestion
@@ -34,6 +35,7 @@ classDiagram
         sources
         confidence
         validated
+        coded_concepts
     }
     class ImagingDecision {
         decision_status
@@ -71,7 +73,17 @@ Every current clinical datum is wrapped in `ClinicalField`:
     }
   ],
   "confidence": 0.98,
-  "validated": false
+  "validated": false,
+  "coded_concepts": [
+    {
+      "system": "urn:example:approved-local-terminology",
+      "code": "right-lower-quadrant",
+      "display": "Right lower quadrant",
+      "original_text": "right_lower_quadrant",
+      "version": "2026-09",
+      "normalized_value": null
+    }
+  ]
 }
 ```
 
@@ -82,8 +94,15 @@ Every current clinical datum is wrapped in `ClinicalField`:
 | `sources` | Zero or more source references. Non-unknown extracted facts should normally have at least one. |
 | `confidence` | Model confidence from `0.0` to `1.0`; not a calibrated clinical probability. |
 | `validated` | Human-validation flag, `False` by default. v0 provides no workflow that sets it globally. |
+| `coded_concepts` | Optional terminology annotations. Empty means unmapped, not unknown. Each annotation retains the triggering text and never replaces `value`. |
 
 Absence of a statement must remain unknown. For example, a document that never mentions pregnancy must not produce `value=false` for `imaging_safety.pregnancy`.
+
+## Coded concepts and free text
+
+`CodedConcept` separates terminology identity from presentation and source wording. `system` and `code` identify a concept; `display` is a developer-readable label; `original_text` records what was matched. Optional `version` identifies the terminology release, while `normalized_value` can retain a parsed numeric value for unit annotations.
+
+Normalization is additive. The functional value, evidence status, confidence, validation flag, and `SourceRef` objects remain unchanged. Unknown, conflicting, ambiguous, or unmatched facts receive no new code and remain usable through `ClinicalField.value`. See [Terminology normalization](terminology.md) for provider and licensing boundaries.
 
 ## Clinical case sections
 

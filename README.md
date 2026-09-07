@@ -3,7 +3,7 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-172%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-196%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
@@ -38,6 +38,7 @@ PDF / TXT / Markdown / images
 └── Bulkinout Core
     ├── multimodal extraction
     ├── canonical clinical facts
+    ├── conservative terminology annotations
     ├── provenance and contradictions
     └── structured RadiologyCase
         ├── Request — available in v0
@@ -157,7 +158,7 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
 | `teleradiology_request.json` | French clinical request draft awaiting human validation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
-| `run_manifest.json` | Package, code, input, component, inference-setting, prompt, schema, and reference fingerprints for comparison. |
+| `run_manifest.json` | Package, code, input, LLM component, terminology provider, inference-setting, prompt, schema, and reference fingerprints for comparison. |
 | `radiology_handoff.json` | Structured primary and alternative proposals, or an escalation package, with their supporting trace. |
 | `radiology_handoff.html` | Self-contained French review page with a non-persistent visual preselection. |
 | `answers.interactive.N.json` | Private typed answer record created only by an interactive clarification round. |
@@ -193,6 +194,7 @@ The evaluator checks Core and Request independently with structured assertions a
 | Components, data flow, boundaries, and invariants | [`docs/architecture.md`](docs/architecture.md) |
 | Ingestion, extraction, provenance, and case construction | [`docs/core.md`](docs/core.md) |
 | Models, statuses, and serialized data | [`docs/data-model.md`](docs/data-model.md) |
+| Terminology model, providers, licensing, and fallback | [`docs/terminology.md`](docs/terminology.md) |
 | Decision sequence, clarification, and safeguards | [`docs/request.md`](docs/request.md) |
 | Interactive questions and teleradiology handoff | [`docs/interactive-handoff.md`](docs/interactive-handoff.md) |
 | Scenario YAML, matching, rules, and authoring | [`docs/reference.md`](docs/reference.md) |
@@ -210,7 +212,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 ## Limitations
 
 - **LLM-dependent extraction and decision support:** results vary with the configured model. The E2E evaluator makes saved runs comparable, but coverage remains synthetic and deterministic guards do not validate every clinical statement produced by the model.
-- **No dedicated terminology normalization:** canonical field names are defined, but free-text concepts are not yet mapped through a controlled clinical terminology service.
+- **Limited terminology normalization:** clinical fields can carry provider-supplied coded concepts and common units receive conservative UCUM annotations. No SNOMED CT, LOINC, or RadLex dataset or terminology server is bundled; most clinical content therefore remains free text unless an approved provider is injected.
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
 - **Shallow reference-schema validation:** loading checks YAML syntax and basic top-level fields, but nested predicates, questions, candidates, and rules are not yet validated against a complete runtime schema.
@@ -223,4 +225,4 @@ The prioritized remediation sequence and exit criteria are maintained in the [`r
 
 ## License
 
-Apache-2.0; see [`LICENSE.md`](LICENSE.md).
+Apache-2.0; see [`LICENSE.md`](LICENSE.md). Terminology-related attribution and redistribution boundaries are recorded in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

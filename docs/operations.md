@@ -83,7 +83,7 @@ The extraction prompt prohibits invented facts and treats absent information as 
 | `imaging_decision.json` | LLM proposal after deterministic guards |
 | `teleradiology_request.json` | French clinical draft; never an automatically approved transmission |
 | `answers.template.json` | Required discriminating questions to complete before rerunning |
-| `run_manifest.json` | Technical fingerprints for the package, code, inputs, components, inference settings, prompts, schemas, and reference used |
+| `run_manifest.json` | Technical fingerprints for the package, code, inputs, LLM components, terminology providers, inference settings, prompts, schemas, and reference used |
 | `radiology_handoff.json` | Structured preferred and secondary proposals, or abstention, with supporting evidence and citations |
 | `radiology_handoff.html` | Escaped, self-contained French review page with non-persistent visual preselection |
 | `answers.interactive.N.json` | Owner-readable typed input created by an interactive round; numbered to avoid overwriting prior answers |
@@ -132,4 +132,4 @@ bulkinout request golden --cases tests/golden
 
 Before production use, the system still needs locally validated clinical reference content and model behavior; authenticated service boundaries; encryption and access controls; pseudonymization and retention controls; structured audit logging; atomic/versioned case storage; concurrency isolation; retries, timeouts, and idempotency; monitoring and cost controls; stable error codes; and integration with clinical identity, order, and approval systems.
 
-The current normalization, reconciliation, timeline, audit, and post-exam Report packages are architectural placeholders. Provenance and deterministic guards reduce risk, but they do not replace clinical validation, operational governance, or qualified human approval.
+Terminology normalization now has a provider-neutral foundation, but its built-in clinical vocabulary coverage is intentionally minimal. Reconciliation, timeline, audit, and post-exam Report packages remain architectural placeholders. Provenance, terminology annotations, and deterministic guards reduce risk, but they do not replace clinical validation, operational governance, or qualified human approval.

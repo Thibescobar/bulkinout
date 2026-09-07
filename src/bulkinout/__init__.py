@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .core.interfaces import CoreExtractor
+from .core.normalization import TerminologyNormalizer
 from .errors import BulkinoutError, ConfigurationError, InputError, ReferenceDataError
 from .request.interfaces import RequestDecisionEngine
 
@@ -22,6 +23,7 @@ __all__ = [
     "InputError",
     "ReferenceDataError",
     "RequestDecisionEngine",
+    "TerminologyNormalizer",
     "build_radiology_case",
     "run_request",
     "run_request_from_core",
@@ -36,12 +38,19 @@ def build_radiology_case(
     *,
     cold: bool = False,
     extractor: CoreExtractor | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> CoreResult:
     """Run the Core service without eagerly importing provider dependencies."""
 
     from .core.service import build_radiology_case as build
 
-    return build(input_dir, model=model, cold=cold, extractor=extractor)
+    return build(
+        input_dir,
+        model=model,
+        cold=cold,
+        extractor=extractor,
+        terminology_normalizer=terminology_normalizer,
+    )
 
 
 def run_request(
@@ -55,6 +64,7 @@ def run_request(
     answers_path: Path | None = None,
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> RequestResult:
     """Run the Request service without eagerly importing provider dependencies."""
 
@@ -70,6 +80,7 @@ def run_request(
         answers_path=answers_path,
         extractor=extractor,
         decision_engine=decision_engine,
+        terminology_normalizer=terminology_normalizer,
     )
 
 
@@ -82,6 +93,7 @@ def run_request_from_core(
     cold: bool = False,
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> RequestResult:
     """Run Request from an existing Core result without repeating extraction."""
 
@@ -95,6 +107,7 @@ def run_request_from_core(
         cold=cold,
         answers_path=answers_path,
         decision_engine=decision_engine,
+        terminology_normalizer=terminology_normalizer,
     )
 
 

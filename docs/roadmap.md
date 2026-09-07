@@ -28,7 +28,7 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R05 | The 18 bundled scenarios are not locally validated or comprehensive | Clinical-governance limitation | P1 | Gate before clinical claims | Evaluation and governance |
 | R06 | OpenAI uploads have no application-managed deletion, pseudonymization, or retention policy | Data-governance gate | P1 | Gate before real patient data | Data lifecycle |
 | R07 | No ready-to-use local LLM adapter is included | Provider capability | P1 | Standby, optional | Provider evaluation |
-| R08 | Free text is not mapped through deterministic terminology normalization | Domain limitation | P2 | Standby | Clinical data foundations |
+| R08 | Terminology coverage is limited to provider-supplied mappings and common UCUM units | Domain limitation | P2 | Foundation implemented; vocabulary integration standby | Clinical data foundations |
 | R09 | Reconciliation, contradiction handling, and chronology remain limited | Domain limitation | P2 | Standby | Clinical data foundations |
 | R10 | Reference paths support only simple first-level `section.field` access | Domain limitation | P2 | Standby, conditional | Clinical data foundations |
 | R11 | File snapshots are not atomic, versioned, locked, or concurrency-safe | Operational limitation | P3 | Standby | Runtime foundations |
@@ -121,7 +121,9 @@ A concrete Ollama, llama.cpp, vLLM, or other local adapter is optional rather th
 
 ### Terminology normalization
 
-Introduce deterministic canonicalization behind `core/normalization/`. Preserve original wording and provenance while mapping recognized concepts to stable English identifiers and values. Multilingual synonyms must add recognition capacity rather than replace French terms.
+The provider-neutral `CodedConcept`, `TerminologyProvider`, and `TerminologyNormalizer` foundation is implemented behind `core/normalization/`. It preserves original wording and provenance, declines uncertain mappings, reapplies normalization to clarification answers, and permits explicit code predicates in future reference scenarios. The built-in provider covers only selected UCUM units; no SNOMED CT, LOINC, or RadLex dataset is distributed.
+
+Remaining work is deployment-specific: select licensed terminology sources, validate mappings with clinical domain owners, establish release/update governance, and evaluate a terminology-server adapter. Multilingual synonyms must add recognition capacity rather than replace French terms. Do not mark R08 complete until the terminology scope required by the intended use is defined and validated.
 
 This work is separate from the P0 substring defect: P0 fixes incorrect matching immediately; P2 builds broader terminology capability.
 

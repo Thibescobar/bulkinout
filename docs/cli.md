@@ -214,7 +214,7 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v3 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, components, applied inference settings, prompts, schemas, and reference revision. It records whether cold mode was requested, applied, or rejected by the model configuration. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
+JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v4 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, LLM components, terminology providers, applied inference settings, prompts, schemas, and reference revision. It records whether cold mode was requested, applied, or rejected by the model configuration. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
 
 Use a fresh output directory for important runs:
 

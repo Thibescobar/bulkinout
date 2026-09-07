@@ -41,7 +41,7 @@ run_request()
 
 The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
-`run_manifest` contains hashes and technical identities rather than source contents. Schema version 3 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, applied inference settings, prompt and Pydantic-schema fingerprints, and the exact reference revision plus matched scenarios. Custom components may expose `provider`, `name`, `model`, `prompt_sha256`, and `inference_parameters`; omitted metadata is recorded as `unreported` or an empty parameter object without changing the provider-neutral protocols.
+`run_manifest` contains hashes and technical identities rather than source contents. Schema version 4 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, applied inference settings, prompt and Pydantic-schema fingerprints, terminology provider versions and content hashes, and the exact reference revision plus matched scenarios. Custom LLM components may expose `provider`, `name`, `model`, `prompt_sha256`, and `inference_parameters`; terminology providers expose `name`, `version`, and `content_sha256`. Omitted metadata is recorded as `unreported` or an empty parameter object without changing the provider-neutral protocols.
 
 Pass `cold=True` to request `temperature=0` from every default OpenAI component. Known GPT-4.1 and GPT-4o models receive it without a `reasoning` parameter. Incompatible models retain `reasoning_effort=medium`, omit temperature, and emit `ColdModeWarning`; the manifest records the requested and applied values. Injected components own their sampling configuration and ignore this convenience option.
 
@@ -118,6 +118,44 @@ result = run_request(
 Supplying both components removes the OpenAI configuration requirement. Mixed configurations are also valid: for example, a local extractor can be combined with the default OpenAI decision engine. In that case, stage-specific model arguments configure the corresponding default component. The legacy `model=` argument remains a shared fallback, followed by `BULKINOUT_EXTRACTION_MODEL` or `BULKINOUT_DECISION_MODEL`, then `BULKINOUT_MODEL`. Any default component still requires `OPENAI_API_KEY`.
 
 This is dependency injection, not automatic provider discovery. Bulkinout ships OpenAI adapters only; an Ollama, llama.cpp, vLLM, or other local integration must implement these protocols and demonstrate that its outputs validate as `LLMExtraction` and `ImagingDecision`. Deterministic guards run after every decision engine in the same order.
+
+## Terminology providers
+
+Every service accepts an optional `terminology_normalizer`. Without one, Bulkinout annotates only a restricted set of common UCUM units. An injected normalizer may connect approved local mappings or a terminology service without changing `ClinicalField.value`.
+
+```python
+from pathlib import Path
+
+from bulkinout import run_request
+from bulkinout.core.normalization import (
+    InMemoryTerminologyProvider,
+    TerminologyEntry,
+    TerminologyNormalizer,
+)
+
+local_provider = InMemoryTerminologyProvider(
+    entries=[
+        TerminologyEntry(
+            system="urn:organization:approved-terms",
+            code="pulmonary-embolism",
+            display="Pulmonary embolism",
+            synonyms=("pulmonary embolism", "embolie pulmonaire", "PE", "EP"),
+            field_paths=frozenset({"current_problem.suspected_diagnosis"}),
+        )
+    ],
+    name="organization_terms",
+    version="2026-09",
+)
+
+result = run_request(
+    Path("input"),
+    terminology_normalizer=TerminologyNormalizer([local_provider]),
+)
+```
+
+`TerminologyEntry` matching is accent- and case-insensitive, protects acronym boundaries, rejects common French and English negations, and declines ambiguous aliases. It is suitable for a small reviewed map, not for importing an entire terminology. Implement `TerminologyProvider.concepts_for()` for external providers and record stable provider name, version, and content hash. Provider output must retain the matched source text and return no concept when confidence is insufficient.
+
+`run_request_from_core()` reapplies normalization after clarification answers on its copied case. It does not rerun Core extraction or mutate the supplied `CoreResult`. Read [Terminology normalization](terminology.md) before using SNOMED CT, LOINC, UCUM, or RadLex content.
 
 ## Configuration and failures
 

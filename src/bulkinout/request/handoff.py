@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from ..core.models import (
+    CodedConcept,
     ClinicalCase,
     FieldStatus,
     ImagingDecision,
@@ -146,6 +147,7 @@ class HandoffFact(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     validated: bool
     sources: list[SourceRef] = Field(default_factory=list)
+    coded_concepts: list[CodedConcept] = Field(default_factory=list)
 
 
 class HandoffClarification(BaseModel):
@@ -231,6 +233,7 @@ def _known_facts(case: ClinicalCase) -> list[HandoffFact]:
                     confidence=clinical_field.confidence,
                     validated=clinical_field.validated,
                     sources=clinical_field.sources,
+                    coded_concepts=clinical_field.coded_concepts,
                 )
             )
     return sorted(facts, key=lambda fact: fact.field)
@@ -529,6 +532,10 @@ def _technical_fact_table(facts: list[HandoffFact]) -> str:
     rows = []
     for fact in facts:
         sources = [_exact_source(source) for source in fact.sources]
+        concepts = [
+            f"{concept.system} | {concept.code} | {concept.display}"
+            for concept in fact.coded_concepts
+        ]
         rows.append(
             "<tr>"
             f"<td><code>{escape(fact.field)}</code></td>"
@@ -536,13 +543,16 @@ def _technical_fact_table(facts: list[HandoffFact]) -> str:
             f"<td>{escape(fact.status.value)}</td>"
             f"<td>{fact.confidence:.2f}</td>"
             f"<td>{'true' if fact.validated else 'false'}</td>"
+            f"<td>{escape('; '.join(concepts) or 'unmapped')}</td>"
             f"<td>{escape('; '.join(sources) or 'source unavailable')}</td>"
             "</tr>"
         )
     return (
         "<table><thead><tr><th>Canonical field</th><th>Canonical value</th>"
         "<th>Internal status</th><th>Confidence</th><th>Validated</th>"
-        "<th>Exact provenance</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        "<th>Coded concepts</th><th>Exact provenance</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
     )
 
 

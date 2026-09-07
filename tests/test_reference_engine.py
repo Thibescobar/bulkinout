@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from bulkinout.core.models import ClinicalCase, ClinicalField, FieldStatus
+from bulkinout.core.models import CodedConcept, ClinicalCase, ClinicalField, FieldStatus
 from bulkinout.request.reference_engine import ReferenceEngine
 
 
@@ -179,3 +179,46 @@ def test_reference_matches_english_clinical_terms(facts, expected_scenario):
     matches = ReferenceEngine(reference_dir()).match(case)
 
     assert expected_scenario in {match.scenario_id for match in matches}
+
+
+def test_reference_can_match_concepts_and_filter_candidates_by_concept(tmp_path):
+    (tmp_path / "coded.yaml").write_text(
+        """
+id: coded_scenario
+title: Coded scenario
+entry:
+  any:
+    - field: current_problem.suspected_diagnosis
+      concept_is:
+        system: urn:bulkinout:test
+        code: finding-a
+candidates:
+  - id: coded_candidate
+    exam_name: Coded candidate
+    when:
+      any:
+        - field: current_problem.suspected_diagnosis
+          concept_in:
+            - system: urn:bulkinout:test
+              code: finding-a
+""",
+        encoding="utf-8",
+    )
+    case = ClinicalCase()
+    case.current_problem["suspected_diagnosis"] = ClinicalField(
+        value="Unmapped wording remains available",
+        status=FieldStatus.observed,
+        coded_concepts=[
+            CodedConcept(
+                system="urn:bulkinout:test",
+                code="finding-a",
+                display="Finding A",
+                original_text="source wording",
+            )
+        ],
+    )
+
+    context = ReferenceEngine(tmp_path).build_context(case)
+
+    assert context["matched_scenarios"][0]["id"] == "coded_scenario"
+    assert context["matched_scenarios"][0]["candidate_exams"][0]["id"] == "coded_candidate"

@@ -16,6 +16,7 @@ flowchart TB
         INGEST[File discovery]
         EXTRACT[Structured LLM extraction]
         CASE[ClinicalCase construction]
+        NORMALIZE[Terminology annotations]
     end
 
     RECORD[(RadiologyCase)]
@@ -33,8 +34,8 @@ flowchart TB
     REVIEW[Human clinical approval]
     REPORT[Report workflow — standby]
 
-    DOCS --> INGEST --> EXTRACT --> CASE --> RECORD
-    ANSWERS --> CASE
+    DOCS --> INGEST --> EXTRACT --> CASE --> NORMALIZE --> RECORD
+    ANSWERS --> NORMALIZE
     YAML --> MATCH
     RECORD --> MATCH --> DECIDE --> GUARD --> SAFETY --> BUILD --> HANDOFF
     GUARD -. required questions .-> CLARIFY
@@ -56,7 +57,8 @@ Core owns document ingestion and clinical fact representation. It:
 2. sends text, images, and uploaded documents to the configured model;
 3. validates the structured response as `LLMExtraction`;
 4. maps recognized `section.field` facts into `ClinicalCase`;
-5. stores artifacts and an audit event in `RadiologyCase`.
+5. adds conservative provider-backed terminology annotations;
+6. stores artifacts and an audit event in `RadiologyCase`.
 
 Core must not choose an examination. Keeping that boundary allows the same record to support Request today and Report later.
 
@@ -75,6 +77,12 @@ Request owns pre-exam decision support. It:
 The CLI may collect one clarification round through a short-lived loopback browser form. Its answers are persisted as a typed input file, then only Request is recalculated from an immutable Core baseline. This UI is an adapter around the application services, not workflow state owned by Core.
 
 Request may import Core models. Core must never import Request. This one-way dependency prevents pre-exam rules from leaking into the shared clinical record.
+
+### Terminology boundary
+
+Core depends on the small `TerminologyProvider` protocol rather than a terminology server, licensed dataset, or DICOM library. `TerminologyNormalizer` annotates `ClinicalField.coded_concepts`; it never replaces `ClinicalField.value`, source wording, or provenance. The built-in pipeline recognizes a limited set of UCUM units. SNOMED CT, LOINC, and RadLex content must come from an explicitly configured provider whose licensing and version are controlled by the deploying organization.
+
+Request reapplies the same normalizer after clinician answers are added. This operates on Request's deep copy and does not repeat extraction or mutate the Core baseline. Existing reference rules remain value-based unless a scenario explicitly uses `concept_is` or `concept_in`.
 
 ### Report
 
@@ -104,6 +112,7 @@ sequenceDiagram
     participant CLI
     participant Service as Request service
     participant Core
+    participant Terms as Terminology providers
     participant Model as LLM provider
     participant Ref as ReferenceEngine
     participant Guard as Deterministic guards
@@ -114,9 +123,12 @@ sequenceDiagram
     Service->>Core: build_radiology_case()
     Core->>Model: documents + extraction schema
     Model-->>Core: LLMExtraction JSON
+    Core->>Terms: known ClinicalField values
+    Terms-->>Core: reliable coded annotations or none
     Core-->>Service: CoreResult
     opt Answer file supplied
         Service->>Service: apply_answers()
+        Service->>Terms: annotate new answers
     end
     Service->>Ref: build_context(ClinicalCase)
     Ref-->>Service: scenarios + questions + candidates + rules
@@ -139,7 +151,7 @@ sequenceDiagram
 
 If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
 
-A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v3 run manifest fingerprints the distributed Python source as well as the inputs, configured components, and applied inference settings, so changed safeguards or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v4 run manifest fingerprints the distributed Python source, inputs, configured LLM components, terminology providers, and applied inference settings, so changed safeguards, terminology maps, or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 
@@ -147,6 +159,7 @@ A separate `request evaluate` command reads one saved run and its schema-v1 E2E 
 |---|---|---|
 | Documents → extraction | Source format, wording, completeness | Supported extensions and Pydantic response schema |
 | LLM → clinical case | Model interpretation and omissions | Typed fields, statuses, confidence, provenance |
+| Clinical field → terminology | Synonyms, ambiguity, terminology release | Conservative providers, original-text retention, unmapped fallback |
 | Reference → decision | Scenario scope and local suitability | Versioned YAML, deterministic matching, validation tests |
 | LLM → selected state | Candidate reasoning | Required-question guard and modality-specific checks |
 | Local form → answer fact | Declared role and clinical value | Typed input, one-time token, explicit provenance; no authenticated identity |
@@ -162,6 +175,8 @@ The following rules should remain true across refactors:
 - Every non-unknown extracted fact should carry provenance.
 - Conflicting evidence is represented rather than silently resolved.
 - Source language does not determine the canonical internal concept.
+- Terminology annotations never replace the original value or its provenance.
+- An uncertain or unavailable terminology mapping remains usable as free text.
 - French matching terms are preserved when English synonyms are added.
 - Required unresolved discriminators prevent `selected` and approval-ready states.
 - Unknown or conflicting facts are excluded from reliable request fields.
@@ -187,7 +202,7 @@ There is no concurrency control, durable workflow engine, identity model, or per
 
 ## Extension points
 
-- Add deterministic normalization behind `core/normalization/` without changing document ingestion.
+- Extend terminology through licensed providers behind `core/normalization/`; do not couple Core to a server or DICOM object model.
 - Add evidence reconciliation behind `core/reconciliation/` while preserving original provenance.
 - Build a chronological view behind `core/timeline/` from dated facts and prior imaging.
 - Add scenarios under `reference/scenarios/` with golden cases before changing matching behavior.
