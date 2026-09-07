@@ -4,6 +4,7 @@ from bulkinout.core.models import (
     AnswerFile,
     AnswerItem,
     CandidateExam,
+    CodedConcept,
     ClinicalCase,
     ClinicalField,
     FieldStatus,
@@ -70,6 +71,14 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     case = ClinicalCase(
         current_problem={"indication": observed("Douleur de fosse iliaque droite")},
         labs={"egfr_ml_min_1_73m2": observed(92, "laboratory.pdf")},
+    )
+    case.current_problem["indication"].coded_concepts.append(
+        CodedConcept(
+            system="urn:bulkinout:test",
+            code="rlq-pain",
+            display="Right lower quadrant pain",
+            original_text="Douleur de fosse iliaque droite",
+        )
     )
     case = apply_answers(
         case,
@@ -149,6 +158,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
         "labs.egfr_ml_min_1_73m2",
     }
     assert handoff.clarifications[0].answer is False
+    assert handoff.supporting_facts[0].coded_concepts[0].code == "rlq-pain"
     assert handoff.clarifications[0].responder_role == "emergency_clinician"
     assert handoff.decision_trace.selected_reference_candidate == "rlq_appendicitis:ct_iv"
     assert handoff.decision_trace.triggered_rules[0]["relationship"] == ("local_rule_triggered")
@@ -188,6 +198,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Grossesse possible ou en cours" in html
     assert "Renseigné par le clinicien" in html
     assert "Afficher la traçabilité technique" in html
+    assert "urn:bulkinout:test | rlq-pain | Right lower quadrant pain" in html
     assert "Canonical field" in html
     assert "note.md" in html
     assert "Aucune proposition transmissible" not in html

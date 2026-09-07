@@ -16,11 +16,12 @@ flowchart LR
     F --> G
     G --> H[LLMExtraction validation]
     H --> I[extraction_to_case]
-    I --> J[ClinicalCase]
+    I --> N[TerminologyNormalizer]
+    N --> J[ClinicalCase]
     J --> K[RadiologyCase + artifacts + audit]
 ```
 
-The important separation is between the model response and the application record. `LLMExtraction` reflects what the model returned; `ClinicalCase` reorganizes recognized facts into the structure consumed by downstream workflows.
+The important separation is between the model response and the application record. `LLMExtraction` reflects what the model returned; `ClinicalCase` reorganizes recognized facts into the structure consumed by downstream workflows. Deterministic normalization may annotate reliable matches, but it does not rewrite the extracted value.
 
 ## Step 1: file discovery
 
@@ -76,7 +77,7 @@ labs
 imaging_safety
 ```
 
-Unknown sections or malformed paths are skipped. Accepted facts become `ClinicalField` objects with their value, status, sources, confidence, and default `validated=False` state. `prior_imaging` entries are converted separately into `PriorImaging` objects.
+Unknown sections or malformed paths are skipped. Accepted facts become `ClinicalField` objects with their value, status, sources, confidence, default `validated=False` state, and an initially empty `coded_concepts` list. `prior_imaging` entries are converted separately into `PriorImaging` objects.
 
 Example model fact:
 
@@ -98,9 +99,15 @@ Example model fact:
 
 The canonical value can be English while the evidence excerpt remains exactly as written in the French source. This is the intended language boundary.
 
-## Step 4: aggregate record
+## Step 4: terminology annotations
 
-`build_radiology_case(input_dir, model, *, cold=False, extractor=None)` coordinates discovery, extraction, and conversion. When `extractor` is omitted it constructs `OpenAICoreExtractor`; an injected extractor bypasses OpenAI configuration. Cold mode requests temperature 0 from a compatible built-in model without weakening an incompatible model's reasoning level. Core stores provider-neutral component and inference metadata under `ClinicalCase.metadata.extractor_manifest` so Request can fingerprint a run without importing a concrete provider. It returns a typed `CoreResult`, which remains tuple-unpackable:
+`TerminologyNormalizer` runs after extraction conversion. The default provider recognizes a restricted set of common UCUM units and preserves both the complete field value and source provenance. It does not assign SNOMED CT, LOINC, or RadLex codes. Python callers may inject approved providers; uncertain or unmatched concepts stay as free text. Provider name, version, and content hash are stored in `ClinicalCase.metadata.terminology`.
+
+Normalization runs only on known, nonconflicting fields. It is deterministic and makes no LLM call. See [Terminology normalization](terminology.md) for matching, fallback, licensing, and extension details.
+
+## Step 5: aggregate record
+
+`build_radiology_case(input_dir, model, *, cold=False, extractor=None, terminology_normalizer=None)` coordinates discovery, extraction, conversion, and terminology annotation. When `extractor` is omitted it constructs `OpenAICoreExtractor`; an injected extractor bypasses OpenAI configuration. When `terminology_normalizer` is omitted, Core uses the built-in UCUM provider. Cold mode requests temperature 0 from a compatible built-in model without weakening an incompatible model's reasoning level. Core stores provider-neutral component and inference metadata under `ClinicalCase.metadata.extractor_manifest` so Request can fingerprint a run without importing a concrete provider. It returns a typed `CoreResult`, which remains tuple-unpackable:
 
 ```python
 record, extraction, source_paths = build_radiology_case(...)
@@ -140,4 +147,4 @@ Request construction excludes unknown and conflicting fields from its reliable c
 
 ## Current gaps
 
-The `normalization`, `reconciliation`, and `timeline` packages are placeholders. Today, terminology selection, cross-document reconciliation, and contradiction detection depend mainly on the model. Adding deterministic implementations should preserve the raw extraction and provenance so reviewers can still trace every transformation.
+Normalization is a foundation rather than a complete terminology service: the default mapping scope is limited to common units, and clinical codes require an approved injected provider. Cross-document reconciliation and chronology still depend mainly on the model; the `reconciliation` and `timeline` packages remain placeholders. Every future transformation must preserve raw extraction and provenance so reviewers can trace it.

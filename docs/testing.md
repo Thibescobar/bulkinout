@@ -28,6 +28,7 @@ pytest -q
 - generic and modality-specific questions;
 - decision guards;
 - multilingual scenario matching, filtering, and rules;
+- terminology model serialization, FR/EN synonyms, acronym boundaries, negation, ambiguity, UCUM units, and unmapped fallback;
 - catalog generation;
 - golden-case evaluation;
 - offline E2E assertions and run-manifest fingerprints;
@@ -133,7 +134,7 @@ bulkinout request run \
   --output output_e2e/case_001
 ```
 
-The run writes a schema-v3 `run_manifest.json` with package, distributed-code, input, answer, component, model, inference-setting, prompt, schema, and reference fingerprints. It records requested and applied cold-mode temperatures. The manifest stores hashes rather than Python source, prompts, or document contents; filenames may still be sensitive.
+The run writes a schema-v4 `run_manifest.json` with package, distributed-code, input, answer, LLM component, terminology provider, model, inference-setting, prompt, schema, and reference fingerprints. It records requested and applied cold-mode temperatures. The manifest stores hashes rather than Python source, prompts, terminology data, or document contents; filenames may still be sensitive.
 
 Evaluate the snapshots without another provider call:
 

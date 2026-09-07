@@ -7,6 +7,7 @@ from typing import Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field
 
 from ...types import JsonObject, JsonValue
+from .terminology import CodedConcept
 
 AnswerKind: TypeAlias = Literal["boolean", "integer", "number", "text"]
 
@@ -31,6 +32,7 @@ class ClinicalField(BaseModel):
     sources: list[SourceRef] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     validated: bool = False
+    coded_concepts: list[CodedConcept] = Field(default_factory=list)
 
 
 class PriorImaging(BaseModel):

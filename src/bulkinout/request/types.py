@@ -6,6 +6,12 @@ from typing import Literal, Required, TypedDict
 
 from ..types import JsonObject, JsonValue
 
+
+class ConceptSelector(TypedDict):
+    system: str
+    code: str
+
+
 Predicate = TypedDict(
     "Predicate",
     {
@@ -17,6 +23,8 @@ Predicate = TypedDict(
         "contains_token": JsonValue,
         "contains_any_term": list[JsonValue],
         "in": list[JsonValue],
+        "concept_is": ConceptSelector,
+        "concept_in": list[ConceptSelector],
     },
     total=False,
 )

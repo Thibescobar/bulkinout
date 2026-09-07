@@ -20,6 +20,13 @@ from .case import (
     TeleradiologyRequest,
     WorkflowState,
 )
+from .terminology import (
+    LOINC_SYSTEM,
+    RADLEX_SYSTEM,
+    SNOMED_CT_SYSTEM,
+    UCUM_SYSTEM,
+    CodedConcept,
+)
 
 __all__ = [
     "AnswerFile",
@@ -28,6 +35,7 @@ __all__ = [
     "CandidateExam",
     "ClinicalCase",
     "ClinicalField",
+    "CodedConcept",
     "DiscriminatingQuestion",
     "FieldStatus",
     "ImagingDecision",
@@ -36,10 +44,14 @@ __all__ = [
     "LLMFact",
     "LLMPriorImaging",
     "LLMSource",
+    "LOINC_SYSTEM",
     "MissingQuestion",
     "PriorImaging",
     "RadiologyCase",
+    "RADLEX_SYSTEM",
+    "SNOMED_CT_SYSTEM",
     "SourceRef",
     "TeleradiologyRequest",
+    "UCUM_SYSTEM",
     "WorkflowState",
 ]

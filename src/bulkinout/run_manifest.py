@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -42,13 +42,24 @@ class ReferenceFingerprint(BaseModel):
     matched_scenarios: list[ReferenceScenarioFingerprint]
 
 
+class TerminologyProviderFingerprint(BaseModel):
+    name: str
+    version: str
+    content_sha256: str
+
+
+class TerminologyFingerprint(BaseModel):
+    providers: list[TerminologyProviderFingerprint]
+
+
 class RunManifest(BaseModel):
-    schema_version: int = 3
+    schema_version: int = 4
     package_version: str
     code_sha256: str
     inputs: list[InputFingerprint]
     core: ComponentFingerprint
     request: ComponentFingerprint
+    terminology: TerminologyFingerprint
     reference: ReferenceFingerprint
 
 
@@ -132,6 +143,19 @@ def _reference_fingerprint(
     )
 
 
+def _terminology_fingerprint(providers: Sequence[object]) -> TerminologyFingerprint:
+    return TerminologyFingerprint(
+        providers=[
+            TerminologyProviderFingerprint(
+                name=_reported(provider, "name"),
+                version=_reported(provider, "version"),
+                content_sha256=_reported(provider, "content_sha256"),
+            )
+            for provider in providers
+        ]
+    )
+
+
 def build_run_manifest(
     *,
     package_version: str,
@@ -139,6 +163,7 @@ def build_run_manifest(
     core_component: object,
     core_model: str | None,
     request_component: object,
+    terminology_providers: Sequence[object],
     reference_revision: str,
     reference_scenarios: list[ReferenceScenario],
     reference_context: ReferenceContext,
@@ -155,6 +180,7 @@ def build_run_manifest(
             model_fallback=core_model,
         ),
         request=_component_fingerprint(request_component, ImagingDecision),
+        terminology=_terminology_fingerprint(terminology_providers),
         reference=_reference_fingerprint(
             reference_revision,
             reference_scenarios,
