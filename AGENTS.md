@@ -28,7 +28,11 @@ Name tests `test_<behavior>` in `tests/test_*.py`. Any reference-rule correction
 
 ## Commit & Pull Request Guidelines
 
-History is minimal and establishes no formal commit convention. Use short, imperative subjects such as `Add pregnancy guard for CT`. Keep commits focused. Pull requests should explain the clinical or technical motivation, list validation commands, link related issues, and call out reference-data changes. Include representative output diffs or review evidence for workflow changes.
+Use short, imperative subjects such as `Add pregnancy guard for CT`. Keep commits focused. Pull requests should explain the clinical or technical motivation, list validation commands, link related issues, and call out reference-data changes. Include representative output diffs or review evidence for workflow changes.
+
+## Branching Workflow
+
+Promote changes through `feature/*`, `fix/*`, or `refactor/*` → `develop` → `prerelease` → `release/x.y.z` → `main`. Start work branches from `develop`; do not develop directly on `prerelease` or `main`. `develop` is the integration branch, `prerelease` holds tested demo-ready POCs, short-lived `release/*` branches contain release hardening only, and `main` is reserved for releases that should be tagged. Version shared prerelease milestones with PEP 440 identifiers such as `0.2.0rc1` and matching Git tags; do not change the version for every commit. Create urgent `hotfix/*` branches from `main`, then merge the correction back into every active branch it affects.
 
 ## Security & Configuration
 
