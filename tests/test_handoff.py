@@ -273,7 +273,7 @@ def test_radiologist_selection_handoff_presents_unselected_options():
         decision_status="radiologist_selection_required",
         primary=ImagingRecommendation(
             recommended=False,
-            exam_name="Angioscanner pulmonaire",
+            exam_name="TDM abdomino-pelvienne avec injection IV",
             modality="CT",
             contrast="yes",
         ),
@@ -290,13 +290,12 @@ def test_radiologist_selection_handoff_presents_unselected_options():
     )
     request = TeleradiologyRequest(status="ready_for_human_approval")
 
-    handoff = build_radiology_handoff(
-        ClinicalCase(), decision, [], request, {"matched_scenarios": []}
-    )
+    handoff = build_radiology_handoff(ClinicalCase(), decision, [], request, reference_context())
     html = render_radiology_handoff_html(handoff)
 
     assert handoff.status == "ready_for_radiologist_review"
     assert handoff.radiologist_selection_required is True
+    assert handoff.decision_trace.selected_reference_candidate is None
     assert "Choix de l’examen par le radiologue requis" in html
     assert "Option 1" in html
     assert "Option 2" in html

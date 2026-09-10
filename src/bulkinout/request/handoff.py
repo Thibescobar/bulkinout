@@ -373,14 +373,15 @@ def build_radiology_handoff(
 
     facts = _known_facts(case)
     trace = _scenario_trace(reference_context)
-    trace.selected_reference_candidate = _reference_candidate(decision, reference_context)
+    selection_required = decision.decision_status == "radiologist_selection_required"
+    if not selection_required:
+        trace.selected_reference_candidate = _reference_candidate(decision, reference_context)
     trace.model_candidate_ids = [candidate.candidate_id for candidate in decision.candidates]
     warnings = [
         "Proposition d'aide à la décision : validation par un radiologue requise.",
         "Les références citées ont informé le référentiel local ; elles ne constituent pas une approbation de cette proposition particulière.",
         "Les réponses déclarées ne constituent ni une authentification ni une signature clinique.",
     ]
-    selection_required = decision.decision_status == "radiologist_selection_required"
     if selection_required:
         warnings.append(
             "Aucune option n'est présélectionnée : le radiologue doit choisir parmi les examens présentés."
