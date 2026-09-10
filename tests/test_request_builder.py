@@ -6,18 +6,12 @@ from bulkinout.core.models import (
     ImagingRecommendation,
     MissingQuestion,
     PriorImaging,
-    TemporalStatus,
 )
 from bulkinout.request.request_builder import build_teleradiology_request
 
 
 def field(value, status=FieldStatus.observed):
-    return ClinicalField(
-        value=value,
-        status=status,
-        confidence=1.0,
-        temporal_status=TemporalStatus.current,
-    )
+    return ClinicalField(value=value, status=status, confidence=1.0)
 
 
 def recommendation(**overrides):

@@ -19,12 +19,7 @@ def _assert_all_objects_are_strict(value: Any) -> None:
 
 
 def test_openai_extraction_schema_contains_only_closed_required_objects():
-    schema = to_strict_json_schema(LLMExtraction)
-
-    _assert_all_objects_are_strict(schema)
-    fact_properties = schema["$defs"]["LLMFact"]["properties"]
-    assert "temporal_status" in fact_properties
-    assert "observed_at" in fact_properties
+    _assert_all_objects_are_strict(to_strict_json_schema(LLMExtraction))
 
 
 def test_openai_decision_schema_contains_only_closed_required_objects():

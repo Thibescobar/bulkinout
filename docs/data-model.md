@@ -10,7 +10,6 @@ classDiagram
     RadiologyCase *-- ClinicalCase
     RadiologyCase o-- ArtifactRef
     ClinicalCase o-- ClinicalField
-    ClinicalCase o-- TimelineEvent
     ClinicalCase o-- PriorImaging
     ClinicalField o-- SourceRef
     ClinicalField o-- CodedConcept
@@ -37,8 +36,6 @@ classDiagram
         confidence
         validated
         coded_concepts
-        temporal_status
-        observed_at
     }
     class ImagingDecision {
         decision_status
@@ -54,7 +51,7 @@ The classes fall into four groups:
 | Group | Main models | Responsibility |
 |---|---|---|
 | Longitudinal record | `RadiologyCase`, `WorkflowState`, `ArtifactRef` | Shared container, phase, inputs, outputs, and audit. |
-| Clinical evidence | `ClinicalCase`, `ClinicalField`, `TimelineEvent`, `SourceRef`, `PriorImaging` | Reconciled facts, original observations, temporal state, uncertainty, and traceability. |
+| Clinical evidence | `ClinicalCase`, `ClinicalField`, `SourceRef`, `PriorImaging` | Facts, uncertainty, and traceability. |
 | Request decision | `CandidateExam`, `DiscriminatingQuestion`, `ImagingRecommendation`, `ImagingDecision` | Candidate comparison and guarded decision state. |
 | I/O contracts | `LLMExtraction`, `LLMFact`, `LLMSource`, `AnswerFile`, `AnswerItem`, `TeleradiologyRequest` | Model response, clarification input, and clinical draft. |
 | Radiologist review | `RadiologyHandoff`, `HandoffFact`, `HandoffClarification`, `HandoffCitation`, `HandoffDecisionTrace` | Evidence-backed proposal or escalation package. |
@@ -77,8 +74,6 @@ Every current clinical datum is wrapped in `ClinicalField`:
   ],
   "confidence": 0.98,
   "validated": false,
-  "temporal_status": "current",
-  "observed_at": "2026-09-07T08:15:00+02:00",
   "coded_concepts": [
     {
       "system": "urn:example:approved-local-terminology",
@@ -100,16 +95,6 @@ Every current clinical datum is wrapped in `ClinicalField`:
 | `confidence` | Model confidence from `0.0` to `1.0`; not a calibrated clinical probability. |
 | `validated` | Human-validation flag, `False` by default. v0 provides no workflow that sets it globally. |
 | `coded_concepts` | Optional terminology annotations. Empty means unmapped, not unknown. Each annotation retains the triggering text and never replaces `value`. |
-| `temporal_status` | `current`, `historical`, `resolved`, or `unknown`; this is independent of evidence `status`. |
-| `observed_at` | Optional source-supported ISO 8601 date or datetime. It is never derived from input order. |
-
-`FieldStatus` answers whether evidence is observed, inferred, missing, or contradictory. `TemporalStatus` answers when that evidence applies. For example, a historical creatinine can be `observed` and `historical`; neither dimension replaces the other.
-
-## Timeline and reconciliation
-
-`ClinicalCase.timeline` contains one `TimelineEvent` for each accepted extracted observation, for prior imaging, and for explicit clinician answers. Each event retains its canonical field, original value, evidence and temporal statuses, optional date, confidence, and sources. It is an evidence view; Request continues to consume the reconciled `ClinicalField` dictionaries.
-
-Compatible repeated values merge their sources. Different current values become `conflicting`. A value explicitly marked current may supersede older nonpersistent values in the decision view, but the old events remain in the timeline and the resolution is recorded under `metadata.reconciliation`. Historical contrast reactions and implanted-device evidence receive stricter handling and are not erased by a newer negative statement. Full rules and limitations are in [Clinical reconciliation and timeline](reconciliation-timeline.md).
 
 Absence of a statement must remain unknown. For example, a document that never mentions pregnancy must not produce `value=false` for `imaging_safety.pregnancy`.
 
@@ -133,7 +118,6 @@ ClinicalCase
 ├── labs
 ├── imaging_safety
 ├── prior_imaging[]
-├── timeline[]
 └── metadata
 ```
 
@@ -165,8 +149,6 @@ The current JSON file is a run snapshot, not a database record. Nothing enforces
 - `prior_imaging`: structured dictionaries converted separately;
 - `contradictions`: developer-facing descriptions of conflicting evidence;
 - `document_notes`: developer-facing extraction notes.
-
-Each `LLMFact` also declares `temporal_status` and optional `observed_at`. Extractors should emit separate entries when documents disagree or when one canonical field has distinct temporal observations. They must not preselect the newest file as truth.
 
 `LLMSource` has no `document_id`; conversion creates one as `llm:<filename>` when building `SourceRef`.
 
@@ -220,7 +202,7 @@ The shared output writer writes merged required or blocking questions as `answer
 }
 ```
 
-After a clinician supplies a non-empty value, `apply_answers()` stores it as a current observed fact with confidence `1.0`, provenance pointing to the answer filename, and a timeline event. Earlier evidence remains traceable. `false` and `0` are retained; `null` and blank text remain unresolved. Interactive `AnswerItem` records may also retain the question, decision impact, declared responder role, timestamp, and response method. Their `validated` flag still remains `False`: this is evidence supplied to a new calculation, not an authenticated identity, electronic signature, or complete approval record.
+After a clinician supplies a non-empty value, `apply_answers()` stores it as an observed fact with confidence `1.0` and provenance pointing to the answer filename. `false` and `0` are retained; `null` and blank text remain unresolved. Interactive `AnswerItem` records may also retain the question, decision impact, declared responder role, timestamp, and response method. Their `validated` flag still remains `False`: this is evidence supplied to a new calculation, not an authenticated identity, electronic signature, or complete approval record.
 
 ## Teleradiology request
 
@@ -230,7 +212,7 @@ Do not treat serialization success as authorization to transmit the request. Ide
 
 ## Radiology handoff
 
-`RadiologyHandoff` is an additive schema-v3 artifact designed for remote radiologist review. Its status is `ready_for_radiologist_review`, `clinician_contact_required`, or `draft`. It embeds the French request, the primary `ImagingRecommendation`, every structured secondary `ImagingRecommendation`, reconciled temporal facts, and the sourced clinical timeline while retaining safety data, clarification history, unresolved questions, decision trace, and scenario-level citations. Primary and secondary proposals therefore share one contract; their rank does not change their structure.
+`RadiologyHandoff` is an additive schema-v2 artifact designed for remote radiologist review. Its status is `ready_for_radiologist_review`, `clinician_contact_required`, or `draft`. It embeds the French request, the primary `ImagingRecommendation`, and every structured secondary `ImagingRecommendation` while retaining facts, provenance, safety data, clarification history, unresolved questions, decision trace, and scenario-level citations. Primary and secondary proposals therefore share one contract; their rank does not change their structure.
 
 The JSON artifact always retains canonical English identifiers and structured values. Its HTML rendering presents French clinical labels and human-readable statuses by default, while preserving the exact canonical fields, values, confidence, validation flags, filenames, and scenario metadata in a collapsed technical trace. Source excerpts remain in their original language.
 
@@ -240,6 +222,6 @@ The decision trace separates applicable reference candidate IDs from model candi
 
 ## Evaluation and run metadata
 
-`RunManifest` is a separate technical model rather than clinical case data. Schema version 4 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
+`RunManifest` is a separate technical model rather than clinical case data. Schema version 3 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
 
 `E2EExpectations` and `EvaluationReport` define the offline model-evaluation boundary. Expectations use structured facts, tolerances, scenario/status sets, question fields, and acceptable presentation terms. Reports keep Core and Request results separate so a final-output failure is not automatically attributed to extraction.

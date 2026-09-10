@@ -17,9 +17,7 @@ from .case import (
     PriorImaging,
     RadiologyCase,
     SourceRef,
-    TemporalStatus,
     TeleradiologyRequest,
-    TimelineEvent,
     WorkflowState,
 )
 from .terminology import (
@@ -53,9 +51,7 @@ __all__ = [
     "RADLEX_SYSTEM",
     "SNOMED_CT_SYSTEM",
     "SourceRef",
-    "TemporalStatus",
     "TeleradiologyRequest",
-    "TimelineEvent",
     "UCUM_SYSTEM",
     "WorkflowState",
 ]

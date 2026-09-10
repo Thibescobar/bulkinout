@@ -6,7 +6,6 @@ from bulkinout.core.models import (
     FieldStatus,
     ImagingDecision,
     ImagingRecommendation,
-    TemporalStatus,
 )
 from bulkinout.request.decision_guard import enforce_decision_guard
 
@@ -60,7 +59,6 @@ def test_answered_discriminator_allows_selected_state():
         value="flanc droit",
         status=FieldStatus.observed,
         confidence=1.0,
-        temporal_status=TemporalStatus.current,
     )
     decision = ImagingDecision(
         decision_status="selected",

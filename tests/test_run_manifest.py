@@ -34,7 +34,6 @@ class LocalExtractor:
                     value="custom condition",
                     status="observed",
                     confidence=1.0,
-                    temporal_status="current",
                 )
             ]
         )

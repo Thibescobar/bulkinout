@@ -19,15 +19,6 @@ class FieldStatus(str, Enum):
     conflicting = "conflicting"
 
 
-class TemporalStatus(str, Enum):
-    """Declared temporal relationship of a clinical observation to the current encounter."""
-
-    current = "current"
-    historical = "historical"
-    resolved = "resolved"
-    unknown = "unknown"
-
-
 class SourceRef(BaseModel):
     document_id: str
     filename: str
@@ -42,20 +33,6 @@ class ClinicalField(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     validated: bool = False
     coded_concepts: list[CodedConcept] = Field(default_factory=list)
-    temporal_status: TemporalStatus = TemporalStatus.unknown
-    observed_at: str | None = None
-
-
-class TimelineEvent(BaseModel):
-    """One sourced observation retained before field-level reconciliation."""
-
-    field: str
-    value: JsonValue = None
-    status: FieldStatus = FieldStatus.unknown
-    temporal_status: TemporalStatus = TemporalStatus.unknown
-    observed_at: str | None = None
-    sources: list[SourceRef] = Field(default_factory=list)
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class PriorImaging(BaseModel):
@@ -75,7 +52,6 @@ class ClinicalCase(BaseModel):
     labs: dict[str, ClinicalField] = Field(default_factory=dict)
     imaging_safety: dict[str, ClinicalField] = Field(default_factory=dict)
     prior_imaging: list[PriorImaging] = Field(default_factory=list)
-    timeline: list[TimelineEvent] = Field(default_factory=list)
     metadata: JsonObject = Field(default_factory=dict)
 
 
@@ -227,8 +203,6 @@ class LLMFact(StrictLLMModel):
     status: Literal["observed", "inferred", "unknown", "conflicting"]
     confidence: float = Field(ge=0.0, le=1.0)
     sources: list[LLMSource] = Field(default_factory=list)
-    temporal_status: Literal["current", "historical", "resolved", "unknown"] = "unknown"
-    observed_at: str | None = None
 
 
 class LLMPriorImaging(StrictLLMModel):

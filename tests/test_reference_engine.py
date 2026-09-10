@@ -2,23 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from bulkinout.core.models import (
-    CodedConcept,
-    ClinicalCase,
-    ClinicalField,
-    FieldStatus,
-    TemporalStatus,
-)
+from bulkinout.core.models import CodedConcept, ClinicalCase, ClinicalField, FieldStatus
 from bulkinout.request.reference_engine import ReferenceEngine
 
 
 def observed(v):
-    return ClinicalField(
-        value=v,
-        status=FieldStatus.observed,
-        confidence=1.0,
-        temporal_status=TemporalStatus.current,
-    )
+    return ClinicalField(value=v, status=FieldStatus.observed, confidence=1.0)
 
 
 def reference_dir():
@@ -227,27 +216,9 @@ candidates:
                 original_text="source wording",
             )
         ],
-        temporal_status=TemporalStatus.current,
     )
 
     context = ReferenceEngine(tmp_path).build_context(case)
 
     assert context["matched_scenarios"][0]["id"] == "coded_scenario"
     assert context["matched_scenarios"][0]["candidate_exams"][0]["id"] == "coded_candidate"
-
-
-def test_resolved_current_problem_does_not_enter_an_active_scenario():
-    case = ClinicalCase(
-        current_problem={
-            "suspected_diagnosis": ClinicalField(
-                value="pulmonary embolism",
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.resolved,
-                observed_at="2024-03-10",
-            )
-        }
-    )
-
-    matches = ReferenceEngine(reference_dir()).match(case)
-
-    assert "suspected_pulmonary_embolism" not in {match.scenario_id for match in matches}

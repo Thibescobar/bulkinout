@@ -14,7 +14,6 @@ from .core.models import (
     FieldStatus,
     ImagingDecision,
     MissingQuestion,
-    TemporalStatus,
     TeleradiologyRequest,
 )
 from .errors import ConfigurationError, InputError
@@ -34,12 +33,6 @@ class RequiredFactExpectation(_StrictModel):
     field: str
     status_in: list[FieldStatus] | None = None
     numeric: NumericTolerance | None = None
-    temporal_status_in: list[TemporalStatus] | None = None
-
-
-class TimelineCountExpectation(_StrictModel):
-    field: str
-    minimum: int = Field(ge=1)
 
 
 class ForbiddenValueExpectation(_StrictModel):
@@ -51,7 +44,6 @@ class CoreExpectations(_StrictModel):
     required_facts: list[RequiredFactExpectation] = Field(default_factory=list)
     forbidden_facts: list[str] = Field(default_factory=list)
     forbidden_values: list[ForbiddenValueExpectation] = Field(default_factory=list)
-    timeline_counts: list[TimelineCountExpectation] = Field(default_factory=list)
 
 
 class PresentationTermGroup(_StrictModel):
@@ -188,15 +180,6 @@ def _required_fact_failure(
     if expectation.status_in is not None and field.status not in expectation.status_in:
         allowed = ", ".join(status.value for status in expectation.status_in)
         return _failure(assertion, f"Status {field.status.value!r} is not in [{allowed}].")
-    if (
-        expectation.temporal_status_in is not None
-        and field.temporal_status not in expectation.temporal_status_in
-    ):
-        allowed = ", ".join(status.value for status in expectation.temporal_status_in)
-        return _failure(
-            assertion,
-            f"Temporal status {field.temporal_status.value!r} is not in [{allowed}].",
-        )
     if expectation.numeric is None:
         return None
     actual = _number(field.value)
@@ -238,17 +221,6 @@ def _evaluate_core(case: ClinicalCase, expected: CoreExpectations) -> StageEvalu
                 _failure(
                     f"core.forbidden_value:{forbidden_expectation.field}",
                     f"Forbidden value {field.value!r} was present.",
-                )
-            )
-    for timeline_expectation in expected.timeline_counts:
-        checks += 1
-        count = sum(event.field == timeline_expectation.field for event in case.timeline)
-        if count < timeline_expectation.minimum:
-            failures.append(
-                _failure(
-                    f"core.timeline_count:{timeline_expectation.field}",
-                    f"Expected at least {timeline_expectation.minimum} timeline events, "
-                    f"got {count}.",
                 )
             )
     return StageEvaluation(passed=not failures, checks=checks, failures=failures)

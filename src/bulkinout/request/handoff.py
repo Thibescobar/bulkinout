@@ -17,9 +17,7 @@ from ..core.models import (
     ImagingRecommendation,
     MissingQuestion,
     SourceRef,
-    TemporalStatus,
     TeleradiologyRequest,
-    TimelineEvent,
 )
 from ..types import JsonObject, JsonValue
 from .types import ReferenceContext
@@ -59,7 +57,6 @@ _LAB_SUMMARY_FIELDS = {
     "labs.pregnancy_test",
 }
 _FIELD_LABELS = {
-    "prior_imaging": "Imagerie antérieure",
     "patient.age": "Âge",
     "patient.sex": "Sexe",
     "current_problem.indication": "Indication clinique",
@@ -114,12 +111,6 @@ _STATUS_LABELS = {
     FieldStatus.unknown: "Non renseigné",
     FieldStatus.conflicting: "Données contradictoires",
 }
-_TEMPORAL_STATUS_LABELS = {
-    TemporalStatus.current: "Actuel",
-    TemporalStatus.historical: "Antérieur",
-    TemporalStatus.resolved: "Résolu",
-    TemporalStatus.unknown: "Temporalité à confirmer",
-}
 _CANONICAL_VALUE_LABELS = {
     "right": "Droit",
     "left": "Gauche",
@@ -157,8 +148,6 @@ class HandoffFact(BaseModel):
     validated: bool
     sources: list[SourceRef] = Field(default_factory=list)
     coded_concepts: list[CodedConcept] = Field(default_factory=list)
-    temporal_status: TemporalStatus = TemporalStatus.unknown
-    observed_at: str | None = None
 
 
 class HandoffClarification(BaseModel):
@@ -203,14 +192,13 @@ class HandoffDecisionTrace(BaseModel):
 
 
 class RadiologyHandoff(BaseModel):
-    schema_version: int = 3
+    schema_version: int = 2
     status: Literal["ready_for_radiologist_review", "clinician_contact_required", "draft"]
     request: TeleradiologyRequest
     proposal: ImagingRecommendation
     alternative_proposals: list[ImagingRecommendation] = Field(default_factory=list)
     supporting_facts: list[HandoffFact] = Field(default_factory=list)
     safety_facts: list[HandoffFact] = Field(default_factory=list)
-    clinical_timeline: list[TimelineEvent] = Field(default_factory=list)
     clarifications: list[HandoffClarification] = Field(default_factory=list)
     unresolved_questions: list[MissingQuestion] = Field(default_factory=list)
     decision_trace: HandoffDecisionTrace
@@ -246,8 +234,6 @@ def _known_facts(case: ClinicalCase) -> list[HandoffFact]:
                     validated=clinical_field.validated,
                     sources=clinical_field.sources,
                     coded_concepts=clinical_field.coded_concepts,
-                    temporal_status=clinical_field.temporal_status,
-                    observed_at=clinical_field.observed_at,
                 )
             )
     return sorted(facts, key=lambda fact: fact.field)
@@ -397,16 +383,6 @@ def build_radiology_handoff(
         warnings.append(
             "Les alternatives sont présentées pour discussion ; seule la proposition privilégiée a déterminé les vérifications de cette analyse."
         )
-    if any(fact.status == FieldStatus.conflicting for fact in facts):
-        warnings.append(
-            "Des informations contradictoires restent visibles et doivent être clarifiées avant validation."
-        )
-    if any(
-        _is_safety_fact(fact) and fact.temporal_status != TemporalStatus.current for fact in facts
-    ):
-        warnings.append(
-            "La temporalité d'au moins une information de sécurité doit être confirmée."
-        )
     return RadiologyHandoff(
         status=_handoff_status(decision, request),
         request=request,
@@ -414,7 +390,6 @@ def build_radiology_handoff(
         alternative_proposals=decision.secondary,
         supporting_facts=facts,
         safety_facts=[fact for fact in facts if _is_safety_fact(fact)],
-        clinical_timeline=case.timeline,
         clarifications=_clarifications(case, questions),
         unresolved_questions=questions,
         decision_trace=trace,
@@ -537,22 +512,17 @@ def _clinical_fact_table(facts: list[HandoffFact]) -> str:
     rows = []
     for fact in facts:
         sources = [_clinical_source(source) for source in fact.sources]
-        state = f"{_clinical_fact_status(fact)} — {_TEMPORAL_STATUS_LABELS[fact.temporal_status]}"
-        if fact.observed_at:
-            state = f"{state} ({fact.observed_at})"
         rows.append(
             "<tr>"
             f"<td>{escape(_field_label(fact.field))}</td>"
             f"<td>{escape(_clinical_fact_value(fact))}</td>"
-            f"<td>{escape(state)}</td>"
+            f"<td>{escape(_clinical_fact_status(fact))}</td>"
             f"<td>{escape('; '.join(sources) or 'source non renseignée')}</td>"
             "</tr>"
         )
     return (
         "<table><thead><tr><th>Information clinique</th><th>Élément retenu</th>"
-        "<th>État et temporalité</th><th>Source</th></tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table>"
+        "<th>Statut</th><th>Source</th></tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
     )
 
 
@@ -571,8 +541,6 @@ def _technical_fact_table(facts: list[HandoffFact]) -> str:
             f"<td><code>{escape(fact.field)}</code></td>"
             f"<td>{escape(_display_value(fact.value))}</td>"
             f"<td>{escape(fact.status.value)}</td>"
-            f"<td>{escape(fact.temporal_status.value)}</td>"
-            f"<td>{escape(fact.observed_at or 'unreported')}</td>"
             f"<td>{fact.confidence:.2f}</td>"
             f"<td>{'true' if fact.validated else 'false'}</td>"
             f"<td>{escape('; '.join(concepts) or 'unmapped')}</td>"
@@ -581,45 +549,8 @@ def _technical_fact_table(facts: list[HandoffFact]) -> str:
         )
     return (
         "<table><thead><tr><th>Canonical field</th><th>Canonical value</th>"
-        "<th>Internal status</th><th>Temporal status</th><th>Observed at</th>"
-        "<th>Confidence</th><th>Validated</th>"
+        "<th>Internal status</th><th>Confidence</th><th>Validated</th>"
         "<th>Coded concepts</th><th>Exact provenance</th></tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table>"
-    )
-
-
-def _important_timeline_events(handoff: RadiologyHandoff) -> list[TimelineEvent]:
-    conflicting_fields = {
-        fact.field for fact in handoff.supporting_facts if fact.status == FieldStatus.conflicting
-    }
-    return [
-        event
-        for event in handoff.clinical_timeline
-        if event.field in conflicting_fields
-        or event.temporal_status != TemporalStatus.current
-        or event.observed_at is not None
-    ]
-
-
-def _timeline_table(events: list[TimelineEvent]) -> str:
-    if not events:
-        return "<p class=muted>Aucun événement temporel important à signaler.</p>"
-    rows = []
-    for event in events:
-        sources = [_clinical_source(source) for source in event.sources]
-        rows.append(
-            "<tr>"
-            f"<td>{escape(event.observed_at or 'Date non renseignée')}</td>"
-            f"<td>{escape(_field_label(event.field))}</td>"
-            f"<td>{escape(_clinical_value(event.value))}</td>"
-            f"<td>{escape(_TEMPORAL_STATUS_LABELS[event.temporal_status])}</td>"
-            f"<td>{escape('; '.join(sources) or 'source non renseignée')}</td>"
-            "</tr>"
-        )
-    return (
-        "<table><thead><tr><th>Date</th><th>Information</th><th>Valeur observée</th>"
-        "<th>Temporalité</th><th>Source</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table>"
     )
@@ -818,7 +749,6 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         else ""
     )
     unresolved = [question.question for question in handoff.unresolved_questions]
-    timeline = _important_timeline_events(handoff)
     html = f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <meta name="referrer" content="no-referrer"><title>Dossier de revue radiologique</title>
@@ -862,7 +792,6 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 {alternatives_section}
 <h2>Clarifications du clinicien</h2>{_clarification_table(handoff.clarifications)}
 <h2>Informations cliniques retenues et sources</h2>{_clinical_fact_table(handoff.supporting_facts)}
-<h2>Chronologie et divergences importantes</h2>{_timeline_table(timeline)}
 <h2>Sécurité</h2>{_clinical_fact_table(handoff.safety_facts)}
 <h2>Informations encore nécessaires</h2>{_items(unresolved)}
 <h2>Références documentaires</h2>{_citation_list(handoff.citations)}

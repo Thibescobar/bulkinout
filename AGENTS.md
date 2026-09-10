@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Application code uses a `src` layout under `src/bulkinout/`. `core/` ingests documents, reconciles repeated observations, builds the clinical timeline, applies terminology annotations, and creates the shared `RadiologyCase`; `request/` applies the radiology reference workflow; `report/` is reserved for future post-exam work. Keep the dependency direction one-way: Request may import Core models, but Core must not depend on Request.
+Application code uses a `src` layout under `src/bulkinout/`. `core/` ingests documents and builds the shared `RadiologyCase`; `request/` applies the radiology reference workflow; `report/` is reserved for future post-exam work. Keep the dependency direction one-way: Request may import Core models, but Core must not depend on Request.
 
 Canonical clinical scenarios live in `reference/scenarios/*.yaml`, with catalog metadata in `reference/catalog.json`; the build copies them into the installable package. Unit and deterministic integration tests are in `tests/test_*.py`; reference golden cases are in `tests/golden/`; manual, LLM-backed cases and their expected results are under `tests/e2e/`. Architecture and behavior documentation belongs in `docs/`, while radiologist review materials live in `review/`.
 
@@ -24,7 +24,7 @@ Follow standard Python conventions: four-space indentation, `snake_case` for fun
 
 ## Testing Guidelines
 
-Name tests `test_<behavior>` in `tests/test_*.py`. Any reference-rule correction should first gain a focused YAML golden case. Extraction, reconciliation, or timeline changes should retain or add E2E assertions in a schema-v1 `expected.json`. Creating E2E runs makes real API calls and remains outside pytest; evaluate saved artifacts with `bulkinout request evaluate`, then complete manual review. Ensure `pytest -q` preserves at least 95% coverage before submitting.
+Name tests `test_<behavior>` in `tests/test_*.py`. Any reference-rule correction should first gain a focused YAML golden case. Extraction changes should retain or add an E2E fixture plus schema-v1 `expected.json`. Creating E2E runs makes real API calls and remains outside pytest; evaluate saved artifacts with `bulkinout request evaluate`, then complete manual review. Ensure `pytest -q` preserves at least 95% coverage before submitting.
 
 ## Commit & Pull Request Guidelines
 

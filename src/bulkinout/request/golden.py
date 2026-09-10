@@ -6,7 +6,7 @@ from typing import TypedDict, cast
 
 import yaml
 
-from ..core.models import ClinicalCase, ClinicalField, FieldStatus, TemporalStatus
+from ..core.models import ClinicalCase, ClinicalField, FieldStatus
 from ..types import JsonObject, JsonValue
 from .reference_engine import ReferenceEngine
 from .types import MatchedScenarioContext
@@ -26,38 +26,22 @@ class GoldenExpected(TypedDict, total=False):
 class GoldenSpec(TypedDict, total=False):
     id: str
     facts: JsonObject
-    fact_metadata: dict[str, JsonObject]
     expected: GoldenExpected
 
 
-def _observed(value: JsonValue, metadata: JsonObject | None = None) -> ClinicalField:
-    metadata = metadata or {}
-    return ClinicalField(
-        value=value,
-        status=FieldStatus(str(metadata.get("status", FieldStatus.observed.value))),
-        confidence=1.0,
-        validated=False,
-        temporal_status=TemporalStatus(
-            str(metadata.get("temporal_status", TemporalStatus.current.value))
-        ),
-        observed_at=(
-            str(metadata["observed_at"]) if metadata.get("observed_at") is not None else None
-        ),
-    )
+def _observed(value: JsonValue) -> ClinicalField:
+    return ClinicalField(value=value, status=FieldStatus.observed, confidence=1.0, validated=False)
 
 
-def case_from_facts(
-    facts: JsonObject, fact_metadata: dict[str, JsonObject] | None = None
-) -> ClinicalCase:
+def case_from_facts(facts: JsonObject) -> ClinicalCase:
     case = ClinicalCase()
-    fact_metadata = fact_metadata or {}
     for field, value in facts.items():
         if "." not in field:
             continue
         section_name, key = field.split(".", 1)
         section = getattr(case, section_name, None)
         if isinstance(section, dict):
-            section[key] = _observed(value, fact_metadata.get(field))
+            section[key] = _observed(value)
     return case
 
 
@@ -144,7 +128,7 @@ def _expectation_errors(
 
 def run_golden_case(path: Path, reference_dir: Path | None = None) -> GoldenResult:
     spec = cast(GoldenSpec, yaml.safe_load(path.read_text(encoding="utf-8")))
-    case = case_from_facts(spec.get("facts", {}), spec.get("fact_metadata", {}))
+    case = case_from_facts(spec.get("facts", {}))
     expected = spec.get("expected", {})
     engine = ReferenceEngine(reference_dir)
     ctx = engine.build_context(case, max_scenarios=10)

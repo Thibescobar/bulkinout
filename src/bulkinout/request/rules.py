@@ -1,25 +1,11 @@
 from __future__ import annotations
 
-from ..core.models import (
-    ClinicalCase,
-    ClinicalField,
-    FieldStatus,
-    ImagingDecision,
-    MissingQuestion,
-    TemporalStatus,
-)
+from ..core.models import ClinicalCase, ClinicalField, FieldStatus, ImagingDecision, MissingQuestion
 
 
 def _unknown(section: dict[str, ClinicalField], key: str) -> bool:
     field = section.get(key)
     return field is None or field.status in {FieldStatus.unknown, FieldStatus.conflicting}
-
-
-def _current_unknown(section: dict[str, ClinicalField], key: str) -> bool:
-    field = section.get(key)
-    return (
-        _unknown(section, key) or field is None or field.temporal_status != TemporalStatus.current
-    )
 
 
 def generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]:
@@ -29,7 +15,7 @@ def generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]:
     """
     out: list[MissingQuestion] = []
 
-    if _current_unknown(case.current_problem, "indication"):
+    if _unknown(case.current_problem, "indication"):
         out.append(
             MissingQuestion(
                 field="current_problem.indication",
@@ -40,7 +26,7 @@ def generic_missing_questions(case: ClinicalCase) -> list[MissingQuestion]:
             )
         )
 
-    if _current_unknown(case.current_problem, "symptoms") and _current_unknown(
+    if _unknown(case.current_problem, "symptoms") and _unknown(
         case.current_problem, "known_diagnosis"
     ):
         out.append(
@@ -77,17 +63,17 @@ def recommendation_specific_questions(
 
 def _contrast_ct_questions(case: ClinicalCase) -> list[MissingQuestion]:
     questions: list[MissingQuestion] = []
-    if _current_unknown(case.allergies, "iodinated_contrast_reaction"):
+    if _unknown(case.allergies, "iodinated_contrast_reaction"):
         questions.append(
             MissingQuestion(
                 field="allergies.iodinated_contrast_reaction",
-                question="Antécédent de réaction au produit de contraste iodé ? Si oui, préciser le type, la gravité et les éléments encore pertinents aujourd'hui.",
+                question="Antécédent de réaction au produit de contraste iodé ? Si oui, préciser le type et la gravité.",
                 importance="high",
                 reason="May change contrast administration or the protocol.",
                 required_to_choose=True,
             )
         )
-    if _current_unknown(case.labs, "egfr_ml_min_1_73m2"):
+    if _unknown(case.labs, "egfr_ml_min_1_73m2"):
         questions.append(
             MissingQuestion(
                 field="labs.egfr_ml_min_1_73m2",
@@ -103,7 +89,7 @@ def _contrast_ct_questions(case: ClinicalCase) -> list[MissingQuestion]:
 
 def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
     questions: list[MissingQuestion] = []
-    if _current_unknown(case.imaging_safety, "pacemaker"):
+    if _unknown(case.imaging_safety, "pacemaker"):
         questions.append(
             MissingQuestion(
                 field="imaging_safety.pacemaker",
@@ -115,7 +101,7 @@ def _mri_questions(case: ClinicalCase) -> list[MissingQuestion]:
                 answer_kind="boolean",
             )
         )
-    if _current_unknown(case.imaging_safety, "implant_or_metal"):
+    if _unknown(case.imaging_safety, "implant_or_metal"):
         questions.append(
             MissingQuestion(
                 field="imaging_safety.implant_or_metal",
@@ -153,7 +139,7 @@ def pregnancy_is_relevant(case: ClinicalCase) -> bool:
 
 
 def _ionizing_radiation_questions(case: ClinicalCase) -> list[MissingQuestion]:
-    if not pregnancy_is_relevant(case) or not _current_unknown(case.imaging_safety, "pregnancy"):
+    if not pregnancy_is_relevant(case) or not _unknown(case.imaging_safety, "pregnancy"):
         return []
     return [
         MissingQuestion(

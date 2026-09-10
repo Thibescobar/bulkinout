@@ -20,11 +20,7 @@ from ..models import (
     LLMExtraction,
     PriorImaging,
     SourceRef,
-    TemporalStatus,
-    TimelineEvent,
 )
-from ..reconciliation import reconcile_facts
-from ..timeline import append_timeline_event
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -39,18 +35,7 @@ Critical rules:
 - Distinguish observed vs inferred.
 - Provide provenance for every non-unknown fact.
 - Preserve dates and units.
-- Emit separate fact entries when sources give different values or temporal states for the same
-  field. Do not reconcile them or select one as true.
-- Set temporal_status to current only when the source supports that the fact applies to the current
-  encounter; use historical for past facts, resolved only when resolution is explicit, and unknown
-  when the temporal relationship is unclear.
-- Set observed_at to an ISO 8601 date or datetime only when the source supports one. Never infer a
-  date from document order or file metadata.
-- Detect contradictions, including materially different current values.
-- Preserve explicit negation: encode a negative finding only when a source states it, and retain
-  its exact evidence excerpt. Never turn absence of mention into false or no.
-- Keep numeric values and their units together when the canonical field does not define a unit;
-  do not convert units unless the source gives the converted value.
+- Detect contradictions.
 - Extract information useful across the radiology workflow, not only pre-exam referral.
 - Never infer device MRI compatibility.
 - Never convert missing renal function into normal renal function.
@@ -161,7 +146,7 @@ class OpenAICoreExtractor:
         content: list[JsonObject] = [
             {
                 "type": "input_text",
-                "text": "Extract clinical observations across all supplied documents.",
+                "text": "Extract and reconcile clinical facts across all supplied documents.",
             }
         ]
         for path in paths:
@@ -175,79 +160,57 @@ class OpenAICoreExtractor:
 
 
 def extraction_to_case(extraction: LLMExtraction) -> ClinicalCase:
-    case = reconcile_facts(extraction.facts)
+    case = ClinicalCase()
+    sections = {
+        "patient": case.patient,
+        "current_problem": case.current_problem,
+        "history": case.history,
+        "medications": case.medications,
+        "allergies": case.allergies,
+        "labs": case.labs,
+        "imaging_safety": case.imaging_safety,
+    }
 
-    def clinical_field(value: JsonValue, source_document: str | None) -> ClinicalField:
+    for fact in extraction.facts:
+        if "." not in fact.field:
+            continue
+        section_name, key = fact.field.split(".", 1)
+        section = sections.get(section_name)
+        if section is None:
+            continue
+        refs = [
+            SourceRef(
+                document_id=f"llm:{s.filename}",
+                filename=s.filename,
+                page=s.page,
+                excerpt=s.excerpt,
+            )
+            for s in fact.sources
+        ]
+        section[key] = ClinicalField(
+            value=cast(JsonValue, fact.value),
+            status=FieldStatus(fact.status),
+            sources=refs,
+            confidence=fact.confidence,
+            validated=False,
+        )
+
+    def clinical_field(value: JsonValue) -> ClinicalField:
         if value in (None, "", []):
             return ClinicalField()
-        sources = (
-            [
-                SourceRef(
-                    document_id=f"llm:{source_document}",
-                    filename=source_document,
-                )
-            ]
-            if source_document
-            else []
-        )
-        return ClinicalField(
-            value=value,
-            status=FieldStatus.observed,
-            sources=sources,
-            confidence=0.75,
-            temporal_status=TemporalStatus.historical,
-        )
+        return ClinicalField(value=value, status=FieldStatus.observed, confidence=0.75)
 
     for prior in extraction.prior_imaging:
-        source_refs = (
-            [
-                SourceRef(
-                    document_id=f"llm:{prior.source_document}",
-                    filename=prior.source_document,
-                )
-            ]
-            if prior.source_document
-            else []
-        )
         case.prior_imaging.append(
             PriorImaging(
-                modality=clinical_field(prior.modality, prior.source_document),
-                region=clinical_field(prior.region, prior.source_document),
-                date=clinical_field(prior.date, prior.source_document).model_copy(
-                    update={"observed_at": prior.date}
-                ),
-                result=clinical_field(prior.result, prior.source_document),
+                modality=clinical_field(prior.modality),
+                region=clinical_field(prior.region),
+                date=clinical_field(prior.date),
+                result=clinical_field(prior.result),
                 source_document=prior.source_document,
             )
         )
-        prior_value = {
-            key: value
-            for key, value in {
-                "modality": prior.modality,
-                "region": prior.region,
-                "result": prior.result,
-            }.items()
-            if value is not None
-        }
-        if prior_value:
-            append_timeline_event(
-                case,
-                TimelineEvent(
-                    field="prior_imaging",
-                    value=cast(JsonObject, prior_value),
-                    status=FieldStatus.observed,
-                    temporal_status=TemporalStatus.historical,
-                    observed_at=prior.date,
-                    sources=source_refs,
-                    confidence=0.75,
-                ),
-            )
 
-    reconciliation = case.metadata.get("reconciliation", {})
-    conflict_value = reconciliation.get("conflicts", []) if isinstance(reconciliation, dict) else []
-    deterministic_conflicts = conflict_value if isinstance(conflict_value, list) else []
-    case.metadata["contradictions"] = cast(
-        list[JsonValue], [*extraction.contradictions, *deterministic_conflicts]
-    )
+    case.metadata["contradictions"] = cast(list[JsonValue], extraction.contradictions)
     case.metadata["document_notes"] = cast(list[JsonValue], extraction.document_notes)
     return case

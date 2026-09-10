@@ -152,27 +152,7 @@ Builds multimodal input from all files and returns an `LLMExtraction`.
 
 ### `extraction_to_case(extraction: LLMExtraction) -> ClinicalCase`
 
-Delegates fact aggregation to reconciliation, builds the sourced timeline, and converts prior imaging without discarding provenance.
-
-## `bulkinout.core.reconciliation`
-
-Source: `src/bulkinout/core/reconciliation/service.py`
-
-### `reconcile_facts(facts: list[LLMFact]) -> ClinicalCase`
-
-Groups compatible observations, retains every source as timeline evidence, exposes material contradictions as `FieldStatus.conflicting`, and records explicit-current resolutions. Persistent historical safety evidence cannot be erased by a later negative statement.
-
-## `bulkinout.core.timeline`
-
-Source: `src/bulkinout/core/timeline/service.py`
-
-### `sort_timeline(events: list[TimelineEvent]) -> list[TimelineEvent]`
-
-Orders supported ISO 8601 dates while retaining unknown or non-ISO dates without interpreting them.
-
-### `append_timeline_event(case: ClinicalCase, event: TimelineEvent)`
-
-Adds extraction, prior-imaging, or clinician-answer evidence and maintains the chronological view.
+Converts `LLMExtraction` into a `ClinicalCase`, including provenance and prior imaging.
 
 ## `bulkinout.core.interfaces`
 
@@ -198,10 +178,6 @@ Source: `src/bulkinout/core/models/case.py`
 
 Pydantic model or enum described in [Data Model](data-model.md).
 
-### `TemporalStatus`
-
-Independent current, historical, resolved, or unknown temporal state described in [Data Model](data-model.md).
-
 ### `SourceRef`
 
 Pydantic model or enum described in [Data Model](data-model.md).
@@ -209,10 +185,6 @@ Pydantic model or enum described in [Data Model](data-model.md).
 ### `ClinicalField`
 
 Pydantic model or enum described in [Data Model](data-model.md).
-
-### `TimelineEvent`
-
-One original sourced observation retained before or after reconciliation.
 
 ### `PriorImaging`
 
