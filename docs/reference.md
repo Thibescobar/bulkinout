@@ -121,7 +121,9 @@ Pregnancy questions use the same conservative relevance rule as modality checks:
 
 ## Candidate filtering
 
-Every candidate has a stable ID and French examination name. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.
+Every candidate has a stable ID and French examination name. It may also carry a reviewed protocol, urgency, rationale, and safety considerations used verbatim by deterministic Request. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.
+
+When no explicit preference rule fires, one `usually_appropriate` candidate can be selected. Multiple candidates, or one candidate with another appropriateness category, become an unselected radiologist option set. This distinction prevents YAML ordering from masquerading as a clinical preference.
 
 This filtering is deterministic and happens before the context reaches the decision model. It is appropriate for explicit facts such as pregnancy-dependent modality eligibility, but it should not encode complex or locally disputed clinical reasoning without review and tests.
 
@@ -141,7 +143,7 @@ rules:
       reason: ACR: initial imaging is generally not appropriate for this variant.
 ```
 
-`evaluate_rules()` returns matching rule IDs and result dictionaries. It does not directly mutate `ImagingDecision`; the results become part of the LLM reference context. This distinction matters when debugging: a correctly triggered rule can still be interpreted incorrectly by the model.
+`evaluate_rules()` returns matching rule IDs and result dictionaries. It does not directly mutate `ImagingDecision`; the results become part of `ReferenceContext`. The LLM receives this context, while the closed-world engine recognizes only explicit `preferred_candidate` and `no_imaging_recommended` results. A correctly triggered rule can therefore still be interpreted incorrectly in LLM mode. Deterministic mode escalates conflicting or unsupported results, but can transmit multiple supported candidates without selecting one.
 
 ## Authoring a scenario
 

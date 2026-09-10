@@ -4,7 +4,7 @@
 
 This document orders the work required to turn the current Request proof of concept into a reliable and evaluable system. It combines confirmed defects, known v0 limitations, clinical-assurance requirements, operational gaps, and future product work. Priorities express dependency and risk, while status records whether work belongs to the current proof-of-concept scope.
 
-The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, provenance, optional local clarification, an evidence-backed radiology handoff, and mandatory human review.
+The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, closed-world and shadow Request modes, provenance, optional local clarification, an evidence-backed radiology handoff, and mandatory human review.
 
 ## Scope and status
 

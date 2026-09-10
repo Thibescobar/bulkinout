@@ -95,7 +95,10 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
 
     manifest = result.run_manifest
     assert manifest is not None
-    assert manifest.schema_version == 4
+    assert manifest.schema_version == 5
+    assert manifest.decision_mode == "llm"
+    assert manifest.active_decision_engine == "llm"
+    assert [item.engine for item in manifest.decision_engines] == ["llm"]
     assert manifest.package_version == __version__
     assert manifest.code_sha256 == sha256_python_tree(Path(bulkinout.__file__).parent)
     assert [item.filename for item in manifest.inputs] == ["a.txt", "b.txt"]

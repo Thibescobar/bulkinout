@@ -170,15 +170,18 @@ A `DiscriminatingQuestion` names a stable field and records why its answer affec
 stateDiagram-v2
     [*] --> insufficient_information
     insufficient_information --> selected: required facts supplied
+    insufficient_information --> radiologist_selection_required: supported options remain
     insufficient_information --> safety_blocked: blocking safety gap
     insufficient_information --> no_imaging_recommended: rule or reasoning
     selected --> insufficient_information: unresolved required discriminator
     selected --> safety_blocked: unresolved blocking safety check
+    radiologist_selection_required --> insufficient_information: required fact unresolved
 ```
 
 | Status | Meaning |
 |---|---|
 | `selected` | One primary recommendation is justified, subject to human approval. |
+| `radiologist_selection_required` | Supported options can be transmitted, but none is selected by Bulkinout. |
 | `insufficient_information` | Material facts are missing or conflicting. |
 | `no_imaging_recommended` | The current context does not support initial imaging. |
 | `safety_blocked` | A blocking safety item prevents approval readiness. |
@@ -222,6 +225,6 @@ The decision trace separates applicable reference candidate IDs from model candi
 
 ## Evaluation and run metadata
 
-`RunManifest` is a separate technical model rather than clinical case data. Schema version 3 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
+`RunManifest` is a separate technical model rather than clinical case data. Schema version 5 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, decision mode and executed engines, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. Deterministic mode records `llm_calls: 0` for its Request engine. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
 
 `E2EExpectations` and `EvaluationReport` define the offline model-evaluation boundary. Expectations use structured facts, tolerances, scenario/status sets, question fields, and acceptable presentation terms. Reports keep Core and Request results separate so a final-output failure is not automatically attributed to extraction.

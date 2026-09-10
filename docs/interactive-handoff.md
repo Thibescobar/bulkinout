@@ -115,6 +115,8 @@ This means that the material informed the local scenario. It does not mean that 
 
 `clinician_contact_required` provides no apparently approved examination. It explains why Bulkinout abstained and which questions or conflicts require direct discussion. In time-critical care, the form's escalation action must not delay direct contact.
 
+When several supported examinations remain after clarification, the same page may instead show an unselected option set under `ready_for_radiologist_review`. This is not an escalation or an automated choice: the teleradiologist receives the alternatives, their constraints, the clinical evidence, and the reference citations, then selects the appropriate examination under local procedures.
+
 ## Security and current limits
 
 The loopback form reduces accidental network exposure but does not secure a compromised workstation. Browser history, extensions, screenshots, local processes, and the output directory remain in the local trust boundary. The form provides no login, access control, durable session, remote collaboration, prescription, transmission, or radiologist signature.

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from .core.models import ImagingDecision, LLMExtraction
 from .fingerprints import sha256_python_tree, sha256_text
-from .request.types import ReferenceContext, ReferenceScenario
+from .request.types import DecisionEngineName, DecisionMode, ReferenceContext, ReferenceScenario
 from .types import JsonObject
 
 UNREPORTED = "unreported"
@@ -52,13 +52,21 @@ class TerminologyFingerprint(BaseModel):
     providers: list[TerminologyProviderFingerprint]
 
 
+class DecisionEngineFingerprint(BaseModel):
+    engine: DecisionEngineName
+    fingerprint: ComponentFingerprint
+
+
 class RunManifest(BaseModel):
-    schema_version: int = 4
+    schema_version: int = 5
     package_version: str
     code_sha256: str
     inputs: list[InputFingerprint]
     core: ComponentFingerprint
     request: ComponentFingerprint
+    decision_mode: DecisionMode = "llm"
+    active_decision_engine: DecisionEngineName = "llm"
+    decision_engines: list[DecisionEngineFingerprint] = Field(default_factory=list)
     terminology: TerminologyFingerprint
     reference: ReferenceFingerprint
 
@@ -163,6 +171,8 @@ def build_run_manifest(
     core_component: object,
     core_model: str | None,
     request_component: object,
+    decision_mode: DecisionMode = "llm",
+    request_components: Sequence[tuple[DecisionEngineName, object]] | None = None,
     terminology_providers: Sequence[object],
     reference_revision: str,
     reference_scenarios: list[ReferenceScenario],
@@ -170,6 +180,10 @@ def build_run_manifest(
 ) -> RunManifest:
     """Build deterministic metadata for the exact inputs and components used."""
 
+    active_engine: DecisionEngineName = (
+        "deterministic" if decision_mode == "deterministic" else "llm"
+    )
+    components = request_components or [(active_engine, request_component)]
     return RunManifest(
         package_version=package_version,
         code_sha256=sha256_python_tree(Path(__file__).parent),
@@ -180,6 +194,15 @@ def build_run_manifest(
             model_fallback=core_model,
         ),
         request=_component_fingerprint(request_component, ImagingDecision),
+        decision_mode=decision_mode,
+        active_decision_engine=active_engine,
+        decision_engines=[
+            DecisionEngineFingerprint(
+                engine=engine,
+                fingerprint=_component_fingerprint(component, ImagingDecision),
+            )
+            for engine, component in components
+        ],
         terminology=_terminology_fingerprint(terminology_providers),
         reference=_reference_fingerprint(
             reference_revision,

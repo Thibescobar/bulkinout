@@ -10,7 +10,7 @@ The LLM-backed CLI commands currently use the built-in OpenAI adapters and requi
 |---|---|---|
 | `OPENAI_API_KEY` | Authenticates OpenAI SDK requests | Environment only |
 | `BULKINOUT_EXTRACTION_MODEL` | Default Core extraction model | After explicit extraction and shared arguments |
-| `BULKINOUT_DECISION_MODEL` | Default Request decision model | After explicit decision and shared arguments |
+| `BULKINOUT_DECISION_MODEL` | Default Request decision model for `llm` and `shadow` modes | After explicit decision and shared arguments |
 | `BULKINOUT_MODEL` | Backward-compatible shared fallback | Last |
 
 For `run_request()`, the exact priority is stage-specific argument, shared `model=` argument, stage-specific environment variable, then `BULKINOUT_MODEL`. The CLI applies the same order with `--extraction-model`, `--decision-model`, and `--model`. `build_radiology_case(model=...)` configures extraction only. Python callers may inject custom components; their configuration is owned by those components.
@@ -92,7 +92,7 @@ The ten standard JSON snapshots and HTML handoff are overwritten. Writes are not
 
 ## Decision and approval states
 
-The main decision states are `selected`, `insufficient_information`, `no_imaging_recommended`, and `safety_blocked`. A required unanswered discriminator forces `insufficient_information`. Missing high-impact modality information can also prevent approval, while explicit unresolved safety checks can force `safety_blocked`.
+The main decision states are `selected`, `radiologist_selection_required`, `insufficient_information`, `no_imaging_recommended`, and `safety_blocked`. `radiologist_selection_required` carries supported options without claiming that Bulkinout chose one. A required unanswered discriminator forces `insufficient_information`. Missing high-impact modality information can also prevent approval, while explicit unresolved safety checks can force `safety_blocked`.
 
 The request status is independently derived:
 
@@ -102,7 +102,7 @@ The request status is independently derived:
 
 `validated_by_clinician` defaults to `false`. Bulkinout provides no authentication, electronic signature, order-entry integration, or transmission mechanism. A qualified clinician remains responsible for verifying the patient, indication, extracted facts, contraindications, examination, protocol, urgency, and destination before any use.
 
-The radiology handoff adds a separate review state. `ready_for_radiologist_review` means a proposal and its evidence can be reviewed; `clinician_contact_required` means no examination is presented as transmissible and direct discussion is required; `draft` is neither state. References are marked `scenario_background`: they document the local scenario's source, not source-organization approval of the patient-specific proposal.
+The radiology handoff adds a separate review state. `ready_for_radiologist_review` means a preferred proposal or an unselected supported option set and its evidence can be reviewed; `clinician_contact_required` means no examination is presented as transmissible and direct discussion is required; `draft` is neither state. References are marked `scenario_background`: they document the local scenario's source, not source-organization approval of the patient-specific proposal.
 
 ## Failure modes and troubleshooting
 
@@ -112,7 +112,7 @@ The CLI prints concise progress to standard output. Expected configuration, inpu
 |---|---|---|
 | `OPENAI_API_KEY is missing.` | Key is absent from the process environment | Use `test -n "$OPENAI_API_KEY" && echo configured` without printing the value |
 | `No extraction model configured` | No extraction-specific or shared model is configured | Set the extraction option or environment variable, or a shared fallback |
-| `No decision model configured` | No decision-specific or shared model is configured | Set the decision option or environment variable, or a shared fallback |
+| `No decision model configured` | No decision-specific or shared model is configured in `llm` or `shadow` mode | Set the decision option or environment variable, a shared fallback, or explicitly choose deterministic mode |
 | `No supported document found` | Empty path, wrong path, or unsupported extensions | Confirm the directory and use PDF, TXT, Markdown, PNG, JPEG, or WebP |
 | OpenAI authentication or network error | Invalid credentials, connectivity, quota, or service failure | Verify the runtime environment and provider status; no retry policy is implemented |
 | Pydantic validation error after a model call | Returned structured data did not satisfy the schema | Preserve the exception and model name; retry only after assessing whether the failure is transient |

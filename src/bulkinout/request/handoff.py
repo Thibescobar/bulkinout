@@ -204,6 +204,7 @@ class RadiologyHandoff(BaseModel):
     decision_trace: HandoffDecisionTrace
     citations: list[HandoffCitation] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    radiologist_selection_required: bool = False
     human_approval_required: bool = True
     run_manifest_filename: str = "run_manifest.json"
 
@@ -379,7 +380,12 @@ def build_radiology_handoff(
         "Les références citées ont informé le référentiel local ; elles ne constituent pas une approbation de cette proposition particulière.",
         "Les réponses déclarées ne constituent ni une authentification ni une signature clinique.",
     ]
-    if decision.secondary:
+    selection_required = decision.decision_status == "radiologist_selection_required"
+    if selection_required:
+        warnings.append(
+            "Aucune option n'est présélectionnée : le radiologue doit choisir parmi les examens présentés."
+        )
+    elif decision.secondary:
         warnings.append(
             "Les alternatives sont présentées pour discussion ; seule la proposition privilégiée a déterminé les vérifications de cette analyse."
         )
@@ -395,6 +401,7 @@ def build_radiology_handoff(
         decision_trace=trace,
         citations=_citations(reference_context),
         warnings=warnings,
+        radiologist_selection_required=selection_required,
     )
 
 
@@ -668,20 +675,54 @@ def _recommendation_option(
 def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
     """Render a self-contained, escaped French review page without remote assets."""
 
-    status = {
-        "ready_for_radiologist_review": "Proposition à valider par le radiologue",
-        "clinician_contact_required": "Appel au téléradiologue requis",
-        "draft": "Dossier en préparation",
-    }[handoff.status]
+    status = (
+        "Choix de l’examen par le radiologue requis"
+        if handoff.radiologist_selection_required
+        else {
+            "ready_for_radiologist_review": "Proposition à valider par le radiologue",
+            "clinician_contact_required": "Appel au téléradiologue requis",
+            "draft": "Dossier en préparation",
+        }[handoff.status]
+    )
     proposal = handoff.proposal
     request = handoff.request
-    proposal_is_reviewable = (
-        handoff.status == "ready_for_radiologist_review" and proposal.recommended
+    proposal_is_reviewable = handoff.status == "ready_for_radiologist_review" and (
+        proposal.recommended or handoff.radiologist_selection_required
     )
-    proposal_label = "Examen proposé" if proposal_is_reviewable else "Examen envisagé, non proposé"
-    proposal_name = proposal.exam_name or request.requested_exam or "Aucun examen renseigné"
+    proposal_label = (
+        "Choix demandé au radiologue"
+        if handoff.radiologist_selection_required
+        else "Examen proposé"
+        if proposal_is_reviewable
+        else "Examen envisagé, non proposé"
+    )
+    proposal_name = (
+        "Voir les options présentées ci-dessus"
+        if handoff.radiologist_selection_required
+        else proposal.exam_name or request.requested_exam or "Aucun examen renseigné"
+    )
     contrast = _clinical_value(request.contrast or proposal.contrast)
     urgency = _clinical_value(request.urgency or proposal.urgency)
+    request_exam_summary = (
+        f"<p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>"
+        if handoff.radiologist_selection_required
+        else (
+            f"<p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>"
+            f"<p><strong>Protocole :</strong> "
+            f"{escape(request.protocol_requested or proposal.protocol or 'Non renseigné')} — "
+            f"<strong>Contraste :</strong> {escape(contrast)} — "
+            f"<strong>Urgence :</strong> {escape(urgency)}</p>"
+        )
+    )
+    clinical_question = (
+        request.clinical_question
+        or (
+            None
+            if handoff.radiologist_selection_required
+            else proposal.clinical_question_for_radiologist
+        )
+        or "Non renseignée"
+    )
     history = (
         _clinical_summary_items(handoff.supporting_facts, _HISTORY_SUMMARY_FIELDS, omit_falsy=True)
         or request.relevant_history
@@ -718,22 +759,30 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             _recommendation_option(
                 proposal,
                 option_value="primary",
-                position="Proposition privilégiée par Bulkinout",
-                checked=True,
+                position=(
+                    "Option 1"
+                    if handoff.radiologist_selection_required
+                    else "Proposition privilégiée par Bulkinout"
+                ),
+                checked=not handoff.radiologist_selection_required,
             )
         ]
         exam_options.extend(
             _recommendation_option(
                 alternative,
                 option_value=f"secondary-{index}",
-                position=f"Alternative {index}",
+                position=(
+                    f"Option {index + 1}"
+                    if handoff.radiologist_selection_required
+                    else f"Alternative {index}"
+                ),
             )
             for index, alternative in enumerate(handoff.alternative_proposals, start=1)
         )
         proposal_notice = (
             '<section class="proposal"><h2>Choix à présenter au radiologue</h2>'
             f'<div class="exam-options">{"".join(exam_options)}</div>'
-            '<p class="muted">Présélection visuelle uniquement — ce choix n’est pas enregistré '
+            f'<p class="muted">{"Sélection" if handoff.radiologist_selection_required else "Présélection"} visuelle uniquement — ce choix n’est pas enregistré '
             "et ne modifie pas la demande générée.</p>"
             "</section>"
         )
@@ -777,11 +826,8 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h2>Demande clinique</h2>
 <p><strong>Patient :</strong> {escape(_clinical_patient_summary(handoff) or "Non renseigné")}</p>
 <p><strong>Indication :</strong> {escape(_clinical_indication(handoff) or "Non renseignée")}</p>
-<p><strong>Question clinique :</strong> {escape(request.clinical_question or proposal.clinical_question_for_radiologist or "Non renseignée")}</p>
-<p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>
-<p><strong>Protocole :</strong> {escape(request.protocol_requested or proposal.protocol or "Non renseigné")} —
-<strong>Contraste :</strong> {escape(contrast)} —
-<strong>Urgence :</strong> {escape(urgency)}</p>
+<p><strong>Question clinique :</strong> {escape(clinical_question)}</p>
+{request_exam_summary}
 <h2>Synthèse clinique transmise</h2>
 <h3>Antécédents pertinents</h3>{_items(history)}
 <h3>Traitements et allergies</h3>{_items(medications_and_allergies)}

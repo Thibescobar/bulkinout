@@ -61,6 +61,7 @@ def cmd_request_run(args: argparse.Namespace) -> None:
             model=args.model,
             extraction_model=args.extraction_model,
             decision_model=args.decision_model,
+            decision_mode=getattr(args, "decision_mode", "llm"),
             cold=getattr(args, "cold", False),
             answers_path=Path(args.answers) if args.answers else None,
         )
@@ -99,6 +100,10 @@ def _print_proposed_examination(result: RequestResult) -> None:
         print(f"Examen proposé au radiologue : {decision.primary.exam_name}")
     elif decision.decision_status == "no_imaging_recommended":
         print("Examen proposé au radiologue : aucun — imagerie initiale non recommandée")
+    elif decision.decision_status == "radiologist_selection_required":
+        options = [decision.primary, *decision.secondary]
+        names = [option.exam_name for option in options if option.exam_name]
+        print(f"Choix transmis au radiologue : {' | '.join(names)}")
     else:
         print("Examen proposé au radiologue : aucun à ce stade — échange direct requis")
 
@@ -128,6 +133,7 @@ def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
         reference_dir=reference_dir,
         model=args.model,
         decision_model=args.decision_model,
+        decision_mode=getattr(args, "decision_mode", "llm"),
         cold=getattr(args, "cold", False),
     )
     write_request_outputs(result, output_dir)
@@ -157,6 +163,7 @@ def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
                 reference_dir=reference_dir,
                 model=args.model,
                 decision_model=args.decision_model,
+                decision_mode=getattr(args, "decision_mode", "llm"),
                 cold=getattr(args, "cold", False),
                 answers_path=answer_path,
             )
@@ -310,6 +317,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--decision-model",
         default=None,
         help="Request decision model (default: BULKINOUT_DECISION_MODEL, then shared fallback)",
+    )
+    run.add_argument(
+        "--decision-mode",
+        choices=("llm", "deterministic", "shadow"),
+        default="llm",
+        help="Request decision engine mode (default: llm)",
     )
     run.add_argument(
         "--cold",

@@ -79,6 +79,7 @@ def build_teleradiology_request(
     questions: list[MissingQuestion],
 ) -> TeleradiologyRequest:
     primary = decision.primary
+    selection_required = decision.decision_status == "radiologist_selection_required"
     history = _labeled_values(
         [
             (case.history, "oncology", "Oncologie"),
@@ -117,17 +118,21 @@ def build_teleradiology_request(
         status=_request_status(decision, questions),
         patient_summary=_patient_summary(case),
         indication=cast(str | None, _clean_value(case.current_problem, "indication")),
-        requested_exam=primary.exam_name
-        or " ".join(filter(None, [primary.modality, primary.body_region])),
-        protocol_requested=primary.protocol,
-        contrast=primary.contrast,
-        urgency=primary.urgency,
-        clinical_question=primary.clinical_question_for_radiologist,
+        requested_exam=(
+            None
+            if selection_required
+            else primary.exam_name
+            or " ".join(filter(None, [primary.modality, primary.body_region]))
+        ),
+        protocol_requested=None if selection_required else primary.protocol,
+        contrast="unknown" if selection_required else primary.contrast,
+        urgency="unknown" if selection_required else primary.urgency,
+        clinical_question=None if selection_required else primary.clinical_question_for_radiologist,
         relevant_history=history,
         medications_and_allergies=medications_and_allergies,
         relevant_labs=labs,
         relevant_prior_imaging=_prior_imaging_summary(case.prior_imaging),
         safety_information=safety,
         unresolved_items=[question.question for question in questions],
-        rationale_for_exam=primary.rationale,
+        rationale_for_exam=[] if selection_required else primary.rationale,
     )

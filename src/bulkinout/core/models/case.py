@@ -148,7 +148,11 @@ class ImagingRecommendation(BaseModel):
 
 class ImagingDecision(BaseModel):
     decision_status: Literal[
-        "selected", "insufficient_information", "no_imaging_recommended", "safety_blocked"
+        "selected",
+        "radiologist_selection_required",
+        "insufficient_information",
+        "no_imaging_recommended",
+        "safety_blocked",
     ] = "insufficient_information"
     candidates: list[CandidateExam] = Field(default_factory=list)
     discriminating_questions: list[DiscriminatingQuestion] = Field(default_factory=list)

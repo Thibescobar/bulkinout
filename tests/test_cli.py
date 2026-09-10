@@ -113,6 +113,7 @@ def test_request_run_delegates_and_writes_all_outputs(monkeypatch, tmp_path, cap
                 "model": "model",
                 "extraction_model": "extraction-model",
                 "decision_model": "decision-model",
+                "decision_mode": "llm",
                 "cold": True,
                 "answers_path": answers,
             },

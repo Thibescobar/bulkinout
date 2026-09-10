@@ -76,6 +76,22 @@ def write_request_outputs(result: RequestResult, output_dir: Path) -> None:
         payloads["radiology_handoff.json"] = cast(
             JsonObject, result.radiology_handoff.model_dump(mode="json")
         )
+    if result.decision_comparison is not None:
+        assert result.llm_decision is not None
+        assert result.deterministic_decision is not None
+        payloads.update(
+            {
+                "imaging_decision_llm.json": cast(
+                    JsonObject, result.llm_decision.model_dump(mode="json")
+                ),
+                "imaging_decision_deterministic.json": cast(
+                    JsonObject, result.deterministic_decision.model_dump(mode="json")
+                ),
+                "decision_comparison.json": cast(
+                    JsonObject, result.decision_comparison.model_dump(mode="json")
+                ),
+            }
+        )
     for filename, payload in payloads.items():
         write_json(output_dir / filename, payload)
     if result.radiology_handoff is not None:

@@ -268,6 +268,45 @@ def test_blocked_handoff_does_not_present_raw_model_exam_as_a_recommendation():
     assert "<strong>Examen proposé" not in html
 
 
+def test_radiologist_selection_handoff_presents_unselected_options():
+    decision = ImagingDecision(
+        decision_status="radiologist_selection_required",
+        primary=ImagingRecommendation(
+            recommended=False,
+            exam_name="Angioscanner pulmonaire",
+            modality="CT",
+            contrast="yes",
+        ),
+        secondary=[
+            ImagingRecommendation(
+                recommended=False,
+                exam_name="Scintigraphie V/Q",
+                modality="NM",
+                contrast="no",
+            )
+        ],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+    request = TeleradiologyRequest(status="ready_for_human_approval")
+
+    handoff = build_radiology_handoff(
+        ClinicalCase(), decision, [], request, {"matched_scenarios": []}
+    )
+    html = render_radiology_handoff_html(handoff)
+
+    assert handoff.status == "ready_for_radiologist_review"
+    assert handoff.radiologist_selection_required is True
+    assert "Choix de l’examen par le radiologue requis" in html
+    assert "Option 1" in html
+    assert "Option 2" in html
+    assert 'name="exam-choice"' in html
+    assert 'value="primary" checked' not in html
+    assert 'value="secondary-1" checked' not in html
+    assert "Voir les options présentées ci-dessus" in html
+    assert "Appel au téléradiologue requis" not in html
+
+
 def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace():
     case = ClinicalCase(
         patient={"age": observed(58), "sex": observed("male")},
