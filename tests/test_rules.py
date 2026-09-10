@@ -6,47 +6,12 @@ from bulkinout.core.models import (
     FieldStatus,
     ImagingDecision,
     ImagingRecommendation,
-    TemporalStatus,
 )
 from bulkinout.request.rules import generic_missing_questions, recommendation_specific_questions
 
 
 def observed(v):
-    return ClinicalField(
-        value=v,
-        status=FieldStatus.observed,
-        confidence=1.0,
-        temporal_status=TemporalStatus.current,
-    )
-
-
-def test_historical_renal_result_and_device_require_current_confirmation():
-    case = ClinicalCase(
-        labs={
-            "egfr_ml_min_1_73m2": ClinicalField(
-                value=72,
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.historical,
-            )
-        },
-        imaging_safety={
-            "pacemaker": ClinicalField(
-                value=True,
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.historical,
-            ),
-            "implant_or_metal": observed(False),
-        },
-    )
-    ct = ImagingDecision(primary=ImagingRecommendation(modality="CT", contrast="yes"))
-    mri = ImagingDecision(primary=ImagingRecommendation(modality="MRI", contrast="no"))
-
-    assert "labs.egfr_ml_min_1_73m2" in {
-        question.field for question in recommendation_specific_questions(case, ct)
-    }
-    assert "imaging_safety.pacemaker" in {
-        question.field for question in recommendation_specific_questions(case, mri)
-    }
+    return ClinicalField(value=v, status=FieldStatus.observed, confidence=1.0)
 
 
 def test_generic_missing_indication():

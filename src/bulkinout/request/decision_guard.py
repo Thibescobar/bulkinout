@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from ..core.models import (
-    ClinicalCase,
-    DiscriminatingQuestion,
-    FieldStatus,
-    ImagingDecision,
-    TemporalStatus,
-)
+from ..core.models import ClinicalCase, DiscriminatingQuestion, FieldStatus, ImagingDecision
 from ..types import JsonValue
 
 
@@ -19,10 +13,6 @@ def _get_case_value(case: ClinicalCase, field_path: str) -> tuple[JsonValue, boo
         return None, True
     f = section.get(key)
     if f is None or f.status in {FieldStatus.unknown, FieldStatus.conflicting}:
-        return None, True
-    if not field_path.startswith(("patient.", "history.")) and (
-        f.temporal_status != TemporalStatus.current
-    ):
         return None, True
     return f.value, False
 

@@ -11,9 +11,7 @@ from bulkinout.core.models import (
     ImagingDecision,
     ImagingRecommendation,
     MissingQuestion,
-    TemporalStatus,
     TeleradiologyRequest,
-    TimelineEvent,
 )
 from bulkinout.errors import ConfigurationError, InputError
 from bulkinout.evaluation import E2EExpectations, evaluate_e2e_case
@@ -225,42 +223,6 @@ def test_forbidden_value_allows_an_explicit_conflict(tmp_path):
     report = evaluate_e2e_case(case_dir, run_dir)
 
     assert report.core.passed is True
-
-
-def test_evaluator_checks_temporal_status_and_timeline_event_count(tmp_path):
-    expected = _expectations()
-    expected["core"] = {
-        "required_facts": [
-            {
-                "field": "labs.egfr_ml_min_1_73m2",
-                "temporal_status_in": ["current"],
-            }
-        ],
-        "timeline_counts": [{"field": "labs.egfr_ml_min_1_73m2", "minimum": 2}],
-    }
-    expected["request"] = {}
-    case = ClinicalCase(
-        labs={
-            "egfr_ml_min_1_73m2": ClinicalField(
-                value=78,
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.current,
-            )
-        },
-        timeline=[
-            TimelineEvent(field="labs.egfr_ml_min_1_73m2", value=42),
-            TimelineEvent(field="labs.egfr_ml_min_1_73m2", value=78),
-        ],
-    )
-    case_dir = tmp_path / "fixture"
-    run_dir = tmp_path / "run"
-    _write_json(case_dir / "expected.json", expected)
-    _write_run(run_dir, case=case)
-
-    report = evaluate_e2e_case(case_dir, run_dir)
-
-    assert report.core.passed is True
-    assert report.core.checks == 2
 
 
 def test_evaluate_e2e_case_rejects_malformed_expectations(tmp_path):

@@ -1,18 +1,13 @@
 from pathlib import Path
 
-from bulkinout.core.models import ClinicalCase, ClinicalField, FieldStatus, TemporalStatus
+from bulkinout.core.models import ClinicalCase, ClinicalField, FieldStatus
 from bulkinout.request.reference_engine import ReferenceEngine
 
 ROOT = Path(__file__).parents[1]
 
 
 def observed(value):
-    return ClinicalField(
-        value=value,
-        status=FieldStatus.observed,
-        confidence=1.0,
-        temporal_status=TemporalStatus.current,
-    )
+    return ClinicalField(value=value, status=FieldStatus.observed, confidence=1.0)
 
 
 def test_candidate_when_filters_renal_colic_pregnancy():

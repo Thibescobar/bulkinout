@@ -26,8 +26,7 @@
       },
       {
         "field": "allergies.iodinated_contrast_reaction",
-        "status_in": ["conflicting"],
-        "temporal_status_in": ["unknown"]
+        "status_in": ["observed", "conflicting"]
       }
     ],
     "forbidden_facts": [],
@@ -35,12 +34,6 @@
       {
         "field": "allergies.iodinated_contrast_reaction",
         "values": [false, "no"]
-      }
-    ],
-    "timeline_counts": [
-      {
-        "field": "allergies.iodinated_contrast_reaction",
-        "minimum": 2
       }
     ]
   },

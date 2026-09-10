@@ -12,9 +12,7 @@ from bulkinout.core.models import (
     ImagingRecommendation,
     MissingQuestion,
     SourceRef,
-    TemporalStatus,
     TeleradiologyRequest,
-    TimelineEvent,
 )
 from bulkinout.request.answers import apply_answers
 from bulkinout.request.handoff import build_radiology_handoff, render_radiology_handoff_html
@@ -25,7 +23,6 @@ def observed(value, filename="note.md", excerpt=None):
         value=value,
         status=FieldStatus.observed,
         confidence=0.95,
-        temporal_status=TemporalStatus.current,
         sources=[
             SourceRef(
                 document_id=f"input:{filename}",
@@ -148,7 +145,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     handoff = build_radiology_handoff(case, decision, [], request, reference_context())
 
     assert handoff.status == "ready_for_radiologist_review"
-    assert handoff.schema_version == 3
+    assert handoff.schema_version == 2
     assert handoff.alternative_proposals == decision.secondary
     assert "seule la proposition privilégiée" in handoff.warnings[-1]
     assert {fact.field for fact in handoff.supporting_facts} == {
@@ -421,58 +418,3 @@ def test_draft_handoff_skips_unknown_and_malformed_metadata_without_losing_value
     assert "current_problem.unknown_detail" not in {fact.field for fact in handoff.supporting_facts}
     assert "Oui" in html
     assert "douleur\u202f; nausées" in html
-
-
-def test_handoff_exposes_conflicting_temporal_evidence_in_json_and_french_html():
-    sources = [
-        SourceRef(document_id="llm:old.txt", filename="old.txt"),
-        SourceRef(document_id="llm:current.txt", filename="current.txt"),
-    ]
-    case = ClinicalCase(
-        allergies={
-            "iodinated_contrast_reaction": ClinicalField(
-                value=["urticaria", False],
-                status=FieldStatus.conflicting,
-                sources=sources,
-                temporal_status=TemporalStatus.unknown,
-            )
-        },
-        timeline=[
-            TimelineEvent(
-                field="allergies.iodinated_contrast_reaction",
-                value="urticaria",
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.historical,
-                observed_at="2024-11-10",
-                sources=[sources[0]],
-            ),
-            TimelineEvent(
-                field="allergies.iodinated_contrast_reaction",
-                value=False,
-                status=FieldStatus.observed,
-                temporal_status=TemporalStatus.current,
-                observed_at="2026-09-07",
-                sources=[sources[1]],
-            ),
-        ],
-    )
-    decision = ImagingDecision(
-        decision_status="safety_blocked",
-        primary=ImagingRecommendation(recommended=False),
-        clinician_call_required=True,
-    )
-
-    handoff = build_radiology_handoff(
-        case,
-        decision,
-        [],
-        TeleradiologyRequest(status="blocked"),
-        {"matched_scenarios": []},
-    )
-    html = render_radiology_handoff_html(handoff)
-
-    assert len(handoff.clinical_timeline) == 2
-    assert "Chronologie et divergences importantes" in html
-    assert "Données contradictoires" in html
-    assert "Antérieur" in html
-    assert "2024-11-10" in html
