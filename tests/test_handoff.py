@@ -177,7 +177,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Étude ciblée de la fosse iliaque droite" in html
     assert "Alternative sans irradiation selon le contexte clinique." in html
     assert "Dépend de l’expertise et de la fenêtre acoustique." in html
-    assert html.count("Argumentaire généré par Bulkinout — à vérifier") == 2
+    assert html.count("Éléments de justification — à vérifier") == 2
     assert "Justification de la proposition" not in html
     assert "Présélection visuelle uniquement" in html
     assert html.count('name="exam-choice"') == 2
@@ -297,13 +297,48 @@ def test_radiologist_selection_handoff_presents_unselected_options():
     assert handoff.radiologist_selection_required is True
     assert handoff.decision_trace.selected_reference_candidate is None
     assert "Choix de l’examen par le radiologue requis" in html
+    assert "Décision attendue" in html
+    assert "Options à comparer" in html
+    assert "Appel préalable : non requis" in html
     assert "Option 1" in html
     assert "Option 2" in html
     assert 'name="exam-choice"' in html
     assert 'value="primary" checked' not in html
     assert 'value="secondary-1" checked' not in html
     assert "Voir les options présentées ci-dessus" in html
+    assert "Afficher le dossier clinique détaillé et ses sources" in html
     assert "Appel au téléradiologue requis" not in html
+
+
+def test_radiologist_selection_handoff_omits_summary_without_an_exam():
+    decision = ImagingDecision(
+        decision_status="radiologist_selection_required",
+        primary=ImagingRecommendation(
+            recommended=False,
+            rationale=["Deux examens restent appropriés."],
+            safety_considerations=["Le choix dépend des procédures locales."],
+        ),
+        secondary=[
+            ImagingRecommendation(exam_name="Angioscanner pulmonaire", modality="CT"),
+            ImagingRecommendation(exam_name="Scintigraphie V/Q", modality="NM"),
+        ],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+    handoff = build_radiology_handoff(
+        ClinicalCase(),
+        decision,
+        [],
+        TeleradiologyRequest(status="ready_for_human_approval"),
+        {"matched_scenarios": []},
+    )
+
+    html = render_radiology_handoff_html(handoff)
+
+    assert html.count('name="exam-choice"') == 2
+    assert "Examen non renseigné" not in html
+    assert "Deux examens restent appropriés." in html
+    assert "Pourquoi le choix reste ouvert" in html
 
 
 def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace():

@@ -638,6 +638,19 @@ def _recommendation_name(recommendation: ImagingRecommendation) -> str:
     )
 
 
+def _selection_options(handoff: RadiologyHandoff) -> list[ImagingRecommendation]:
+    options: list[ImagingRecommendation] = []
+    seen: set[tuple[str | None, str | None, str | None]] = set()
+    for recommendation in [handoff.proposal, *handoff.alternative_proposals]:
+        if not (recommendation.exam_name or recommendation.modality):
+            continue
+        key = (recommendation.exam_name, recommendation.modality, recommendation.protocol)
+        if key not in seen:
+            options.append(recommendation)
+            seen.add(key)
+    return options
+
+
 def _recommendation_option(
     recommendation: ImagingRecommendation,
     *,
@@ -653,10 +666,9 @@ def _recommendation_option(
             f"Urgence : {_clinical_value(recommendation.urgency)}",
         ]
     )
-    rationale = " ".join(recommendation.rationale) or "Argumentaire non renseigné."
     conditions = recommendation.safety_considerations + recommendation.missing_information
     conditions_html = (
-        f'<span class="exam-conditions">Points d’attention : {escape(" ".join(conditions))}</span>'
+        f'<div class="exam-conditions"><b>Points d’attention</b>{_items(conditions)}</div>'
         if conditions
         else ""
     )
@@ -664,12 +676,52 @@ def _recommendation_option(
         '<label class="exam-option">'
         f'<input type="radio" name="exam-choice" value="{escape(option_value)}"'
         f"{checked_attribute}>"
-        f'<span class="exam-card"><small>{escape(position)}</small>'
+        f'<div class="exam-card"><small>{escape(position)}</small>'
         f"<strong>{escape(_recommendation_name(recommendation))}</strong>"
-        f'<span class="exam-details">{escape(details)}</span>'
-        '<span class="exam-rationale"><b>Argumentaire généré par Bulkinout — à vérifier</b>'
-        f"{escape(rationale)}</span>"
-        f"{conditions_html}</span></label>"
+        f'<div class="exam-details">{escape(details)}</div>'
+        '<div class="exam-rationale"><b>Éléments de justification — à vérifier</b>'
+        f"{_items(recommendation.rationale, empty='Argumentaire non renseigné.')}</div>"
+        f"{conditions_html}</div></label>"
+    )
+
+
+def _selection_overview(handoff: RadiologyHandoff, options: list[ImagingRecommendation]) -> str:
+    if not handoff.radiologist_selection_required:
+        return ""
+    urgency = next(
+        (_clinical_value(option.urgency) for option in options if option.urgency != "unknown"),
+        "Non renseignée",
+    )
+    safety = _clinical_summary_items(
+        handoff.safety_facts, {fact.field for fact in handoff.safety_facts}
+    )
+    general_reasoning = (
+        handoff.proposal.rationale
+        if not (handoff.proposal.exam_name or handoff.proposal.modality)
+        else []
+    )
+    reasoning = (
+        '<details class="decision-reasoning"><summary>Pourquoi le choix reste ouvert</summary>'
+        f"{_items(general_reasoning)}</details>"
+        if general_reasoning
+        else ""
+    )
+    return (
+        '<section class="decision-overview"><h2>Décision attendue</h2>'
+        f"<p><strong>Comparer {len(options)} examens et retenir l’option adaptée au contexte "
+        "clinique et aux procédures locales.</strong></p>"
+        '<div class="decision-markers">'
+        f"<span>Urgence : {escape(urgency)}</span>"
+        f"<span>{len(options)} options</span>"
+        "<span>Appel préalable : non requis</span></div>"
+        + (
+            '<div class="decision-alert"><b>Points de vigilance du dossier</b>'
+            f"{_items(safety)}</div>"
+            if safety
+            else ""
+        )
+        + reasoning
+        + "</section>"
     )
 
 
@@ -756,32 +808,37 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         )
         alternatives_section = f"<h2>Alternatives considérées</h2>{_items(proposal.alternatives)}"
     else:
+        recommendations = (
+            _selection_options(handoff)
+            if handoff.radiologist_selection_required
+            else [proposal, *handoff.alternative_proposals]
+        )
         exam_options = [
             _recommendation_option(
-                proposal,
-                option_value="primary",
+                recommendation,
+                option_value=(
+                    f"option-{index}"
+                    if handoff.radiologist_selection_required
+                    else "primary"
+                    if index == 1
+                    else f"secondary-{index - 1}"
+                ),
                 position=(
-                    "Option 1"
+                    f"Option {index}"
                     if handoff.radiologist_selection_required
                     else "Proposition privilégiée par Bulkinout"
+                    if index == 1
+                    else f"Alternative {index - 1}"
                 ),
-                checked=not handoff.radiologist_selection_required,
+                checked=not handoff.radiologist_selection_required and index == 1,
             )
+            for index, recommendation in enumerate(recommendations, start=1)
         ]
-        exam_options.extend(
-            _recommendation_option(
-                alternative,
-                option_value=f"secondary-{index}",
-                position=(
-                    f"Option {index + 1}"
-                    if handoff.radiologist_selection_required
-                    else f"Alternative {index}"
-                ),
-            )
-            for index, alternative in enumerate(handoff.alternative_proposals, start=1)
-        )
         proposal_notice = (
-            '<section class="proposal"><h2>Choix à présenter au radiologue</h2>'
+            f"{_selection_overview(handoff, recommendations)}"
+            '<section class="proposal"><h2>'
+            f"{'Options à comparer' if handoff.radiologist_selection_required else 'Choix à présenter au radiologue'}"
+            "</h2>"
             f'<div class="exam-options">{"".join(exam_options)}</div>'
             f'<p class="muted">{"Sélection" if handoff.radiologist_selection_required else "Présélection"} visuelle uniquement — ce choix n’est pas enregistré '
             "et ne modifie pas la demande générée.</p>"
@@ -799,36 +856,7 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         else ""
     )
     unresolved = [question.question for question in handoff.unresolved_questions]
-    html = f"""<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<meta name="referrer" content="no-referrer"><title>Dossier de revue radiologique</title>
-<style>
-body{{font:16px/1.5 system-ui,sans-serif;color:#173042;background:#f5f8fa;margin:0}}
-main{{max-width:1050px;margin:32px auto;background:white;padding:36px;border-radius:14px}}
-h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;padding-bottom:6px}}
-.status{{display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1dc;color:#8a4b00}}
-.proposal{{margin:20px 0}}.proposal h2{{margin-top:0}}
-.exam-options{{display:grid;gap:10px}}.exam-option{{cursor:pointer;position:relative}}
-.exam-option input{{position:absolute;opacity:0}}.exam-card{{display:flex;flex-direction:column;gap:5px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
-.exam-option input:checked + .exam-card{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
-.exam-option input:focus-visible + .exam-card{{outline:3px solid #ef7d32;outline-offset:2px}}
-.exam-card small{{color:#405b66}}.exam-card strong{{font-size:1.15rem;color:#075b66}}
-.exam-details{{color:#405b66}}.exam-rationale{{display:flex;flex-direction:column;gap:2px;margin-top:4px}}.exam-rationale b{{font-size:.9rem;color:#8a4b00}}.exam-conditions{{color:#8a4b00}}
-.warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
-.muted,small{{color:#5c6f78}}table{{width:100%;border-collapse:collapse}}
-th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
-details{{margin-top:32px;border:1px solid #d9e4e8;border-radius:10px;padding:14px}}
-summary{{color:#405b66;font-weight:700;cursor:pointer}}details h3{{margin-top:24px}}
-.handoff-action{{margin-top:32px}}.handoff-action button{{border:0;border-radius:7px;padding:12px 16px;background:#087f8c;color:white;font-weight:700;opacity:.6}}
-code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:white}}main{{margin:0;padding:0}}}}
-</style></head><body><main>
-<h1>Dossier de revue radiologique</h1><p class="status">{escape(status)}</p>
-{proposal_notice}
-<h2>Demande clinique</h2>
-<p><strong>Patient :</strong> {escape(_clinical_patient_summary(handoff) or "Non renseigné")}</p>
-<p><strong>Indication :</strong> {escape(_clinical_indication(handoff) or "Non renseignée")}</p>
-<p><strong>Question clinique :</strong> {escape(clinical_question)}</p>
-{request_exam_summary}
+    clinical_details = f"""
 <h2>Synthèse clinique transmise</h2>
 <h3>Antécédents pertinents</h3>{_items(history)}
 <h3>Traitements et allergies</h3>{_items(medications_and_allergies)}
@@ -840,9 +868,60 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media print{{body{{background:whi
 <h2>Clarifications du clinicien</h2>{_clarification_table(handoff.clarifications)}
 <h2>Informations cliniques retenues et sources</h2>{_clinical_fact_table(handoff.supporting_facts)}
 <h2>Sécurité</h2>{_clinical_fact_table(handoff.safety_facts)}
-<h2>Informations encore nécessaires</h2>{_items(unresolved)}
-<h2>Références documentaires</h2>{_citation_list(handoff.citations)}
-<h2>Avertissements</h2>{"".join(f'<p class="warning">{escape(item)}</p>' for item in handoff.warnings)}
+<h2>Informations encore nécessaires</h2>{_items(unresolved)}"""
+    warnings_html = "".join(f'<p class="warning">{escape(item)}</p>' for item in handoff.warnings)
+    review_details = (
+        '<details class="clinical-details"><summary>Afficher le dossier clinique détaillé et ses sources</summary>'
+        f"{clinical_details}</details>"
+        "<details><summary>Afficher les références et avertissements</summary>"
+        f"<h2>Références documentaires</h2>{_citation_list(handoff.citations)}"
+        "<h2>Avertissements</h2>"
+        f"{warnings_html}"
+        "</details>"
+        if proposal_is_reviewable
+        else (
+            f"{clinical_details}"
+            f"<h2>Références documentaires</h2>{_citation_list(handoff.citations)}"
+            "<h2>Avertissements</h2>"
+            f"{warnings_html}"
+        )
+    )
+    html = f"""<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<meta name="referrer" content="no-referrer"><title>Dossier de revue radiologique</title>
+<style>
+body{{font:16px/1.5 system-ui,sans-serif;color:#173042;background:#f5f8fa;margin:0}}
+main{{max-width:1050px;margin:32px auto;background:white;padding:36px;border-radius:14px}}
+h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;padding-bottom:6px}}
+.status{{display:inline-block;padding:7px 12px;border-radius:999px;background:#fff1dc;color:#8a4b00}}
+.decision-overview{{margin:24px 0;padding:18px 20px;border:1px solid #b9dadd;border-radius:12px;background:#f4fbfb}}
+.decision-overview h2{{margin:0 0 12px;border:0;padding:0}}.decision-overview p{{margin:8px 0}}
+.decision-markers{{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}}.decision-markers span{{padding:5px 9px;border-radius:999px;background:white;border:1px solid #b9dadd;color:#075b66;font-weight:650}}
+.decision-alert{{margin-top:14px;padding:12px 14px;border-left:4px solid #ef7d32;background:#fff8f1}}.decision-alert ul{{margin-bottom:0}}
+.decision-reasoning{{margin-top:14px;background:white}}.decision-reasoning ul{{margin-bottom:0}}
+.proposal{{margin:20px 0}}.proposal h2{{margin-top:0}}
+.exam-options{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}}.exam-option{{cursor:pointer;position:relative}}
+.exam-option input{{position:absolute;opacity:0}}.exam-card{{display:flex;flex-direction:column;gap:5px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
+.exam-option input:checked + .exam-card{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
+.exam-option input:focus-visible + .exam-card{{outline:3px solid #ef7d32;outline-offset:2px}}
+.exam-card small{{color:#405b66}}.exam-card strong{{font-size:1.15rem;color:#075b66}}
+.exam-details{{color:#405b66}}.exam-rationale{{display:flex;flex-direction:column;gap:2px;margin-top:8px}}.exam-rationale b,.exam-conditions b{{font-size:.9rem;color:#8a4b00}}.exam-rationale ul,.exam-conditions ul{{margin:3px 0 0;padding-left:20px}}.exam-conditions{{color:#8a4b00;margin-top:6px}}
+.warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
+.muted,small{{color:#5c6f78}}table{{width:100%;border-collapse:collapse}}
+th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
+details{{margin-top:32px;border:1px solid #d9e4e8;border-radius:10px;padding:14px}}
+summary{{color:#405b66;font-weight:700;cursor:pointer}}details h3{{margin-top:24px}}
+.handoff-action{{margin-top:32px}}.handoff-action button{{border:0;border-radius:7px;padding:12px 16px;background:#087f8c;color:white;font-weight:700;opacity:.6}}
+code{{font-size:.88em;overflow-wrap:anywhere}}@media(max-width:700px){{main{{margin:0;padding:22px;border-radius:0}}.exam-options{{grid-template-columns:1fr}}}}@media print{{body{{background:white}}main{{margin:0;padding:0}}details{{display:block}}details>*{{display:block}}}}
+</style></head><body><main>
+<h1>Dossier de revue radiologique</h1><p class="status">{escape(status)}</p>
+{proposal_notice}
+<h2>Demande clinique</h2>
+<p><strong>Patient :</strong> {escape(_clinical_patient_summary(handoff) or "Non renseigné")}</p>
+<p><strong>Indication :</strong> {escape(_clinical_indication(handoff) or "Non renseignée")}</p>
+<p><strong>Question clinique :</strong> {escape(clinical_question)}</p>
+{request_exam_summary}
+{review_details}
 <details><summary>Afficher la traçabilité technique</summary>
 <p class="muted">Ces données canoniques sont destinées à l'audit technique.</p>
 <h3>Structured clinical facts</h3>{_technical_fact_table(handoff.supporting_facts)}
