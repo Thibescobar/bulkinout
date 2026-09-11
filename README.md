@@ -32,6 +32,10 @@ The current Request workflow:
 - blocks unsafe or under-specified proposals;
 - prepares an evidence-backed French handoff for remote radiologist review.
 
+![Bulkinout Request handoff comparing two imaging options](docs/images/request-handoff-overview.png)
+
+*Illustrative synthetic case. Bulkinout prepares the evidence and alternatives; the radiologist retains the final decision.*
+
 ## What v0 supports
 
 ```text
