@@ -641,7 +641,11 @@ def _recommendation_name(recommendation: ImagingRecommendation) -> str:
 def _selection_options(handoff: RadiologyHandoff) -> list[ImagingRecommendation]:
     options: list[ImagingRecommendation] = []
     seen: set[tuple[str | None, str | None, str | None]] = set()
-    for recommendation in [handoff.proposal, *handoff.alternative_proposals]:
+    source = handoff.request.imaging_options or [
+        handoff.proposal,
+        *handoff.alternative_proposals,
+    ]
+    for recommendation in source:
         if not (recommendation.exam_name or recommendation.modality):
             continue
         key = (recommendation.exam_name, recommendation.modality, recommendation.protocol)
@@ -657,8 +661,10 @@ def _recommendation_option(
     option_value: str,
     position: str,
     checked: bool = False,
+    interactive: bool = False,
 ) -> str:
     checked_attribute = " checked" if checked else ""
+    disabled_attribute = "" if interactive else " disabled"
     details = " — ".join(
         [
             f"Protocole : {recommendation.protocol or 'non renseigné'}",
@@ -674,14 +680,36 @@ def _recommendation_option(
     )
     return (
         '<label class="exam-option">'
-        f'<input type="radio" name="exam-choice" value="{escape(option_value)}"'
-        f"{checked_attribute}>"
+        f'<input type="radio" name="preferred_option" value="{escape(option_value)}"'
+        f"{checked_attribute}{disabled_attribute}>"
         f'<div class="exam-card"><small>{escape(position)}</small>'
+        '<span class="preference-marker">Préférence du clinicien</span>'
         f"<strong>{escape(_recommendation_name(recommendation))}</strong>"
         f'<div class="exam-details">{escape(details)}</div>'
         '<div class="exam-rationale"><b>Éléments de justification — à vérifier</b>'
         f"{_items(recommendation.rationale, empty='Argumentaire non renseigné.')}</div>"
         f"{conditions_html}</div></label>"
+    )
+
+
+def _review_summary(handoff: RadiologyHandoff) -> str:
+    review = handoff.request.clinician_review
+    if review is None:
+        return ""
+    if review.action == "contact_teleradiologist":
+        return (
+            '<p class="review-record contact"><strong>Automatisation écartée.</strong> '
+            "Le clinicien demande un échange direct avec le téléradiologue.</p>"
+        )
+    preference = (
+        _recommendation_name(review.preferred_option)
+        if review.preferred_option is not None
+        else "aucune préférence exprimée"
+    )
+    return (
+        '<p class="review-record accepted"><strong>Demande préparée dans Bulkinout.</strong> '
+        f"Préférence du clinicien : {escape(preference)}. "
+        "Le choix final reste celui du radiologue et aucune transmission automatique n’a été effectuée.</p>"
     )
 
 
@@ -725,7 +753,13 @@ def _selection_overview(handoff: RadiologyHandoff, options: list[ImagingRecommen
     )
 
 
-def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
+def render_radiology_handoff_html(
+    handoff: RadiologyHandoff,
+    *,
+    review_action: str | None = None,
+    csp_nonce: str | None = None,
+    responder_role: str | None = None,
+) -> str:
     """Render a self-contained, escaped French review page without remote assets."""
 
     status = (
@@ -757,8 +791,8 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
     contrast = _clinical_value(request.contrast or proposal.contrast)
     urgency = _clinical_value(request.urgency or proposal.urgency)
     request_exam_summary = (
-        f"<p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>"
-        if handoff.radiologist_selection_required
+        ""
+        if proposal_is_reviewable
         else (
             f"<p><strong>{proposal_label} :</strong> {escape(proposal_name)}</p>"
             f"<p><strong>Protocole :</strong> "
@@ -808,21 +842,12 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
         )
         alternatives_section = f"<h2>Alternatives considérées</h2>{_items(proposal.alternatives)}"
     else:
-        recommendations = (
-            _selection_options(handoff)
-            if handoff.radiologist_selection_required
-            else [proposal, *handoff.alternative_proposals]
-        )
+        recommendations = _selection_options(handoff)
+        preferred = request.clinician_review.preferred_option if request.clinician_review else None
         exam_options = [
             _recommendation_option(
                 recommendation,
-                option_value=(
-                    f"option-{index}"
-                    if handoff.radiologist_selection_required
-                    else "primary"
-                    if index == 1
-                    else f"secondary-{index - 1}"
-                ),
+                option_value=(str(index - 1)),
                 position=(
                     f"Option {index}"
                     if handoff.radiologist_selection_required
@@ -830,18 +855,18 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
                     if index == 1
                     else f"Alternative {index - 1}"
                 ),
-                checked=not handoff.radiologist_selection_required and index == 1,
+                checked=preferred == recommendation,
+                interactive=review_action is not None,
             )
             for index, recommendation in enumerate(recommendations, start=1)
         ]
         proposal_notice = (
             f"{_selection_overview(handoff, recommendations)}"
-            '<section class="proposal"><h2>'
-            f"{'Options à comparer' if handoff.radiologist_selection_required else 'Choix à présenter au radiologue'}"
+            '<section class="proposal"><h2>Propositions à transmettre au radiologue'
             "</h2>"
             f'<div class="exam-options">{"".join(exam_options)}</div>'
-            f'<p class="muted">{"Sélection" if handoff.radiologist_selection_required else "Présélection"} visuelle uniquement — ce choix n’est pas enregistré '
-            "et ne modifie pas la demande générée.</p>"
+            '<p class="muted">Toutes les propositions sont transmises. Une préférence éventuelle '
+            "du clinicien ne remplace pas la validation du radiologue.</p>"
             "</section>"
         )
         alternatives_section = (
@@ -849,12 +874,22 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             if proposal.alternatives
             else ""
         )
-    request_order_action = (
-        '<div class="handoff-action"><button type="button" disabled '
-        'title="Fonction à venir">Ajouter au bon de demande</button></div>'
-        if proposal_is_reviewable
-        else ""
-    )
+    if proposal_is_reviewable and review_action is not None:
+        clinician_selected = " selected" if responder_role == "clinician" else ""
+        emergency_selected = " selected" if responder_role == "emergency_clinician" else ""
+        request_order_action = (
+            '<div class="review-role"><label for="review-role">Rôle du répondant</label>'
+            f'<select id="review-role" name="role"><option value="clinician"{clinician_selected}>Clinicien prescripteur</option>'
+            f'<option value="emergency_clinician"{emergency_selected}>Médecin urgentiste</option></select></div>'
+            '<div class="handoff-action">'
+            '<button class="accept" name="review_action" value="add_to_request">'
+            '<span aria-hidden="true">✓</span> Ajouter au bon de demande</button>'
+            '<button class="contact" name="review_action" value="contact_teleradiologist">'
+            '<span aria-hidden="true">☎</span> Écarter la proposition et appeler le téléradiologue</button>'
+            '</div><p id="review-progress" class="review-progress" hidden>Enregistrement en cours…</p>'
+        )
+    else:
+        request_order_action = _review_summary(handoff)
     unresolved = [question.question for question in handoff.unresolved_questions]
     clinical_details = f"""
 <h2>Synthèse clinique transmise</h2>
@@ -886,9 +921,27 @@ def render_radiology_handoff_html(handoff: RadiologyHandoff) -> str:
             f"{warnings_html}"
         )
     )
+    form_open = (
+        f'<form method="post" action="{escape(review_action, quote=True)}">'
+        if review_action is not None and proposal_is_reviewable
+        else ""
+    )
+    form_close = "</form>" if form_open else ""
+    script = (
+        f'''<script nonce="{escape(csp_nonce or "", quote=True)}">
+const form = document.querySelector("form");
+form.addEventListener("submit", () => {{
+  form.setAttribute("aria-busy", "true");
+  form.classList.add("submitting");
+  document.querySelector("#review-progress").hidden = false;
+}});
+</script>'''
+        if form_open
+        else ""
+    )
     html = f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<meta name="referrer" content="no-referrer"><title>Dossier de revue radiologique</title>
+<meta name="referrer" content="no-referrer"><title>Demande d’imagerie — Bulkinout</title>
 <style>
 body{{font:16px/1.5 system-ui,sans-serif;color:#173042;background:#f5f8fa;margin:0}}
 main{{max-width:1050px;margin:32px auto;background:white;padding:36px;border-radius:14px}}
@@ -904,6 +957,7 @@ h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;pad
 .exam-option input{{position:absolute;opacity:0}}.exam-card{{display:flex;flex-direction:column;gap:5px;padding:16px 20px;border:2px solid #d9e4e8;border-radius:12px;background:white}}
 .exam-option input:checked + .exam-card{{border-color:#087f8c;background:#e9f7f7;box-shadow:0 0 0 2px #bce5e5}}
 .exam-option input:focus-visible + .exam-card{{outline:3px solid #ef7d32;outline-offset:2px}}
+.preference-marker{{display:none;align-self:flex-start;padding:3px 8px;border-radius:999px;background:#087f8c;color:white;font-size:.8rem;font-weight:700}}.exam-option input:checked + .exam-card .preference-marker{{display:inline-block}}
 .exam-card small{{color:#405b66}}.exam-card strong{{font-size:1.15rem;color:#075b66}}
 .exam-details{{color:#405b66}}.exam-rationale{{display:flex;flex-direction:column;gap:2px;margin-top:8px}}.exam-rationale b,.exam-conditions b{{font-size:.9rem;color:#8a4b00}}.exam-rationale ul,.exam-conditions ul{{margin:3px 0 0;padding-left:20px}}.exam-conditions{{color:#8a4b00;margin-top:6px}}
 .warning{{border-left:4px solid #ef7d32;padding:10px 14px;background:#fff8f1}}
@@ -911,10 +965,15 @@ h1,h2,h3{{color:#075b66}}h2{{margin-top:32px;border-bottom:1px solid #d9e4e8;pad
 th,td{{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #d9e4e8}}
 details{{margin-top:32px;border:1px solid #d9e4e8;border-radius:10px;padding:14px}}
 summary{{color:#405b66;font-weight:700;cursor:pointer}}details h3{{margin-top:24px}}
-.handoff-action{{margin-top:32px}}.handoff-action button{{border:0;border-radius:7px;padding:12px 16px;background:#087f8c;color:white;font-weight:700;opacity:.6}}
+.review-role{{max-width:380px;margin-top:28px}}.review-role label{{display:block;margin-bottom:5px;font-weight:700}}.review-role select{{width:100%;padding:10px}}
+.handoff-action{{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}}.handoff-action button{{border:0;border-radius:7px;padding:12px 16px;font-weight:700}}.handoff-action .accept{{background:#138a50;color:white}}.handoff-action .contact{{background:#fff0e5;color:#8a420c}}.handoff-action span{{font-size:1.1rem;margin-right:5px}}.review-progress{{color:#075b66;font-weight:700}}.review-record{{margin-top:28px;padding:14px;border-left:4px solid}}.review-record.accepted{{border-color:#138a50;background:#eef9f2}}.review-record.contact{{border-color:#ef7d32;background:#fff8f1}}
+.submitting button{{pointer-events:none;opacity:.65}}
 code{{font-size:.88em;overflow-wrap:anywhere}}@media(max-width:700px){{main{{margin:0;padding:22px;border-radius:0}}.exam-options{{grid-template-columns:1fr}}}}@media print{{body{{background:white}}main{{margin:0;padding:0}}details{{display:block}}details>*{{display:block}}}}
 </style></head><body><main>
-<h1>Dossier de revue radiologique</h1><p class="status">{escape(status)}</p>
+<h1>Demande d’imagerie</h1>
+<p class="subtitle">Propositions préparées pour validation par le radiologue</p>
+<p class="status">{escape(status)}</p>
+{form_open}
 {proposal_notice}
 <h2>Demande clinique</h2>
 <p><strong>Patient :</strong> {escape(_clinical_patient_summary(handoff) or "Non renseigné")}</p>
@@ -928,5 +987,7 @@ code{{font-size:.88em;overflow-wrap:anywhere}}@media(max-width:700px){{main{{mar
 <h3>Reference scenarios</h3>{_technical_scenario_list(handoff.decision_trace)}
 </details>
 {request_order_action}
+{form_close}
+{script}
 </main></body></html>"""
     return _BREAKABLE_FRENCH_PUNCTUATION.sub("\u202f", html)

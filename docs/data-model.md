@@ -53,7 +53,7 @@ The classes fall into four groups:
 | Longitudinal record | `RadiologyCase`, `WorkflowState`, `ArtifactRef` | Shared container, phase, inputs, outputs, and audit. |
 | Clinical evidence | `ClinicalCase`, `ClinicalField`, `SourceRef`, `PriorImaging` | Facts, uncertainty, and traceability. |
 | Request decision | `CandidateExam`, `DiscriminatingQuestion`, `ImagingRecommendation`, `ImagingDecision` | Candidate comparison and guarded decision state. |
-| I/O contracts | `LLMExtraction`, `LLMFact`, `LLMSource`, `AnswerFile`, `AnswerItem`, `TeleradiologyRequest` | Model response, clarification input, and clinical draft. |
+| I/O contracts | `LLMExtraction`, `LLMFact`, `LLMSource`, `AnswerFile`, `AnswerItem`, `ClinicianRequestReview`, `TeleradiologyRequest` | Model response, clarification input, and clinical request. |
 | Radiologist review | `RadiologyHandoff`, `HandoffFact`, `HandoffClarification`, `HandoffCitation`, `HandoffDecisionTrace` | Evidence-backed proposal or escalation package. |
 
 ## Evidence is not a bare value
@@ -209,9 +209,9 @@ After a clinician supplies a non-empty value, `apply_answers()` stores it as an 
 
 ## Teleradiology request
 
-`TeleradiologyRequest` is presentation output. It contains French clinical summaries and labels, unresolved items, examination rationale, and an explicit warning. Its status is `draft`, `ready_for_human_approval`, or `blocked`, and `validated_by_clinician` defaults to `False`.
+`TeleradiologyRequest` is presentation output. It contains French clinical summaries and labels, unresolved items, every structured `imaging_options` proposal, and an explicit warning. An optional `clinician_review` records `add_to_request` or `contact_teleradiologist`, the declared role and time, and a full `ImagingRecommendation` preference when one was chosen. The preference does not replace Bulkinout's ranking or represent the radiologist's final choice. Status is `draft`, `ready_for_human_approval`, or `blocked`; rejecting automation changes it to `blocked`, while `validated_by_clinician` remains `False`.
 
-Do not treat serialization success as authorization to transmit the request. Identity, signature, persistence, and clinical-system integration are outside v0.
+Do not treat serialization success or a recorded local review as authorization to transmit the request. Identity, signature, radiologist approval, durable workflow persistence, and clinical-system integration are outside v0.
 
 ## Radiology handoff
 
@@ -221,7 +221,7 @@ The JSON artifact always retains canonical English identifiers and structured va
 
 The decision trace separates applicable reference candidate IDs from model candidate IDs. `selected_reference_candidate` is populated only when a selected examination name exactly matches an applicable YAML candidate; it remains empty when the radiologist must choose among unselected options. Triggered rules are labelled `local_rule_triggered`; citations are labelled `scenario_background`. These distinctions prevent model wording or scenario-level references from being presented as source endorsement of a patient-specific decision.
 
-`radiology_handoff.html` renders the same content in French. It escapes every clinical value, contains no remote assets, and allows a visual, non-persistent preselection between structured proposals. It is intended for review rather than automatic transmission or approval.
+`radiology_handoff.html` renders the same content in French. It escapes every clinical value, contains no remote assets, and, during `--interactive`, can persist an optional clinician preference or explicit escalation into the JSON artifacts. All proposals remain present and the page never represents this preference as radiologist approval or external transmission.
 
 ## Evaluation and run metadata
 

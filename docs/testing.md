@@ -156,7 +156,7 @@ The evaluator reports Core and Request independently. Expectations assert struct
 4. Confirm scenario matching and decision status.
 5. Check questions, proposed examination, and safety surfaces.
 6. Review the complete French teleradiology draft for correctness and clarity.
-7. Open `radiology_handoff.html` and verify that the indication, answers, sources, rationale, safety data, structured secondary proposals, and citations support review without implying approval. Confirm that clicking a proposal changes only its visual highlight, model rationales are visibly marked for verification, French punctuation is not orphaned at line starts, the default view uses clinical French, and the collapsed technical trace preserves the canonical fields and exact provenance.
+7. In the interactive page, verify that the indication, answers, sources, rationale, safety data, structured proposals, protocols, and citations support review without implying approval. Select an optional clinician preference, confirm the request, and check that every option plus the preference appears in both request and handoff JSON. Separately verify that rejecting automation blocks the request and records direct contact without deleting artifacts. Confirm that French punctuation is not orphaned, the default view uses clinical French, and the collapsed technical trace preserves canonical fields and exact provenance.
 8. Record any error under the owning layer, not only under the final symptom.
 
 The review template recognizes `core_extraction`, `scenario_matching`, `reference_question`, `reference_rule`, `decision_llm`, `safety_guard`, `request_generation`, and `other`.

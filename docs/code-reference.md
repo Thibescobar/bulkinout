@@ -64,9 +64,9 @@ Writes ten standard JSON snapshots plus the self-contained HTML radiology handof
 
 Source: `src/bulkinout/clarification_browser.py`
 
-### `collect_clinician_answers(questions, *, on_submit=None, timeout_seconds=600) -> BrowserClarification | None`
+### `collect_clinician_answers(questions, *, on_submit=None, render_review=None, on_review=None, timeout_seconds=600) -> BrowserClarification | None`
 
-Runs one browser form on a random loopback port with a single-use token. It returns typed answers or direct-escalation intent and returns `None` after browser failure or timeout. When supplied, `on_submit` performs the final Request calculation synchronously and returns the final handoff HTML in the same browser response before the server closes.
+Runs one browser session on a random loopback port with a high-entropy token. It can collect typed clarification answers, keep the same page open during Request recalculation, and then collect one final request-review action. It returns `None` after browser failure or timeout. The final action closes the server and does not invoke Core or Request.
 
 ### `next_interactive_answer_path(output_dir: Path) -> Path`
 
@@ -226,6 +226,10 @@ Pydantic model or enum described in [Data Model](data-model.md).
 
 Pydantic model or enum described in [Data Model](data-model.md).
 
+### `ClinicianRequestReview`
+
+Typed local record of the clinician's `add_to_request` or `contact_teleradiologist` action, optional preferred `ImagingRecommendation`, declared role, timestamp, and browser response method. It is not an authentication or approval record.
+
 ### `TeleradiologyRequest`
 
 Pydantic model or enum described in [Data Model](data-model.md).
@@ -332,9 +336,9 @@ Schema-v2 remote-review package containing the request, preferred and secondary 
 
 Builds the review package without converting model output or reference background into clinical approval.
 
-### `render_radiology_handoff_html(handoff: RadiologyHandoff) -> str`
+### `render_radiology_handoff_html(handoff: RadiologyHandoff, *, review_action=None, csp_nonce=None, responder_role=None) -> str`
 
-Produces an escaped, self-contained French review page. Reviewable states display uniform, visually selectable proposal cards without persisting the selection. Blocked states display any retained model examination only as considered and not proposed.
+Produces an escaped, self-contained French imaging-request page. Reviewable states display uniform proposal cards with their protocols. Supplying a local review endpoint enables the optional clinician preference and explicit escalation controls; static output reflects any recorded action. Blocked states display any retained model examination only as considered and not proposed.
 
 ## `bulkinout.request.decision_guard`
 

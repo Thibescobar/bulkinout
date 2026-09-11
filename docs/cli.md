@@ -97,7 +97,7 @@ bulkinout request run \
 | `--input` | `input` | Clinical document directory processed by Core. |
 | `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
 | `--answers` | none | Optional answer JSON from a previous clarification pass. |
-| `--interactive` | off | Open a short-lived loopback browser form for required answers. Mutually exclusive with `--answers`. |
+| `--interactive` | off | Open the short-lived clarification and imaging-request review session. Mutually exclusive with `--answers`. |
 | `--reference` | packaged reference | Optional scenario-directory override. |
 | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
 | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
@@ -138,9 +138,9 @@ bulkinout request run \
   --interactive
 ```
 
-The form opens only when a required or blocking question exists and groups all questions known at that point. Request is not rerun between individual answers. On submission, the selected button changes state and a spinner confirms that processing is underway. The answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by a new Request calculation from the existing Core result. The same page waits for that calculation and then displays the final radiology handoff, including the safely proposed examination or direct-escalation state. Source documents are extracted and uploaded only once during this command. Selecting direct escalation, leaving all answers unavailable, browser failure, or timeout preserves the guarded initial result and prints the file-based instructions.
+When clarification is required, the form groups all questions known at that point; Request is not rerun between individual answers. On submission, a spinner remains visible while the answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by one Request calculation from the existing Core result. The same page then displays every imaging option and protocol. If no clarification is required, it opens directly on this review. The clinician may persist an optional preference with the complete option set or reject the automation and request direct teleradiologist contact. This final action makes no new Core or Request call. Source documents are extracted and uploaded only once during the command.
 
-The server binds only to `127.0.0.1` on a random port, serves no remote assets, accepts one token-protected form submission, allows ten minutes for that submission, and closes after returning the final handoff in the same browser page. It is a local UI, not an authenticated HTTP API or a signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
+The server binds only to `127.0.0.1` on a random port, serves no remote assets, uses a token-protected path, allows ten minutes for the complete interaction, and closes after the final review action. It is a local UI, not an authenticated HTTP API, order transport, or signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
 
 ### File-based clarification
 

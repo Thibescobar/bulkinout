@@ -165,6 +165,14 @@ class ImagingDecision(BaseModel):
     validation_warning: str = "Aide à la décision. Une validation clinique humaine est requise avant prescription/transmission."
 
 
+class ClinicianRequestReview(BaseModel):
+    action: Literal["add_to_request", "contact_teleradiologist"]
+    preferred_option: ImagingRecommendation | None = None
+    responder_role: Literal["clinician", "emergency_clinician"]
+    recorded_at: datetime
+    response_method: Literal["interactive_browser"] = "interactive_browser"
+
+
 class TeleradiologyRequest(BaseModel):
     status: Literal["draft", "ready_for_human_approval", "blocked"] = "draft"
     patient_summary: str | None = None
@@ -181,6 +189,8 @@ class TeleradiologyRequest(BaseModel):
     safety_information: list[str] = Field(default_factory=list)
     unresolved_items: list[str] = Field(default_factory=list)
     rationale_for_exam: list[str] = Field(default_factory=list)
+    imaging_options: list[ImagingRecommendation] = Field(default_factory=list)
+    clinician_review: ClinicianRequestReview | None = None
     validated_by_clinician: bool = False
     warning: str = "Brouillon généré automatiquement. Ne pas transmettre sans validation clinique."
 

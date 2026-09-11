@@ -174,7 +174,7 @@ The request status is:
 
 `ready_for_human_approval` may contain either one preferred proposal or an unselected set associated with `radiologist_selection_required`. In the latter case, `requested_exam` and `protocol_requested` remain empty so the request cannot imply that the first displayed option was chosen.
 
-`validated_by_clinician` remains false, and the French warning explicitly prohibits transmission without clinical validation.
+`imaging_options` contains every named structured proposal sent for review. An interactive `clinician_review` may record an optional preference or direct-contact action, but `validated_by_clinician` remains false and no external transmission occurs.
 
 ## 8. Radiologist handoff
 
@@ -182,7 +182,7 @@ The request status is:
 
 The handoff links a selected primary examination to a reference candidate only after an exact match against an applicable YAML examination name. No selected reference candidate is recorded while the radiologist must choose among unselected options. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
 
-`ready_for_radiologist_review` means either that a preferred proposal can be validated or that supported options await radiologist selection. An option set has no initial radio selection and does not populate a requested examination. The HTML view presents only named examinations as option cards; a model summary without an examination is shown separately as decision context. Justifications and examination-specific cautions remain visible, while the complete clinical record, sources, references, warnings, and technical trace use progressive disclosure. Model-generated rationales remain labelled as requiring verification and are not treated as source-linked proof; deterministic option text comes from the reviewed YAML reference. `clinician_contact_required` means Bulkinout abstained or remains blocked and direct discussion is required. Neither state records clinician preselection or radiologist acceptance.
+`ready_for_radiologist_review` means either that a Bulkinout-preferred proposal can be validated or that supported options await radiologist selection. An option set has no automatic clinician preference and does not populate a singular requested examination. The HTML view presents only named examinations as option cards, each with its protocol; a model summary without an examination is shown separately as decision context. In interactive mode the clinician may record an optional preference while transmitting the full option set, or reject automation and require direct contact. This local action is separate from the unchanged Bulkinout ranking and does not represent radiologist acceptance. Justifications and examination-specific cautions remain visible, while the complete clinical record, sources, references, warnings, and technical trace use progressive disclosure. Model-generated rationales remain labelled as requiring verification and are not treated as source-linked proof; deterministic option text comes from the reviewed YAML reference. `clinician_contact_required` means Bulkinout abstained, remains blocked, or was explicitly rejected by the clinician.
 
 ## Clarification loop example
 
@@ -203,6 +203,11 @@ Request recalculation in the same process
   ├── reference and configured decision mode are recalculated
   ├── guards evaluate the new state
   └── cited radiology handoff is rebuilt
+
+Clinician request review
+  ├── every imaging option remains attached to the request
+  ├── optional clinician preference is recorded separately
+  └── no new inference or external transmission occurs
 ```
 
 The file-based `--answers` workflow remains a fresh independent run and repeats extraction. Interactive mode performs one bounded clarification round in memory and retains the answer file in the final manifest. It does not provide durable workflow state, authenticated identity, or a remote session.

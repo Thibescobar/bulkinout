@@ -7,6 +7,7 @@ from ..core.models import (
     ClinicalField,
     FieldStatus,
     ImagingDecision,
+    ImagingRecommendation,
     MissingQuestion,
     PriorImaging,
     TeleradiologyRequest,
@@ -73,6 +74,21 @@ def _request_status(
     return "draft"
 
 
+def _imaging_options(decision: ImagingDecision) -> list[ImagingRecommendation]:
+    """Return the distinct, named proposals transmitted for radiologist review."""
+
+    options: list[ImagingRecommendation] = []
+    seen: set[tuple[str | None, str | None, str | None]] = set()
+    for option in [decision.primary, *decision.secondary]:
+        if not (option.exam_name or option.modality):
+            continue
+        key = (option.exam_name, option.modality, option.protocol)
+        if key not in seen:
+            options.append(option)
+            seen.add(key)
+    return options
+
+
 def build_teleradiology_request(
     case: ClinicalCase,
     decision: ImagingDecision,
@@ -135,4 +151,5 @@ def build_teleradiology_request(
         safety_information=safety,
         unresolved_items=[question.question for question in questions],
         rationale_for_exam=[] if selection_required else primary.rationale,
+        imaging_options=_imaging_options(decision),
     )

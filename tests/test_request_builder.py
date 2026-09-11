@@ -79,6 +79,7 @@ def test_build_request_collects_relevant_clinical_information():
     assert result.relevant_prior_imaging == [
         "modalité=US; région=abdomen; date=2025-01-02; résultat=normal"
     ]
+    assert [option.exam_name for option in result.imaging_options] == ["CT abdomen"]
 
 
 def test_blocking_question_blocks_request():
@@ -132,3 +133,4 @@ def test_radiologist_selection_request_does_not_claim_one_requested_exam():
     assert result.contrast == "unknown"
     assert result.urgency == "unknown"
     assert result.rationale_for_exam == []
+    assert [option.exam_name for option in result.imaging_options] == ["CT abdomen", "V/Q"]

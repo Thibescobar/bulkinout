@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from bulkinout import cli
-from bulkinout.clarification_browser import BrowserClarification
+from bulkinout.clarification_browser import BrowserClarification, BrowserReview
 from bulkinout.core.models import (
     AnswerFile,
     AnswerItem,
@@ -251,7 +251,7 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
 
     monkeypatch.setattr(request_service, "run_request_from_core", run_from_core)
 
-    def collect_answers(questions, *, on_submit):
+    def collect_answers(questions, *, on_submit, render_review, on_review):
         outcome = BrowserClarification(
             answer_file=AnswerFile(
                 answers=[
@@ -262,7 +262,9 @@ def test_interactive_request_reuses_core_and_recalculates_after_typed_answers(
                 ]
             )
         )
-        assert "Résultat disponible dans le terminal" in on_submit(outcome)
+        html, review_required = on_submit(outcome, "/review", "nonce")
+        assert "Résultat disponible dans le terminal" in html
+        assert review_required is False
         return outcome
 
     monkeypatch.setattr(
@@ -318,9 +320,9 @@ def test_interactive_request_falls_back_or_escalates_without_recalculation(
         lambda received_core, **kwargs: calls.append(kwargs) or request_result(),
     )
 
-    def collect_answers(questions, *, on_submit):
+    def collect_answers(questions, *, on_submit, render_review, on_review):
         if outcome is not None:
-            on_submit(outcome)
+            on_submit(outcome, "/review", "nonce")
         return outcome
 
     monkeypatch.setattr(
@@ -346,6 +348,72 @@ def test_interactive_request_falls_back_or_escalates_without_recalculation(
         assert "unavailable or timed out" in text
     else:
         assert "contact the teleradiologist directly" in text
+
+
+@pytest.mark.parametrize("action", ["add_to_request", "contact_teleradiologist"])
+def test_interactive_review_records_clinician_action_without_rerunning_request(
+    monkeypatch, tmp_path, action
+):
+    from bulkinout import clarification_browser
+    from bulkinout.core import service as core_service
+    from bulkinout.request import service as request_service
+    from bulkinout.request.handoff import build_radiology_handoff
+
+    result = request_result()
+    result.missing_questions = []
+    result.teleradiology_request.imaging_options = [result.imaging_decision.primary]
+    result.radiology_handoff = build_radiology_handoff(
+        result.clinical_case,
+        result.imaging_decision,
+        [],
+        result.teleradiology_request,
+        {"matched_scenarios": []},
+    )
+    core_result = CoreResult(RadiologyCase(), LLMExtraction(), [])
+    calls = []
+    monkeypatch.setattr(core_service, "build_radiology_case", lambda *args, **kwargs: core_result)
+    monkeypatch.setattr(
+        request_service,
+        "run_request_from_core",
+        lambda *args, **kwargs: calls.append(kwargs) or result,
+    )
+
+    def collect_answers(questions, *, on_submit, render_review, on_review):
+        assert questions == []
+        assert on_submit is None
+        page = render_review("/token/review", "nonce")
+        assert "Ajouter au bon de demande" in page
+        assert 'action="/token/review"' in page
+        on_review(BrowserReview(action, 0, "emergency_clinician"))
+        return BrowserClarification(AnswerFile())
+
+    monkeypatch.setattr(clarification_browser, "collect_clinician_answers", collect_answers)
+    output = tmp_path / action
+
+    reviewed = cli._run_interactive_request(
+        SimpleNamespace(
+            input=str(tmp_path / "input"),
+            output=str(output),
+            reference=None,
+            model="model",
+            extraction_model=None,
+            decision_model=None,
+            cold=False,
+        )
+    )
+
+    assert len(calls) == 1
+    saved = json.loads((output / "teleradiology_request.json").read_text())
+    assert saved["clinician_review"]["action"] == action
+    assert saved["clinician_review"]["responder_role"] == "emergency_clinician"
+    if action == "add_to_request":
+        assert saved["clinician_review"]["preferred_option"]["exam_name"] == "CT abdomen"
+        assert reviewed.teleradiology_request.status == "ready_for_human_approval"
+        assert "Demande préparée dans Bulkinout" in (output / "radiology_handoff.html").read_text()
+    else:
+        assert saved["clinician_review"]["preferred_option"] is None
+        assert reviewed.teleradiology_request.status == "blocked"
+        assert reviewed.radiology_handoff.status == "clinician_contact_required"
 
 
 def test_request_golden_handles_empty_success_and_failure(monkeypatch, tmp_path, capsys):

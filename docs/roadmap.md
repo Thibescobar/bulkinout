@@ -34,7 +34,7 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R11 | File snapshots are not atomic, versioned, locked, or concurrency-safe | Operational limitation | P3 | Standby | Runtime foundations |
 | R12 | Logging, retries, timeouts, monitoring, cost controls, and stable error codes are incomplete | Operational limitation | P3 | Standby | Runtime foundations |
 | R13 | No authenticated HTTP service, durable workflow state, or clinical-system integration exists | Platform limitation | P3 | Standby | Service boundary |
-| R14 | Clinician preselection and human approval are external and have no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
+| R14 | Local clinician preference is persisted, but identity, signature, radiologist approval, and clinical-system transmission remain external | Integration limitation | P3 | Standby | Approval boundary |
 | R15 | Report and post-exam processing are placeholders | Product roadmap | P4 | Standby | Report |
 | R16 | Required clarifications lacked a local interaction path and remote radiologists lacked an evidence-backed handoff | Request usability | P1 | Completed | Clinical handoff |
 | R17 | Scenario YAML receives only shallow structural validation before runtime use | Reference-authoring limitation | P1 | Standby | Reference governance |

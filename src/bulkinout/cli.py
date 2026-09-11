@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import os
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -18,8 +20,9 @@ from .types import JsonObject
 Command = Callable[[argparse.Namespace], None]
 
 if TYPE_CHECKING:
-    from .clarification_browser import BrowserClarification
+    from .clarification_browser import BrowserClarification, BrowserReview
     from .core.models import MissingQuestion
+    from .core.service import CoreResult
     from .request.service import RequestResult
 
 
@@ -69,9 +72,10 @@ def cmd_request_run(args: argparse.Namespace) -> None:
 
     print()
     print(f"Decision: {result.imaging_decision.decision_status}")
+    review = result.teleradiology_request.clinician_review
     print(
         "Clinician call required: "
-        f"{'YES' if result.imaging_decision.clinician_call_required else 'NO'}"
+        f"{'YES' if result.imaging_decision.clinician_call_required or (review and review.action == 'contact_teleradiologist') else 'NO'}"
     )
     print(f"Teleradiology request status: {result.teleradiology_request.status}")
     _print_proposed_examination(result)
@@ -86,6 +90,10 @@ def _print_proposed_examination(result: RequestResult) -> None:
     """Display the clinically safe examination summary for the operator."""
 
     decision = result.imaging_decision
+    review = result.teleradiology_request.clinician_review
+    if review and review.action == "contact_teleradiologist":
+        print("Examen proposé au radiologue : aucun — échange direct demandé par le clinicien")
+        return
     if (
         decision.decision_status == "selected"
         and decision.primary.recommended
@@ -108,23 +116,138 @@ def _print_proposed_examination(result: RequestResult) -> None:
         print("Examen proposé au radiologue : aucun à ce stade — échange direct requis")
 
 
+@dataclass(slots=True)
+class _InteractiveRequestSession:
+    args: argparse.Namespace
+    core_result: CoreResult
+    output_dir: Path
+    reference_dir: Path | None
+    result: RequestResult
+    responder_role: str | None = None
+
+    def reviewable(self) -> bool:
+        return bool(
+            self.result.radiology_handoff is not None
+            and self.result.radiology_handoff.status == "ready_for_radiologist_review"
+            and self.result.teleradiology_request.imaging_options
+        )
+
+    def render_review(self, review_action: str, nonce: str) -> str:
+        from .request.handoff import render_radiology_handoff_html
+
+        if self.result.radiology_handoff is None:
+            return "<!doctype html><html lang=fr><body><p>Résultat disponible dans le terminal.</p></body></html>"
+        return render_radiology_handoff_html(
+            self.result.radiology_handoff,
+            review_action=review_action if self.reviewable() else None,
+            csp_nonce=nonce,
+            responder_role=self.responder_role,
+        )
+
+    def finish_interaction(
+        self,
+        clarification: BrowserClarification,
+        review_action: str,
+        nonce: str,
+    ) -> tuple[str, bool]:
+        from .clarification_browser import (
+            next_interactive_answer_path,
+            write_interactive_answers,
+        )
+        from .request.service import run_request_from_core
+
+        answer_path = next_interactive_answer_path(self.output_dir)
+        write_interactive_answers(answer_path, clarification.answer_file)
+        self.responder_role = next(
+            (
+                answer.responder_role
+                for answer in clarification.answer_file.answers
+                if answer.responder_role is not None
+            ),
+            None,
+        )
+        print(f"Clinician answers saved: {answer_path}")
+        has_answer = any(
+            item.value is not None and not (isinstance(item.value, str) and not item.value.strip())
+            for item in clarification.answer_file.answers
+        )
+        if clarification.escalated or not has_answer:
+            print("No new clinical answer was supplied; contact the teleradiologist directly.")
+        else:
+            print("Recalculating Request from the existing Core result...")
+            self.result = run_request_from_core(
+                self.core_result,
+                reference_dir=self.reference_dir,
+                model=self.args.model,
+                decision_model=self.args.decision_model,
+                decision_mode=getattr(self.args, "decision_mode", "llm"),
+                cold=getattr(self.args, "cold", False),
+                answers_path=answer_path,
+            )
+            write_request_outputs(self.result, self.output_dir)
+        return self.render_review(review_action, nonce), self.reviewable()
+
+    def record_review(self, browser_review: BrowserReview) -> str:
+        from .clarification_browser import InvalidReviewError
+        from .core.models import ClinicianRequestReview
+
+        options = self.result.teleradiology_request.imaging_options
+        index = browser_review.preferred_option_index
+        if index is not None and index >= len(options):
+            raise InvalidReviewError("invalid option")
+        preference = options[index] if index is not None else None
+        review = ClinicianRequestReview(
+            action=browser_review.action,
+            preferred_option=(preference if browser_review.action == "add_to_request" else None),
+            responder_role=browser_review.responder_role,
+            recorded_at=datetime.now(UTC),
+        )
+        request = self.result.teleradiology_request
+        request.clinician_review = review
+        if browser_review.action == "contact_teleradiologist":
+            request.status = "blocked"
+            request.warning = (
+                "Demande automatique écartée par le clinicien. "
+                "Échange direct avec le téléradiologue requis."
+            )
+        if self.result.radiology_handoff is not None:
+            self.result.radiology_handoff.request = request
+            if browser_review.action == "contact_teleradiologist":
+                self.result.radiology_handoff.status = "clinician_contact_required"
+                self.result.radiology_handoff.warnings.append(
+                    "Le clinicien a écarté la demande automatique et demandé un échange direct."
+                )
+            self.result.radiology_case.referral["teleradiology_request"] = cast(
+                JsonObject, request.model_dump(mode="json")
+            )
+            self.result.radiology_case.referral["radiology_handoff"] = cast(
+                JsonObject, self.result.radiology_handoff.model_dump(mode="json")
+            )
+        write_request_outputs(self.result, self.output_dir)
+        print(
+            "Clinician preference saved."
+            if browser_review.action == "add_to_request"
+            else "Automatic request declined; contact the teleradiologist directly."
+        )
+        if self.result.radiology_handoff is None:
+            return "<!doctype html><html lang=fr><body><p>Résultat enregistré.</p></body></html>"
+        from .request.handoff import render_radiology_handoff_html
+
+        return render_radiology_handoff_html(self.result.radiology_handoff)
+
+
 def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
     """Run one optional browser clarification round without repeating Core."""
 
-    from .clarification_browser import (
-        collect_clinician_answers,
-        next_interactive_answer_path,
-        write_interactive_answers,
-    )
+    from .clarification_browser import collect_clinician_answers
     from .core.service import build_radiology_case
     from .request.clarification import required_clarification_questions
     from .request.service import run_request_from_core
 
-    input_dir = Path(args.input)
     output_dir = Path(args.output)
     reference_dir = Path(args.reference) if args.reference else None
     core_result = build_radiology_case(
-        input_dir,
+        Path(args.input),
         model=args.extraction_model or args.model,
         cold=getattr(args, "cold", False),
     )
@@ -137,46 +260,24 @@ def _run_interactive_request(args: argparse.Namespace) -> RequestResult:
         cold=getattr(args, "cold", False),
     )
     write_request_outputs(result, output_dir)
+    session = _InteractiveRequestSession(args, core_result, output_dir, reference_dir, result)
     questions = required_clarification_questions(result.missing_questions)
-    if not questions:
+    if questions:
+        print(f"Opening a local clarification form for {len(questions)} required question(s)...")
+    elif session.reviewable():
+        print("Opening the local imaging-request review...")
+    else:
         return result
 
-    print(f"Opening a local clarification form for {len(questions)} required question(s)...")
-
-    def finish_interaction(clarification: BrowserClarification) -> str:
-        nonlocal result
-        from .request.handoff import render_radiology_handoff_html
-
-        answer_path = next_interactive_answer_path(output_dir)
-        write_interactive_answers(answer_path, clarification.answer_file)
-        print(f"Clinician answers saved: {answer_path}")
-        has_answer = any(
-            item.value is not None and not (isinstance(item.value, str) and not item.value.strip())
-            for item in clarification.answer_file.answers
-        )
-        if clarification.escalated or not has_answer:
-            print("No new clinical answer was supplied; contact the teleradiologist directly.")
-        else:
-            print("Recalculating Request from the existing Core result...")
-            result = run_request_from_core(
-                core_result,
-                reference_dir=reference_dir,
-                model=args.model,
-                decision_model=args.decision_model,
-                decision_mode=getattr(args, "decision_mode", "llm"),
-                cold=getattr(args, "cold", False),
-                answers_path=answer_path,
-            )
-            write_request_outputs(result, output_dir)
-        if result.radiology_handoff is None:
-            return "<!doctype html><html lang=fr><body><p>Résultat disponible dans le terminal.</p></body></html>"
-        return render_radiology_handoff_html(result.radiology_handoff)
-
-    outcome = collect_clinician_answers(questions, on_submit=finish_interaction)
+    outcome = collect_clinician_answers(
+        questions,
+        on_submit=session.finish_interaction if questions else None,
+        render_review=session.render_review,
+        on_review=session.record_review,
+    )
     if outcome is None:
         print("Interactive clarification was unavailable or timed out.")
-        return result
-    return result
+    return session.result
 
 
 def _print_clarification_guidance(questions: list[MissingQuestion], output_dir: Path) -> None:
@@ -296,7 +397,7 @@ def build_parser() -> argparse.ArgumentParser:
     clarification.add_argument(
         "--interactive",
         action="store_true",
-        help="Open a short-lived local browser form for required clinical answers",
+        help="Open the local clarification and imaging-request review session",
     )
     run.add_argument(
         "--reference",

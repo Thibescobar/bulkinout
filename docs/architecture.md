@@ -152,12 +152,14 @@ sequenceDiagram
         Form-->>CLI: typed answer file or escalation
         CLI->>Service: run_request_from_core(CoreResult, answers)
         Note over CLI,Service: Core extraction is not repeated
-        Service-->>Form: final handoff in the same page
+        Service-->>Form: final imaging request in the same page
+        Form-->>CLI: optional preference or direct-contact action
+        Note over Form,CLI: persist artifacts without another model call
     end
     CLI-->>Operator: JSON outputs + HTML handoff + status
 ```
 
-If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
+If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. The same short-lived session can then persist all imaging options, an optional clinician preference, or a direct-contact action. There is no durable or remote server-side session and no order transmission.
 
 A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v5 run manifest fingerprints the distributed Python source, inputs, executed decision engines, terminology providers, and applied inference settings, so changed safeguards, terminology maps, or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
