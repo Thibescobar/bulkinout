@@ -17,10 +17,14 @@ from ..core.models import (
     TeleradiologyRequest,
 )
 from ..core.interfaces import CoreExtractor
+from ..core.normalization import TerminologyNormalizer, default_terminology_normalizer
 from ..core.service import CoreResult, build_radiology_case
+from ..errors import ConfigurationError
 from ..run_manifest import UNREPORTED, RunManifest, build_run_manifest
 from ..types import JsonObject
 from .answers import apply_answers, load_answers
+from .decision_comparison import compare_decisions
+from .decision_deterministic import DeterministicRequestDecision
 from .decision_guard import enforce_decision_guard
 from .decision_llm import OpenAIRequestDecision
 from .handoff import RadiologyHandoff, build_radiology_handoff
@@ -28,7 +32,13 @@ from .interfaces import RequestDecisionEngine
 from .reference_engine import ReferenceEngine
 from .request_builder import build_teleradiology_request
 from .rules import generic_missing_questions, recommendation_specific_questions
-from .types import ReferenceContext, ReferenceScenario
+from .types import (
+    DecisionComparison,
+    DecisionEngineName,
+    DecisionMode,
+    ReferenceContext,
+    ReferenceScenario,
+)
 
 SAFETY_FIELDS = frozenset(
     {
@@ -55,6 +65,9 @@ class RequestResult:
     source_paths: list[Path]
     run_manifest: RunManifest | None = None
     radiology_handoff: RadiologyHandoff | None = None
+    llm_decision: ImagingDecision | None = None
+    deterministic_decision: ImagingDecision | None = None
+    decision_comparison: DecisionComparison | None = None
 
 
 def _record_missing_requirements(
@@ -96,7 +109,9 @@ def _reference_missing_questions(reference_context: ReferenceContext) -> list[Mi
     return questions
 
 
-def _llm_missing_questions(case: ClinicalCase, decision: ImagingDecision) -> list[MissingQuestion]:
+def _decision_missing_questions(
+    case: ClinicalCase, decision: ImagingDecision
+) -> list[MissingQuestion]:
     questions: list[MissingQuestion] = []
     for question in decision.discriminating_questions:
         section_name, separator, key = question.field.partition(".")
@@ -198,9 +213,34 @@ def _apply_question_guards(
     decision.clinician_call_required = True
     decision.decision_ready_for_human_approval = False
     decision.primary.recommended = False
-    if decision.decision_status == "selected":
+    if decision.decision_status in {"selected", "radiologist_selection_required"}:
         decision.decision_status = "insufficient_information"
     _record_missing_requirements(decision, required)
+
+
+def _guard_decision(
+    case: ClinicalCase,
+    decision: ImagingDecision,
+    initial_questions: list[MissingQuestion],
+    reference_questions: list[MissingQuestion],
+) -> tuple[ImagingDecision, list[MissingQuestion]]:
+    """Apply the same deterministic post-processing to any decision engine."""
+
+    guarded = enforce_decision_guard(case, decision)
+    decision_questions = _decision_missing_questions(case, guarded)
+    specific_questions = (
+        []
+        if guarded.decision_status == "radiologist_selection_required"
+        else recommendation_specific_questions(case, guarded)
+    )
+    all_questions = _merge_questions(
+        initial_questions,
+        reference_questions,
+        decision_questions,
+        specific_questions,
+    )
+    _apply_question_guards(guarded, all_questions, specific_questions)
+    return guarded, all_questions
 
 
 def run_request(
@@ -214,6 +254,8 @@ def run_request(
     answers_path: Path | None = None,
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
+    decision_mode: DecisionMode = "llm",
 ) -> RequestResult:
     """Run Core, reference matching, decision support, and deterministic safeguards."""
 
@@ -222,6 +264,7 @@ def run_request(
         model=extraction_model or model,
         cold=cold,
         extractor=extractor,
+        terminology_normalizer=terminology_normalizer,
     )
     return run_request_from_core(
         core_result,
@@ -231,6 +274,8 @@ def run_request(
         cold=cold,
         answers_path=answers_path,
         decision_engine=decision_engine,
+        terminology_normalizer=terminology_normalizer,
+        decision_mode=decision_mode,
     )
 
 
@@ -243,8 +288,15 @@ def run_request_from_core(
     cold: bool = False,
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
+    decision_mode: DecisionMode = "llm",
 ) -> RequestResult:
     """Run Request from an existing Core result without extracting documents again."""
+
+    if decision_mode not in {"llm", "deterministic", "shadow"}:
+        raise ConfigurationError(f"Unsupported decision mode: {decision_mode}")
+    if decision_mode == "deterministic" and decision_engine is not None:
+        raise ConfigurationError("decision_engine cannot be supplied in deterministic mode")
 
     radiology_case = core_result.radiology_case.model_copy(deep=True)
     case = radiology_case.clinical
@@ -253,30 +305,62 @@ def run_request_from_core(
         case = apply_answers(case, load_answers(answers_path), answers_path.name)
         radiology_case.clinical = case
 
+    normalizer = terminology_normalizer or default_terminology_normalizer()
+    normalizer.normalize_case(case)
+
     initial_questions = generic_missing_questions(case)
     reference_engine = ReferenceEngine(reference_dir)
     reference_context = reference_engine.build_context(case)
     reference_questions = _reference_missing_questions(reference_context)
-    selected_decision_engine = decision_engine or OpenAIRequestDecision(
-        model=decision_model or model,
-        cold=cold,
-    )
-    decision = selected_decision_engine.decide(
-        case,
-        [cast(JsonObject, question.model_dump(mode="json")) for question in initial_questions],
-        reference_context=reference_context,
-    )
-    decision = enforce_decision_guard(case, decision)
+    decision_inputs = [
+        cast(JsonObject, question.model_dump(mode="json")) for question in initial_questions
+    ]
 
-    llm_questions = _llm_missing_questions(case, decision)
-    specific_questions = recommendation_specific_questions(case, decision)
-    all_questions = _merge_questions(
-        initial_questions,
-        reference_questions,
-        llm_questions,
-        specific_questions,
-    )
-    _apply_question_guards(decision, all_questions, specific_questions)
+    comparison = None
+    shadow_llm_decision = None
+    shadow_deterministic_decision = None
+    request_components: list[tuple[DecisionEngineName, object]]
+    if decision_mode == "deterministic":
+        active_engine: RequestDecisionEngine = DeterministicRequestDecision()
+        decision, all_questions = _guard_decision(
+            case,
+            active_engine.decide(case, decision_inputs, reference_context=reference_context),
+            initial_questions,
+            reference_questions,
+        )
+        request_components = [("deterministic", active_engine)]
+    else:
+        llm_engine = decision_engine or OpenAIRequestDecision(
+            model=decision_model or model,
+            cold=cold,
+        )
+        decision, all_questions = _guard_decision(
+            case,
+            llm_engine.decide(case, decision_inputs, reference_context=reference_context),
+            initial_questions,
+            reference_questions,
+        )
+        active_engine = llm_engine
+        request_components = [("llm", llm_engine)]
+        if decision_mode == "shadow":
+            deterministic_engine = DeterministicRequestDecision()
+            deterministic_decision, deterministic_questions = _guard_decision(
+                case,
+                deterministic_engine.decide(
+                    case, decision_inputs, reference_context=reference_context
+                ),
+                initial_questions,
+                reference_questions,
+            )
+            comparison = compare_decisions(
+                decision,
+                all_questions,
+                deterministic_decision,
+                deterministic_questions,
+            )
+            shadow_llm_decision = decision
+            shadow_deterministic_decision = deterministic_decision
+            request_components.append(("deterministic", deterministic_engine))
 
     request = build_teleradiology_request(case, decision, all_questions)
     handoff = build_radiology_handoff(
@@ -309,7 +393,10 @@ def run_request_from_core(
             recorded_core_component if isinstance(recorded_core_component, dict) else {}
         ),
         core_model=recorded_core_model if isinstance(recorded_core_model, str) else None,
-        request_component=selected_decision_engine,
+        request_component=active_engine,
+        decision_mode=decision_mode,
+        request_components=request_components,
+        terminology_providers=normalizer.providers,
         reference_revision=(
             recorded_reference_revision
             if isinstance(recorded_reference_revision, str)
@@ -330,4 +417,7 @@ def run_request_from_core(
         source_paths=list(core_result.source_paths),
         run_manifest=run_manifest,
         radiology_handoff=handoff,
+        llm_decision=shadow_llm_decision,
+        deterministic_decision=shadow_deterministic_decision,
+        decision_comparison=comparison,
     )

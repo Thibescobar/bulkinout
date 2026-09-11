@@ -9,6 +9,7 @@ from bulkinout.core.models import (
     RadiologyCase,
 )
 from bulkinout.core.service import CoreResult
+from bulkinout.core.normalization import TerminologyNormalizer
 from bulkinout.request import service
 
 
@@ -31,7 +32,9 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
             self.path = path
 
         def build_context(self, received_case):
-            assert received_case == case
+            assert received_case.current_problem == case.current_problem
+            assert received_case.imaging_safety == case.imaging_safety
+            assert "terminology" in received_case.metadata
             return {"matched_scenarios": []}
 
     class FakeDecisionEngine:
@@ -39,14 +42,17 @@ def configure_workflow(monkeypatch, case, decision, initial, specific):
             self.model = model
 
         def decide(self, received_case, missing_questions, reference_context=None):
-            assert received_case == case
+            assert received_case.current_problem == case.current_problem
+            assert received_case.imaging_safety == case.imaging_safety
             assert reference_context == {"matched_scenarios": []}
             return decision
 
     monkeypatch.setattr(
         service,
         "build_radiology_case",
-        lambda input_dir, model, cold, extractor: CoreResult(radiology_case, extraction, []),
+        lambda input_dir, model, cold, extractor, terminology_normalizer: CoreResult(
+            radiology_case, extraction, []
+        ),
     )
     monkeypatch.setattr(service, "ReferenceEngine", FakeReferenceEngine)
     monkeypatch.setattr(service, "generic_missing_questions", lambda received_case: initial)
@@ -180,10 +186,12 @@ def test_run_request_accepts_custom_components_without_openai_configuration(monk
         reference_dir=reference_dir,
         extractor=LocalExtractor(),
         decision_engine=LocalDecisionEngine(),
+        terminology_normalizer=TerminologyNormalizer([]),
     )
 
     assert result.source_paths == [source]
     assert result.clinical_case.metadata["model"] == "local-extraction-model"
+    assert result.clinical_case.metadata["terminology"] == {"providers": []}
     assert result.imaging_decision.decision_status == "insufficient_information"
 
 
@@ -199,9 +207,10 @@ def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
     )
     captured = {}
 
-    def build_case(input_dir, model, cold, extractor):
+    def build_case(input_dir, model, cold, extractor, terminology_normalizer):
         captured["extraction_model"] = model
         captured["extraction_cold"] = cold
+        captured["terminology_normalizer"] = terminology_normalizer
         return CoreResult(radiology_case, LLMExtraction(), [])
 
     def build_decision_engine(model, cold):
@@ -224,6 +233,7 @@ def test_run_request_routes_stage_specific_models(monkeypatch, tmp_path):
     assert captured == {
         "extraction_model": "extraction-model",
         "extraction_cold": True,
+        "terminology_normalizer": None,
         "decision_model": "decision-model",
         "decision_cold": True,
     }
@@ -269,7 +279,14 @@ def test_run_request_from_core_reuses_extraction_without_mutating_baseline(monke
     )
     answers_path = tmp_path / "answers.json"
     answers_path.write_text(
-        json.dumps({"answers": {"imaging_safety.pregnancy": False}}),
+        json.dumps(
+            {
+                "answers": {
+                    "imaging_safety.pregnancy": False,
+                    "labs.creatinine": "Créatinine : 103 µmol/L",
+                }
+            }
+        ),
         encoding="utf-8",
     )
     second = service.run_request_from_core(
@@ -280,8 +297,10 @@ def test_run_request_from_core_reuses_extraction_without_mutating_baseline(monke
 
     assert calls == [None, False]
     assert "pregnancy" not in core_result.radiology_case.clinical.imaging_safety
+    assert "creatinine" not in core_result.radiology_case.clinical.labs
     assert "pregnancy" not in first.clinical_case.imaging_safety
     assert second.clinical_case.imaging_safety["pregnancy"].value is False
+    assert second.clinical_case.labs["creatinine"].coded_concepts[0].code == "umol/L"
     assert second.imaging_decision.decision_status == "selected"
     assert second.run_manifest is not None
     assert [item.filename for item in second.run_manifest.inputs] == ["answers.json"]

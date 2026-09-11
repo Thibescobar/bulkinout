@@ -16,13 +16,14 @@ flowchart TB
         INGEST[File discovery]
         EXTRACT[Structured LLM extraction]
         CASE[ClinicalCase construction]
+        NORMALIZE[Terminology annotations]
     end
 
     RECORD[(RadiologyCase)]
 
     subgraph Request
         MATCH[Scenario matching]
-        DECIDE[LLM candidate comparison]
+        DECIDE[Configurable decision mode]
         GUARD[Deterministic decision guard]
         SAFETY[Modality-specific checks]
         BUILD[Request builder]
@@ -33,8 +34,8 @@ flowchart TB
     REVIEW[Human clinical approval]
     REPORT[Report workflow — standby]
 
-    DOCS --> INGEST --> EXTRACT --> CASE --> RECORD
-    ANSWERS --> CASE
+    DOCS --> INGEST --> EXTRACT --> CASE --> NORMALIZE --> RECORD
+    ANSWERS --> NORMALIZE
     YAML --> MATCH
     RECORD --> MATCH --> DECIDE --> GUARD --> SAFETY --> BUILD --> HANDOFF
     GUARD -. required questions .-> CLARIFY
@@ -56,7 +57,8 @@ Core owns document ingestion and clinical fact representation. It:
 2. sends text, images, and uploaded documents to the configured model;
 3. validates the structured response as `LLMExtraction`;
 4. maps recognized `section.field` facts into `ClinicalCase`;
-5. stores artifacts and an audit event in `RadiologyCase`.
+5. adds conservative provider-backed terminology annotations;
+6. stores artifacts and an audit event in `RadiologyCase`.
 
 Core must not choose an examination. Keeping that boundary allows the same record to support Request today and Report later.
 
@@ -67,7 +69,7 @@ Request owns pre-exam decision support. It:
 1. applies optional clinician answers as sourced observed facts;
 2. identifies generic missing information;
 3. matches up to three relevant reference scenarios;
-4. asks an LLM to compare candidate examinations;
+4. runs the requested LLM, deterministic, or shadow decision mode;
 5. merges generic, required reference, model-generated, and modality-specific questions;
 6. rejects a selected state when a required or blocking question is unresolved;
 7. builds a French teleradiology request draft, evidence-backed radiology handoff, and reproducibility manifest.
@@ -75,6 +77,12 @@ Request owns pre-exam decision support. It:
 The CLI may collect one clarification round through a short-lived loopback browser form. Its answers are persisted as a typed input file, then only Request is recalculated from an immutable Core baseline. This UI is an adapter around the application services, not workflow state owned by Core.
 
 Request may import Core models. Core must never import Request. This one-way dependency prevents pre-exam rules from leaking into the shared clinical record.
+
+### Terminology boundary
+
+Core depends on the small `TerminologyProvider` protocol rather than a terminology server, licensed dataset, or DICOM library. `TerminologyNormalizer` annotates `ClinicalField.coded_concepts`; it never replaces `ClinicalField.value`, source wording, or provenance. The built-in pipeline recognizes a limited set of UCUM units. SNOMED CT, LOINC, and RadLex content must come from an explicitly configured provider whose licensing and version are controlled by the deploying organization.
+
+Request reapplies the same normalizer after clinician answers are added. This operates on Request's deep copy and does not repeat extraction or mutate the Core baseline. Existing reference rules remain value-based unless a scenario explicitly uses `concept_is` or `concept_in`.
 
 ### Report
 
@@ -92,9 +100,12 @@ flowchart LR
     EXTRACT -. injection .-> CUSTOM_E[Custom or local extractor]
     DECISION --> OPENAI_D[OpenAI decision engine]
     DECISION -. injection .-> CUSTOM_D[Custom or local decision engine]
+    REQUEST --> DETERMINISTIC[Closed-world deterministic engine]
 ```
 
-`CoreExtractor` accepts source paths and returns `LLMExtraction`. `RequestDecisionEngine` accepts a `ClinicalCase`, unresolved questions, and `ReferenceContext`, then returns `ImagingDecision`. OpenAI is the built-in default, but Python callers may inject either component independently. Provider-specific transport, prompts, credentials, and response parsing stay inside adapters. Reference matching, deterministic guards, request construction, and human-approval boundaries remain in Bulkinout services and cannot be replaced through these interfaces.
+`CoreExtractor` accepts source paths and returns `LLMExtraction`. `RequestDecisionEngine` accepts a `ClinicalCase`, unresolved questions, and `ReferenceContext`, then returns `ImagingDecision`. OpenAI remains the default decision implementation, but Request can instead use its closed-world `DeterministicRequestDecision` or execute both in shadow mode. Python callers may inject the extraction component and the LLM decision slot independently. Provider-specific transport, prompts, credentials, and response parsing stay inside adapters. Reference matching, deterministic guards, request construction, and human-approval boundaries remain in Bulkinout services and cannot be replaced through these interfaces.
+
+Shadow mode applies the same guards to both decisions but keeps them independent. Only the LLM branch builds the active request and handoff; the deterministic branch produces evaluation artifacts. Core extraction runs once in every mode.
 
 ## End-to-end sequence
 
@@ -104,6 +115,7 @@ sequenceDiagram
     participant CLI
     participant Service as Request service
     participant Core
+    participant Terms as Terminology providers
     participant Model as LLM provider
     participant Ref as ReferenceEngine
     participant Guard as Deterministic guards
@@ -114,16 +126,24 @@ sequenceDiagram
     Service->>Core: build_radiology_case()
     Core->>Model: documents + extraction schema
     Model-->>Core: LLMExtraction JSON
+    Core->>Terms: known ClinicalField values
+    Terms-->>Core: reliable coded annotations or none
     Core-->>Service: CoreResult
     opt Answer file supplied
         Service->>Service: apply_answers()
+        Service->>Terms: annotate new answers
     end
     Service->>Ref: build_context(ClinicalCase)
     Ref-->>Service: scenarios + questions + candidates + rules
-    Service->>Model: case + reference context
-    Model-->>Service: ImagingDecision JSON
-    Service->>Guard: merge and enforce required questions
-    Guard-->>Service: guarded decision
+    alt LLM or shadow mode
+        Service->>Model: case + reference context
+        Model-->>Service: LLM ImagingDecision JSON
+    end
+    alt Deterministic or shadow mode
+        Service->>Service: closed-world reference decision
+    end
+    Service->>Guard: guard each produced decision independently
+    Guard-->>Service: guarded decision or shadow pair
     Service->>Guard: add modality-specific checks
     Service->>Service: build_teleradiology_request()
     Service-->>CLI: RequestResult
@@ -132,14 +152,16 @@ sequenceDiagram
         Form-->>CLI: typed answer file or escalation
         CLI->>Service: run_request_from_core(CoreResult, answers)
         Note over CLI,Service: Core extraction is not repeated
-        Service-->>Form: final handoff in the same page
+        Service-->>Form: final imaging request in the same page
+        Form-->>CLI: optional preference or direct-contact action
+        Note over Form,CLI: persist artifacts without another model call
     end
     CLI-->>Operator: JSON outputs + HTML handoff + status
 ```
 
-If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
+If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. The same short-lived session can then persist all imaging options, an optional clinician preference, or a direct-contact action. There is no durable or remote server-side session and no order transmission.
 
-A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v3 run manifest fingerprints the distributed Python source as well as the inputs, configured components, and applied inference settings, so changed safeguards or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v5 run manifest fingerprints the distributed Python source, inputs, executed decision engines, terminology providers, and applied inference settings, so changed safeguards, terminology maps, or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 
@@ -147,8 +169,9 @@ A separate `request evaluate` command reads one saved run and its schema-v1 E2E 
 |---|---|---|
 | Documents → extraction | Source format, wording, completeness | Supported extensions and Pydantic response schema |
 | LLM → clinical case | Model interpretation and omissions | Typed fields, statuses, confidence, provenance |
+| Clinical field → terminology | Synonyms, ambiguity, terminology release | Conservative providers, original-text retention, unmapped fallback |
 | Reference → decision | Scenario scope and local suitability | Versioned YAML, deterministic matching, validation tests |
-| LLM → selected state | Candidate reasoning | Required-question guard and modality-specific checks |
+| Decision engine → selected state | LLM reasoning or closed-world reference coverage | Required-question guard and modality-specific checks |
 | Local form → answer fact | Declared role and clinical value | Typed input, one-time token, explicit provenance; no authenticated identity |
 | Draft or handoff → clinical action | Generated wording and proposal | External qualified human approval |
 
@@ -162,6 +185,8 @@ The following rules should remain true across refactors:
 - Every non-unknown extracted fact should carry provenance.
 - Conflicting evidence is represented rather than silently resolved.
 - Source language does not determine the canonical internal concept.
+- Terminology annotations never replace the original value or its provenance.
+- An uncertain or unavailable terminology mapping remains usable as free text.
 - French matching terms are preserved when English synonyms are added.
 - Required unresolved discriminators prevent `selected` and approval-ready states.
 - Unknown or conflicting facts are excluded from reliable request fields.
@@ -187,7 +212,7 @@ There is no concurrency control, durable workflow engine, identity model, or per
 
 ## Extension points
 
-- Add deterministic normalization behind `core/normalization/` without changing document ingestion.
+- Extend terminology through licensed providers behind `core/normalization/`; do not couple Core to a server or DICOM object model.
 - Add evidence reconciliation behind `core/reconciliation/` while preserving original provenance.
 - Build a chronological view behind `core/timeline/` from dated facts and prior imaging.
 - Add scenarios under `reference/scenarios/` with golden cases before changing matching behavior.

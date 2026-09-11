@@ -32,7 +32,7 @@ flowchart LR
     X --> C["ClinicalCase + provenance"]
     C --> R["RadiologyCase"]
     R --> M["Reference matching"]
-    M --> L["LLM candidate comparison"]
+    M --> L["Configured Request decision mode"]
     L --> G["Deterministic guards"]
     G --> T["Teleradiology draft"]
     R -. future .-> P["Report"]

@@ -1,5 +1,5 @@
 id: suspected_pulmonary_embolism
-version: 0.1.0
+version: 0.2.0
 title: Suspected pulmonary embolism
 status: needs_local_validation
 sources:
@@ -39,7 +39,24 @@ candidates:
     exam_name: Angioscanner des artères pulmonaires
     modality: CT
     contrast: yes
-    appropriateness: context_dependent
+    protocol: Angio-TDM thoracique avec injection synchronisée sur les artères pulmonaires
+    urgency: urgent
+    appropriateness: usually_appropriate
+    rationale:
+      - "Option habituellement appropriée du référentiel pour une suspicion d'embolie pulmonaire nécessitant une imagerie."
+    safety_considerations:
+      - "Nécessite un produit de contraste iodé et l'application des procédures locales de sécurité correspondantes."
+  - id: vq_scan
+    exam_name: Scintigraphie pulmonaire ventilation/perfusion (V/Q)
+    modality: NM
+    contrast: no
+    protocol: Acquisition ventilation/perfusion selon le protocole local
+    urgency: urgent
+    appropriateness: usually_appropriate
+    rationale:
+      - "Alternative habituellement appropriée du référentiel pour une suspicion d'embolie pulmonaire nécessitant une imagerie."
+    safety_considerations:
+      - "Ne nécessite pas de produit de contraste iodé ; interprétation à corréler avec la radiographie thoracique et le contexte local."
 rules:
   - id: PE_NO_IMAGING_LOW_INT_NEG_DDIMER
     if:

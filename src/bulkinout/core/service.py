@@ -8,6 +8,7 @@ from .extraction import OpenAICoreExtractor, extraction_to_case
 from .ingestion import collect_files
 from .interfaces import CoreExtractor
 from .models import ArtifactRef, LLMExtraction, RadiologyCase, WorkflowState
+from .normalization import TerminologyNormalizer, default_terminology_normalizer
 
 
 class CoreResult(NamedTuple):
@@ -24,6 +25,7 @@ def build_radiology_case(
     *,
     cold: bool = False,
     extractor: CoreExtractor | None = None,
+    terminology_normalizer: TerminologyNormalizer | None = None,
 ) -> CoreResult:
     """Build a radiology case with the default or an injected extractor."""
 
@@ -34,6 +36,8 @@ def build_radiology_case(
     selected_extractor = extractor or OpenAICoreExtractor(model=model, cold=cold)
     extraction = selected_extractor.extract(paths)
     clinical = extraction_to_case(extraction)
+    normalizer = terminology_normalizer or default_terminology_normalizer()
+    normalizer.normalize_case(clinical)
     clinical.metadata["extractor"] = selected_extractor.name
     clinical.metadata["documents_processed"] = len(paths)
     clinical.metadata["model"] = selected_extractor.model

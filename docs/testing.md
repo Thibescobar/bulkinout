@@ -27,7 +27,9 @@ pytest -q
 - typed browser clarification, one-time-token checks, timeout behavior, and private answer writes;
 - generic and modality-specific questions;
 - decision guards;
+- deterministic and shadow decision orchestration;
 - multilingual scenario matching, filtering, and rules;
+- terminology model serialization, FR/EN synonyms, acronym boundaries, negation, ambiguity, UCUM units, and unmapped fallback;
 - catalog generation;
 - golden-case evaluation;
 - offline E2E assertions and run-manifest fingerprints;
@@ -133,7 +135,7 @@ bulkinout request run \
   --output output_e2e/case_001
 ```
 
-The run writes a schema-v3 `run_manifest.json` with package, distributed-code, input, answer, component, model, inference-setting, prompt, schema, and reference fingerprints. It records requested and applied cold-mode temperatures. The manifest stores hashes rather than Python source, prompts, or document contents; filenames may still be sensitive.
+The run writes a schema-v5 `run_manifest.json` with package, distributed-code, input, answer, decision-mode and engine, terminology provider, model, inference-setting, prompt, schema, and reference fingerprints. It records requested and applied cold-mode temperatures. The manifest stores hashes rather than Python source, prompts, terminology data, or document contents; filenames may still be sensitive.
 
 Evaluate the snapshots without another provider call:
 
@@ -154,7 +156,7 @@ The evaluator reports Core and Request independently. Expectations assert struct
 4. Confirm scenario matching and decision status.
 5. Check questions, proposed examination, and safety surfaces.
 6. Review the complete French teleradiology draft for correctness and clarity.
-7. Open `radiology_handoff.html` and verify that the indication, answers, sources, rationale, safety data, structured secondary proposals, and citations support review without implying approval. Confirm that clicking a proposal changes only its visual highlight, model rationales are visibly marked for verification, French punctuation is not orphaned at line starts, the default view uses clinical French, and the collapsed technical trace preserves the canonical fields and exact provenance.
+7. In the interactive page, verify that the indication, answers, sources, rationale, safety data, structured proposals, protocols, and citations support review without implying approval. Select an optional clinician preference, confirm the request, and check that every option plus the preference appears in both request and handoff JSON. Separately verify that rejecting automation blocks the request and records direct contact without deleting artifacts. Confirm that French punctuation is not orphaned, the default view uses clinical French, and the collapsed technical trace preserves canonical fields and exact provenance.
 8. Record any error under the owning layer, not only under the final symptom.
 
 The review template recognizes `core_extraction`, `scenario_matching`, `reference_question`, `reference_rule`, `decision_llm`, `safety_guard`, `request_generation`, and `other`.

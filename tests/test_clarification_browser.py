@@ -9,9 +9,12 @@ import pytest
 
 from bulkinout.clarification_browser import (
     BrowserClarification,
+    BrowserReview,
+    InvalidReviewError,
     _ClarificationHandler,
     _Session,
     _parse_submission,
+    _parse_review,
     _render_form,
     collect_clinician_answers,
     next_interactive_answer_path,
@@ -141,6 +144,43 @@ def test_submission_records_unavailable_answers_and_explicit_escalation():
     assert outcome.answer_file.interaction_action == "escalate"
 
 
+def test_review_parsing_keeps_optional_preference_typed():
+    review = _parse_review(
+        urllib.parse.urlencode(
+            {
+                "role": "emergency_clinician",
+                "review_action": "add_to_request",
+                "preferred_option": "1",
+            }
+        ).encode()
+    )
+
+    assert review == BrowserReview("add_to_request", 1, "emergency_clinician")
+    without_preference = _parse_review(
+        urllib.parse.urlencode(
+            {"role": "clinician", "review_action": "contact_teleradiologist"}
+        ).encode()
+    )
+    assert without_preference.preferred_option_index is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"role": "unknown", "review_action": "add_to_request"},
+        {"role": "clinician", "review_action": "unknown"},
+        {
+            "role": "clinician",
+            "review_action": "add_to_request",
+            "preferred_option": "-1",
+        },
+    ],
+)
+def test_review_parsing_rejects_invalid_values(payload):
+    with pytest.raises(ValueError):
+        _parse_review(urllib.parse.urlencode(payload).encode())
+
+
 def _memory_handler(session, *, path, headers, body=b""):
     handler = object.__new__(_ClarificationHandler)
     handler.server = SimpleNamespace(clarification_session=session)
@@ -201,9 +241,11 @@ def test_http_handler_serves_form_with_security_headers_and_accepts_one_submissi
 def test_http_handler_keeps_same_page_until_review_is_ready():
     received = []
 
-    def build_review(outcome):
+    def build_review(outcome, action, nonce):
         received.append(outcome.answer_file.answers[0].value)
-        return "<!doctype html><html lang=fr><body>Examen final proposé</body></html>"
+        assert action == "/secret/review"
+        assert nonce == session.csp_nonce
+        return "<!doctype html><html lang=fr><body>Examen final proposé</body></html>", False
 
     session = _Session(
         token="secret",
@@ -233,7 +275,7 @@ def test_http_handler_keeps_same_page_until_review_is_ready():
 
 
 def test_http_handler_retains_submission_error_and_does_not_claim_transmission():
-    def fail(_outcome):
+    def fail(_outcome, _action, _nonce):
         raise RuntimeError("decision failed")
 
     session = _Session(
@@ -261,6 +303,93 @@ def test_http_handler_retains_submission_error_and_does_not_claim_transmission()
     assert handler.statuses == [500]
     assert isinstance(session.submission_error, RuntimeError)
     assert "n'a pas été transmise" in handler.wfile.getvalue().decode()
+
+
+def test_http_handler_serves_and_records_final_review_without_questions():
+    received = []
+    session = _Session(
+        token="secret",
+        questions=[],
+        render_review=lambda action, nonce: f"<form action='{action}'>{nonce}</form>",
+        on_review=lambda review: received.append(review) or "<p>Demande enregistrée</p>",
+        port=43125,
+    )
+    get_handler = _memory_handler(
+        session,
+        path="/secret",
+        headers={"Host": "127.0.0.1:43125"},
+    )
+
+    get_handler.do_GET()
+
+    assert get_handler.statuses == [200]
+    assert "/secret/review" in get_handler.wfile.getvalue().decode()
+
+    body = urllib.parse.urlencode(
+        {
+            "role": "clinician",
+            "review_action": "add_to_request",
+            "preferred_option": "0",
+        }
+    ).encode()
+    post_handler = _memory_handler(
+        session,
+        path="/secret/review",
+        headers={
+            "Host": "127.0.0.1:43125",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": str(len(body)),
+        },
+        body=body,
+    )
+
+    post_handler.do_POST()
+
+    assert post_handler.statuses == [200]
+    assert received == [BrowserReview("add_to_request", 0, "clinician")]
+    assert session.reviewed is True
+    assert session.outcome is not None
+    assert "Demande enregistrée" in post_handler.wfile.getvalue().decode()
+
+    replay = _memory_handler(
+        session,
+        path="/secret/review",
+        headers={"Host": "127.0.0.1:43125"},
+    )
+    replay.do_POST()
+    assert replay.statuses == [404]
+
+
+def test_http_handler_distinguishes_invalid_review_from_internal_failure():
+    body = urllib.parse.urlencode({"role": "clinician", "review_action": "add_to_request"}).encode()
+    for error, expected_status in (
+        (InvalidReviewError("unknown option"), 400),
+        (RuntimeError("write failed"), 500),
+    ):
+
+        def fail(_review, error=error):
+            raise error
+
+        session = _Session(
+            token="secret",
+            questions=[],
+            on_review=fail,
+            port=43125,
+        )
+        handler = _memory_handler(
+            session,
+            path="/secret/review",
+            headers={
+                "Host": "127.0.0.1:43125",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(body)),
+            },
+            body=body,
+        )
+
+        handler.do_POST()
+
+        assert handler.statuses == [expected_status]
 
 
 @pytest.mark.parametrize(

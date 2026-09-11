@@ -6,7 +6,7 @@ This inventory describes the public services and the private helpers that define
 
 Source: `src/bulkinout/__init__.py`
 
-The public Python facade exports `build_radiology_case()`, `run_request()`, `run_request_from_core()`, provider-neutral `CoreExtractor` and `RequestDecisionEngine` protocols, output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer provider imports until an LLM-backed service is actually called; returned objects remain fully typed.
+The public Python facade exports `build_radiology_case()`, `run_request()`, `run_request_from_core()`, the `DecisionMode` alias, provider-neutral `CoreExtractor`, `RequestDecisionEngine`, and `TerminologyNormalizer` types, output writers, and the `BulkinoutError` hierarchy. Lightweight wrappers defer LLM-provider imports until a backed service is actually called; returned objects remain fully typed.
 
 ## `bulkinout.errors` and `bulkinout.types`
 
@@ -58,15 +58,15 @@ Writes `radiology_case.json` and `llm_extraction.json`.
 
 ### `write_request_outputs(result: RequestResult, output_dir: Path)`
 
-Writes ten documented JSON snapshots plus the self-contained HTML radiology handoff, including the answer template and run manifest.
+Writes ten standard JSON snapshots plus the self-contained HTML radiology handoff. Shadow results add the two engine decisions and their comparison.
 
 ## `bulkinout.clarification_browser`
 
 Source: `src/bulkinout/clarification_browser.py`
 
-### `collect_clinician_answers(questions, *, on_submit=None, timeout_seconds=600) -> BrowserClarification | None`
+### `collect_clinician_answers(questions, *, on_submit=None, render_review=None, on_review=None, timeout_seconds=600) -> BrowserClarification | None`
 
-Runs one browser form on a random loopback port with a single-use token. It returns typed answers or direct-escalation intent and returns `None` after browser failure or timeout. When supplied, `on_submit` performs the final Request calculation synchronously and returns the final handoff HTML in the same browser response before the server closes.
+Runs one browser session on a random loopback port with a high-entropy token. It can collect typed clarification answers, keep the same page open during Request recalculation, and then collect one final request-review action. It returns `None` after browser failure or timeout. The final action closes the server and does not invoke Core or Request.
 
 ### `next_interactive_answer_path(output_dir: Path) -> Path`
 
@@ -98,7 +98,7 @@ Source: `src/bulkinout/run_manifest.py`
 
 ### `RunManifest`
 
-Schema-v3 technical fingerprints for one Request run: package version, distributed Python source, inputs, components, inference settings, prompts, schemas, reference revision, and matched scenarios.
+Schema-v5 technical fingerprints for one Request run: package version, distributed Python source, inputs, decision mode, active and executed engines, inference settings, prompts, schemas, terminology providers, reference revision, and matched scenarios.
 
 ### `build_run_manifest(...) -> RunManifest`
 
@@ -226,6 +226,10 @@ Pydantic model or enum described in [Data Model](data-model.md).
 
 Pydantic model or enum described in [Data Model](data-model.md).
 
+### `ClinicianRequestReview`
+
+Typed local record of the clinician's `add_to_request` or `contact_teleradiologist` action, optional preferred `ImagingRecommendation`, declared role, timestamp, and browser response method. It is not an authentication or approval record.
+
 ### `TeleradiologyRequest`
 
 Pydantic model or enum described in [Data Model](data-model.md).
@@ -250,6 +254,44 @@ Pydantic model or enum described in [Data Model](data-model.md).
 
 Pydantic model or enum described in [Data Model](data-model.md).
 
+## `bulkinout.core.models.terminology`
+
+Source: `src/bulkinout/core/models/terminology.py`
+
+### `CodedConcept`
+
+Provider-neutral terminology annotation containing system URI, code, display, matched original text, and optional version and normalized value. It supplements rather than replaces a `ClinicalField` value.
+
+The module also defines canonical system URI constants for SNOMED CT, LOINC, UCUM, and RadLex. Constants identify a system but do not include or license its content.
+
+## `bulkinout.core.normalization`
+
+Sources: `src/bulkinout/core/normalization/`
+
+### `TerminologyProvider`
+
+Protocol exposing provider name, version, content hash, and `concepts_for(field_path, value)`. An empty result is the required fallback when no reliable mapping exists.
+
+### `TerminologyEntry`
+
+Immutable caller-supplied concept definition with multilingual synonyms and optional field restrictions and terminology version.
+
+### `InMemoryTerminologyProvider`
+
+Deterministic matcher for small reviewed maps. It normalizes case and accents, uses word boundaries, handles common FR/EN negations, and rejects ambiguous aliases.
+
+### `UCUMUnitProvider`
+
+Built-in recognizer for selected common unit expressions. It emits UCUM codes and parsed numeric values without converting measurements or assigning analyte codes.
+
+### `TerminologyNormalizer`
+
+Applies providers to known, nonconflicting `ClinicalField` and `PriorImaging` values, deduplicates annotations, preserves existing evidence, and records provider identity in case metadata.
+
+### `default_terminology_normalizer()`
+
+Creates the default pipeline containing only `UCUMUnitProvider`.
+
 ## `bulkinout.core.service`
 
 Source: `src/bulkinout/core/service.py`
@@ -258,7 +300,7 @@ Source: `src/bulkinout/core/service.py`
 
 Typed, tuple-compatible Core result containing the radiology case, extraction, and source paths.
 
-### `build_radiology_case(input_dir: Path, model: str | None = None, *, cold: bool = False, extractor: CoreExtractor | None = None) -> CoreResult`
+### `build_radiology_case(input_dir: Path, model: str | None = None, *, cold: bool = False, extractor: CoreExtractor | None = None, terminology_normalizer: TerminologyNormalizer | None = None) -> CoreResult`
 
 Builds a `RadiologyCase` from a document directory through the default OpenAI extractor or an injected implementation.
 
@@ -294,9 +336,9 @@ Schema-v2 remote-review package containing the request, preferred and secondary 
 
 Builds the review package without converting model output or reference background into clinical approval.
 
-### `render_radiology_handoff_html(handoff: RadiologyHandoff) -> str`
+### `render_radiology_handoff_html(handoff: RadiologyHandoff, *, review_action=None, csp_nonce=None, responder_role=None) -> str`
 
-Produces an escaped, self-contained French review page. Reviewable states display uniform, visually selectable proposal cards without persisting the selection. Blocked states display any retained model examination only as considered and not proposed.
+Produces an escaped, self-contained French imaging-request page. Reviewable states display uniform proposal cards with their protocols. Supplying a local review endpoint enables the optional clinician preference and explicit escalation controls; static output reflects any recorded action. Blocked states display any retained model examination only as considered and not proposed.
 
 ## `bulkinout.request.decision_guard`
 
@@ -333,6 +375,22 @@ Initializes the OpenAI client and resolves the decision model from the argument,
 ### `OpenAIRequestDecision.decide(self, case: ClinicalCase, missing_questions: list[JsonObject], reference_context: ReferenceContext | None = None) -> ImagingDecision`
 
 Sends the case, questions, and reference data to the LLM and validates an `ImagingDecision`.
+
+## `bulkinout.request.decision_deterministic`
+
+Source: `src/bulkinout/request/decision_deterministic.py`
+
+### `DeterministicRequestDecision`
+
+Provider-neutral `RequestDecisionEngine` implementation that handles explicit preferences and no-imaging rules, selects a single `usually_appropriate` candidate, and otherwise routes supported candidates for radiologist selection or escalates when none exists. It performs no LLM call.
+
+## `bulkinout.request.decision_comparison`
+
+Source: `src/bulkinout/request/decision_comparison.py`
+
+### `compare_decisions(llm, llm_questions, deterministic, deterministic_questions) -> DecisionComparison`
+
+Pure shadow-mode helper that compares guarded statuses, examinations, protocols, and required-question fields without merging decisions.
 
 ## `bulkinout.request.interfaces`
 
@@ -396,7 +454,7 @@ Reads a known `ClinicalField` from a `section.field` path.
 
 ### `_predicate(case: ClinicalCase, pred: Predicate) -> bool`
 
-Evaluates a YAML predicate against a known clinical value. Supported operators include equality, substring, boundary-aware term, and membership checks.
+Evaluates a YAML predicate against a known clinical field. Supported operators include equality, substring, boundary-aware term, membership, and exact terminology system/code checks.
 
 ### `_condition(case: ClinicalCase, node: Condition) -> bool`
 
@@ -468,12 +526,12 @@ Source: `src/bulkinout/request/service.py`
 
 ### `RequestResult`
 
-Slot-based dataclass containing every in-memory artifact of one Request run, including the optional run manifest and radiology handoff.
+Slot-based dataclass containing every in-memory artifact of one Request run, including the optional run manifest and radiology handoff. Shadow runs also retain both engine decisions and their comparison.
 
-### `run_request(input_dir: Path, *, reference_dir: Path | None = None, model: str | None = None, extraction_model: str | None = None, decision_model: str | None = None, cold: bool = False, answers_path: Path | None = None, extractor: CoreExtractor | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+### `run_request(input_dir: Path, *, ..., decision_mode: DecisionMode = "llm") -> RequestResult`
 
-Executes Core, optional answers, matching, model decision, deterministic guards, request construction, and audit updates. The packaged reference is used when no override is supplied. Custom LLM components replace only extraction or candidate comparison. The service performs no output writes.
+Executes Core, optional answers, matching, the chosen decision mode, deterministic guards, request construction, and audit updates. The packaged reference is used when no override is supplied. Custom components replace extraction or the LLM decision slot. The service performs no output writes.
 
-### `run_request_from_core(core_result: CoreResult, *, reference_dir: Path | None = None, model: str | None = None, decision_model: str | None = None, cold: bool = False, answers_path: Path | None = None, decision_engine: RequestDecisionEngine | None = None) -> RequestResult`
+### `run_request_from_core(core_result: CoreResult, *, ..., decision_mode: DecisionMode = "llm") -> RequestResult`
 
 Deep-copies one Core baseline and executes Request without document discovery, upload, or extraction. This is the in-process resumption boundary used by interactive clarification.

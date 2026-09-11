@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
-from typing import Literal, Required, TypedDict
+from typing import Literal, Required, TypeAlias, TypedDict
+
+from pydantic import BaseModel
 
 from ..types import JsonObject, JsonValue
+
+DecisionMode: TypeAlias = Literal["llm", "deterministic", "shadow"]
+DecisionEngineName: TypeAlias = Literal["llm", "deterministic"]
+
+
+class DecisionComparisonItem(BaseModel):
+    decision_status: str
+    primary_exam: str | None
+    protocol: str | None
+    required_question_fields: list[str]
+
+
+class DecisionComparison(BaseModel):
+    active_engine: DecisionEngineName
+    llm: DecisionComparisonItem
+    deterministic: DecisionComparisonItem
+    same_status: bool
+    same_primary_exam: bool
+    same_protocol: bool
+
+
+class ConceptSelector(TypedDict):
+    system: str
+    code: str
+
 
 Predicate = TypedDict(
     "Predicate",
@@ -17,6 +44,8 @@ Predicate = TypedDict(
         "contains_token": JsonValue,
         "contains_any_term": list[JsonValue],
         "in": list[JsonValue],
+        "concept_is": ConceptSelector,
+        "concept_in": list[ConceptSelector],
     },
     total=False,
 )
@@ -45,6 +74,10 @@ class ReferenceCandidate(TypedDict, total=False):
     modality: str
     contrast: str
     appropriateness: str
+    protocol: str
+    urgency: Literal["emergent", "urgent", "routine", "unknown"]
+    rationale: list[str]
+    safety_considerations: list[str]
     when: Condition
 
 

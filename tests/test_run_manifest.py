@@ -95,7 +95,10 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
 
     manifest = result.run_manifest
     assert manifest is not None
-    assert manifest.schema_version == 3
+    assert manifest.schema_version == 5
+    assert manifest.decision_mode == "llm"
+    assert manifest.active_decision_engine == "llm"
+    assert [item.engine for item in manifest.decision_engines] == ["llm"]
     assert manifest.package_version == __version__
     assert manifest.code_sha256 == sha256_python_tree(Path(bulkinout.__file__).parent)
     assert [item.filename for item in manifest.inputs] == ["a.txt", "b.txt"]
@@ -115,6 +118,9 @@ def test_request_run_carries_reproducible_manifest(tmp_path):
         "temperature_applied": 0.0,
     }
     assert len(manifest.request.schema_sha256) == 64
+    assert manifest.terminology.providers[0].name == "builtin_ucum_units"
+    assert manifest.terminology.providers[0].version == "1"
+    assert len(manifest.terminology.providers[0].content_sha256) == 64
     assert len(manifest.reference.revision) == 64
     assert manifest.reference.matched_scenarios[0].scenario_id == "custom_scenario"
     assert manifest.reference.matched_scenarios[0].version == "2.0.0"

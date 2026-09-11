@@ -51,7 +51,7 @@ bulkinout request run \
   --interactive
 ```
 
-All initially known questions should appear in the same form. After submission, confirm that the page remains active during recalculation and becomes the final handoff without opening another tab. Verify that `answers.interactive.1.json` retains the typed response and that `run_manifest.json` fingerprints it. The page and saved `radiology_handoff.html` must show the final status and safely preferred examination or abstention, structured secondary proposals when available, the clinical question, clarification, source evidence, rationale, safety information, and scenario references without implying approval. Clicking a proposal must change only its highlight.
+All initially known questions should appear in the same form. After submission, confirm that the page remains active during recalculation and becomes the final request without opening another tab. Verify that `answers.interactive.1.json` retains the typed response and that `run_manifest.json` fingerprints it. The page must show all structured proposals with their protocols, clinical context, rationale, safety information, and scenario references without implying approval. Select an optional clinician preference and confirm the request: both JSON artifacts must retain every option and the preference, while `validated_by_clinician` remains false. Also test the direct-contact action and verify that it blocks the request without deleting the proposals or source trace.
 
 Evaluate the generated artifacts against the case assertions:
 

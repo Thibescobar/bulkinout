@@ -48,6 +48,10 @@ def _block_unresolved_questions(
 def _normalize_readiness(decision: ImagingDecision) -> None:
     if decision.decision_status == "selected" and decision.primary.recommended:
         decision.decision_ready_for_human_approval = True
+    elif decision.decision_status == "radiologist_selection_required":
+        decision.primary.recommended = False
+        decision.clinician_call_required = False
+        decision.decision_ready_for_human_approval = True
     elif decision.decision_status in {"insufficient_information", "safety_blocked"}:
         decision.clinician_call_required = True
         decision.decision_ready_for_human_approval = False

@@ -1,7 +1,7 @@
 import pytest
 
 from bulkinout.core import service
-from bulkinout.core.models import ClinicalCase, LLMExtraction
+from bulkinout.core.models import ClinicalCase, LLMExtraction, LLMFact, LLMSource
 from bulkinout.errors import ConfigurationError, InputError
 
 
@@ -49,6 +49,17 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
     assert returned_paths == paths
     assert case.clinical.metadata == {
         "source": "ok",
+        "terminology": {
+            "providers": [
+                {
+                    "name": "builtin_ucum_units",
+                    "version": "1",
+                    "content_sha256": service.default_terminology_normalizer()
+                    .providers[0]
+                    .content_sha256,
+                }
+            ]
+        },
         "extractor": "test_extractor",
         "documents_processed": 2,
         "model": "local-model",
@@ -65,3 +76,42 @@ def test_build_radiology_case_creates_artifacts_and_audit(monkeypatch, tmp_path)
         "input:scan.pdf",
     ]
     assert case.audit == [{"event": "core_structuring_completed", "model": "local-model"}]
+
+
+def test_build_radiology_case_annotates_units_without_losing_extraction_provenance(
+    monkeypatch, tmp_path
+):
+    source = tmp_path / "laboratory.txt"
+    extraction = LLMExtraction(
+        facts=[
+            LLMFact(
+                field="labs.creatinine",
+                value="Créatinine : 103 µmol/L",
+                status="observed",
+                confidence=0.98,
+                sources=[
+                    LLMSource(
+                        filename=source.name,
+                        excerpt="Créatinine : 103 µmol/L",
+                    )
+                ],
+            )
+        ]
+    )
+
+    class FakeExtractor:
+        name = "local"
+        model = "deterministic"
+
+        def extract(self, paths):
+            return extraction
+
+    monkeypatch.setattr(service, "collect_files", lambda path: [source])
+
+    result = service.build_radiology_case(tmp_path, extractor=FakeExtractor())
+    field = result.radiology_case.clinical.labs["creatinine"]
+
+    assert field.value == "Créatinine : 103 µmol/L"
+    assert field.sources[0].excerpt == "Créatinine : 103 µmol/L"
+    assert field.coded_concepts[0].code == "umol/L"
+    assert field.coded_concepts[0].normalized_value == 103
