@@ -29,7 +29,7 @@ Input, output, answer, and golden-case paths are interpreted relative to the cur
 
 ## Execution and data flow
 
-A non-interactive pre-exam run performs two LLM calls separated by deterministic processing: one extraction and one decision call. An answered interactive round adds one decision call but deliberately reuses the original extraction.
+A pre-exam run always makes one Core extraction LLM call. Request adds one decision LLM call in `llm` and `shadow` modes, while `deterministic` adds none. An answered interactive round reuses the original extraction and repeats only the configured Request stage: one additional decision call in `llm` or `shadow`, and no additional model call in `deterministic`.
 
 ```text
 Supported documents
