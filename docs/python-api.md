@@ -13,6 +13,7 @@ result = run_request(
     Path("input"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
+    decision_mode="llm",
     cold=True,
     answers_path=None,
 )
@@ -36,12 +37,34 @@ run_request()
 ├── teleradiology_request
 ├── radiology_handoff
 ├── source_paths[]
-└── run_manifest
+├── run_manifest
+├── llm_decision                 # shadow only
+├── deterministic_decision       # shadow only
+└── decision_comparison          # shadow only
 ```
 
-The service owns the full order of operations: Core extraction, answer application, reference matching, model decision, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
+The service owns the full order of operations: Core extraction, answer application, reference matching, configured decision mode, required-discriminator guard, modality checks, clinical draft construction, and audit update. By default it loads the reference shipped in the installed package and uses `decision_mode="llm"`. Pass `reference_dir=Path("reference/scenarios")` only when intentionally selecting an override. Do not reproduce the workflow sequence in an integration.
 
-`run_manifest` contains hashes and technical identities rather than source contents. Schema version 4 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, component/provider/model names, applied inference settings, prompt and Pydantic-schema fingerprints, terminology provider versions and content hashes, and the exact reference revision plus matched scenarios. Custom LLM components may expose `provider`, `name`, `model`, `prompt_sha256`, and `inference_parameters`; terminology providers expose `name`, `version`, and `content_sha256`. Omitted metadata is recorded as `unreported` or an empty parameter object without changing the provider-neutral protocols.
+`run_manifest` contains hashes and technical identities rather than source contents. Schema version 5 records the package version, a fingerprint of the distributed Python source, input and optional answer fingerprints, requested decision mode, active and executed decision engines, component/provider/model names, applied inference settings, prompt and Pydantic-schema fingerprints, terminology provider versions and content hashes, and the exact reference revision plus matched scenarios. Custom LLM components may expose `provider`, `name`, `model`, `prompt_sha256`, and `inference_parameters`; terminology providers expose `name`, `version`, and `content_sha256`. Omitted metadata is recorded as `unreported` or an empty parameter object without changing the provider-neutral protocols.
+
+### Choosing the Request decision mode
+
+```python
+deterministic = run_request(
+    Path("input"),
+    extraction_model="<multimodal-model>",
+    decision_mode="deterministic",
+)
+
+shadow = run_request(
+    Path("input"),
+    extraction_model="<multimodal-model>",
+    decision_model="<decision-model>",
+    decision_mode="shadow",
+)
+```
+
+All modes run Core extraction. `deterministic` performs no Request LLM call and ignores `decision_model`; it selects an unambiguous result, routes supported undecided options to the radiologist, and escalates when required information or an applicable candidate is absent. Do not supply an injected `decision_engine` in this mode. `shadow` accepts the same injected or default decision engine as `llm`, runs both Request paths once, and leaves the LLM result active. `write_request_outputs()` persists the three shadow-only comparison files when present.
 
 Pass `cold=True` to request `temperature=0` from every default OpenAI component. Known GPT-4.1 and GPT-4o models receive it without a `reasoning` parameter. Incompatible models retain `reasoning_effort=medium`, omit temperature, and emit `ColdModeWarning`; the manifest records the requested and applied values. Injected components own their sampling configuration and ignore this convenience option.
 
@@ -63,6 +86,7 @@ updated = run_request_from_core(
     answers_path=Path("answers.json"),
     decision_model="<decision-model>",
     cold=True,
+    decision_mode="llm",
 )
 ```
 
@@ -115,7 +139,7 @@ result = run_request(
 )
 ```
 
-Supplying both components removes the OpenAI configuration requirement. Mixed configurations are also valid: for example, a local extractor can be combined with the default OpenAI decision engine. In that case, stage-specific model arguments configure the corresponding default component. The legacy `model=` argument remains a shared fallback, followed by `BULKINOUT_EXTRACTION_MODEL` or `BULKINOUT_DECISION_MODEL`, then `BULKINOUT_MODEL`. Any default component still requires `OPENAI_API_KEY`.
+Supplying both components in `llm` or `shadow` mode removes the OpenAI configuration requirement. Mixed configurations are also valid: for example, a local extractor can be combined with the default OpenAI decision engine. In that case, stage-specific model arguments configure the corresponding default component. The legacy `model=` argument remains a shared fallback, followed by `BULKINOUT_EXTRACTION_MODEL` or `BULKINOUT_DECISION_MODEL`, then `BULKINOUT_MODEL`. Any default component still requires `OPENAI_API_KEY`.
 
 This is dependency injection, not automatic provider discovery. Bulkinout ships OpenAI adapters only; an Ollama, llama.cpp, vLLM, or other local integration must implement these protocols and demonstrate that its outputs validate as `LLMExtraction` and `ImagingDecision`. Deterministic guards run after every decision engine in the same order.
 

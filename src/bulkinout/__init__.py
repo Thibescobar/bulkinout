@@ -9,6 +9,7 @@ from .core.interfaces import CoreExtractor
 from .core.normalization import TerminologyNormalizer
 from .errors import BulkinoutError, ConfigurationError, InputError, ReferenceDataError
 from .request.interfaces import RequestDecisionEngine
+from .request.types import DecisionMode
 
 if TYPE_CHECKING:
     from .core.service import CoreResult
@@ -20,6 +21,7 @@ __all__ = [
     "BulkinoutError",
     "ConfigurationError",
     "CoreExtractor",
+    "DecisionMode",
     "InputError",
     "ReferenceDataError",
     "RequestDecisionEngine",
@@ -65,6 +67,7 @@ def run_request(
     extractor: CoreExtractor | None = None,
     decision_engine: RequestDecisionEngine | None = None,
     terminology_normalizer: TerminologyNormalizer | None = None,
+    decision_mode: DecisionMode = "llm",
 ) -> RequestResult:
     """Run the Request service without eagerly importing provider dependencies."""
 
@@ -81,6 +84,7 @@ def run_request(
         extractor=extractor,
         decision_engine=decision_engine,
         terminology_normalizer=terminology_normalizer,
+        decision_mode=decision_mode,
     )
 
 
@@ -94,6 +98,7 @@ def run_request_from_core(
     answers_path: Path | None = None,
     decision_engine: RequestDecisionEngine | None = None,
     terminology_normalizer: TerminologyNormalizer | None = None,
+    decision_mode: DecisionMode = "llm",
 ) -> RequestResult:
     """Run Request from an existing Core result without repeating extraction."""
 
@@ -108,6 +113,7 @@ def run_request_from_core(
         answers_path=answers_path,
         decision_engine=decision_engine,
         terminology_normalizer=terminology_normalizer,
+        decision_mode=decision_mode,
     )
 
 

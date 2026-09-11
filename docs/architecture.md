@@ -23,7 +23,7 @@ flowchart TB
 
     subgraph Request
         MATCH[Scenario matching]
-        DECIDE[LLM candidate comparison]
+        DECIDE[Configurable decision mode]
         GUARD[Deterministic decision guard]
         SAFETY[Modality-specific checks]
         BUILD[Request builder]
@@ -69,7 +69,7 @@ Request owns pre-exam decision support. It:
 1. applies optional clinician answers as sourced observed facts;
 2. identifies generic missing information;
 3. matches up to three relevant reference scenarios;
-4. asks an LLM to compare candidate examinations;
+4. runs the requested LLM, deterministic, or shadow decision mode;
 5. merges generic, required reference, model-generated, and modality-specific questions;
 6. rejects a selected state when a required or blocking question is unresolved;
 7. builds a French teleradiology request draft, evidence-backed radiology handoff, and reproducibility manifest.
@@ -100,9 +100,12 @@ flowchart LR
     EXTRACT -. injection .-> CUSTOM_E[Custom or local extractor]
     DECISION --> OPENAI_D[OpenAI decision engine]
     DECISION -. injection .-> CUSTOM_D[Custom or local decision engine]
+    REQUEST --> DETERMINISTIC[Closed-world deterministic engine]
 ```
 
-`CoreExtractor` accepts source paths and returns `LLMExtraction`. `RequestDecisionEngine` accepts a `ClinicalCase`, unresolved questions, and `ReferenceContext`, then returns `ImagingDecision`. OpenAI is the built-in default, but Python callers may inject either component independently. Provider-specific transport, prompts, credentials, and response parsing stay inside adapters. Reference matching, deterministic guards, request construction, and human-approval boundaries remain in Bulkinout services and cannot be replaced through these interfaces.
+`CoreExtractor` accepts source paths and returns `LLMExtraction`. `RequestDecisionEngine` accepts a `ClinicalCase`, unresolved questions, and `ReferenceContext`, then returns `ImagingDecision`. OpenAI remains the default decision implementation, but Request can instead use its closed-world `DeterministicRequestDecision` or execute both in shadow mode. Python callers may inject the extraction component and the LLM decision slot independently. Provider-specific transport, prompts, credentials, and response parsing stay inside adapters. Reference matching, deterministic guards, request construction, and human-approval boundaries remain in Bulkinout services and cannot be replaced through these interfaces.
+
+Shadow mode applies the same guards to both decisions but keeps them independent. Only the LLM branch builds the active request and handoff; the deterministic branch produces evaluation artifacts. Core extraction runs once in every mode.
 
 ## End-to-end sequence
 
@@ -132,10 +135,15 @@ sequenceDiagram
     end
     Service->>Ref: build_context(ClinicalCase)
     Ref-->>Service: scenarios + questions + candidates + rules
-    Service->>Model: case + reference context
-    Model-->>Service: ImagingDecision JSON
-    Service->>Guard: merge and enforce required questions
-    Guard-->>Service: guarded decision
+    alt LLM or shadow mode
+        Service->>Model: case + reference context
+        Model-->>Service: LLM ImagingDecision JSON
+    end
+    alt Deterministic or shadow mode
+        Service->>Service: closed-world reference decision
+    end
+    Service->>Guard: guard each produced decision independently
+    Guard-->>Service: guarded decision or shadow pair
     Service->>Guard: add modality-specific checks
     Service->>Service: build_teleradiology_request()
     Service-->>CLI: RequestResult
@@ -144,14 +152,16 @@ sequenceDiagram
         Form-->>CLI: typed answer file or escalation
         CLI->>Service: run_request_from_core(CoreResult, answers)
         Note over CLI,Service: Core extraction is not repeated
-        Service-->>Form: final handoff in the same page
+        Service-->>Form: final imaging request in the same page
+        Form-->>CLI: optional preference or direct-contact action
+        Note over Form,CLI: persist artifacts without another model call
     end
     CLI-->>Operator: JSON outputs + HTML handoff + status
 ```
 
-If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. There is no durable or remote server-side session.
+If clarification is necessary, the operator either uses `--interactive` or completes `answers.template.json` and starts a new run with `--answers`. Interactive mode retains the Core result only in the current process; the answer file remains the auditable handoff between calculations. The same short-lived session can then persist all imaging options, an optional clinician preference, or a direct-contact action. There is no durable or remote server-side session and no order transmission.
 
-A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v4 run manifest fingerprints the distributed Python source, inputs, configured LLM components, terminology providers, and applied inference settings, so changed safeguards, terminology maps, or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
+A separate `request evaluate` command reads one saved run and its schema-v1 E2E expectations. It performs no model call and attributes structured assertion failures to Core or Request. The schema-v5 run manifest fingerprints the distributed Python source, inputs, executed decision engines, terminology providers, and applied inference settings, so changed safeguards, terminology maps, or sampling configuration cannot retain the same run identity. The evaluator does not turn synthetic assertions into clinical validation.
 
 ## Trust boundaries
 
@@ -161,7 +171,7 @@ A separate `request evaluate` command reads one saved run and its schema-v1 E2E 
 | LLM → clinical case | Model interpretation and omissions | Typed fields, statuses, confidence, provenance |
 | Clinical field → terminology | Synonyms, ambiguity, terminology release | Conservative providers, original-text retention, unmapped fallback |
 | Reference → decision | Scenario scope and local suitability | Versioned YAML, deterministic matching, validation tests |
-| LLM → selected state | Candidate reasoning | Required-question guard and modality-specific checks |
+| Decision engine → selected state | LLM reasoning or closed-world reference coverage | Required-question guard and modality-specific checks |
 | Local form → answer fact | Declared role and clinical value | Typed input, one-time token, explicit provenance; no authenticated identity |
 | Draft or handoff → clinical action | Generated wording and proposal | External qualified human approval |
 

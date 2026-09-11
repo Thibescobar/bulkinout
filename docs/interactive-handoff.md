@@ -4,7 +4,8 @@ This feature connects three distinct responsibilities without treating any softw
 
 1. Bulkinout identifies information that can change or block the imaging proposal.
 2. The requesting clinician may supply typed answers locally.
-3. The remote radiologist receives a traceable proposal or an explicit escalation package.
+3. The requesting clinician may record an optional preference or reject the automation.
+4. The remote radiologist receives every proposal, its protocol, and the traceable context needed for the final choice.
 
 ## Workflow
 
@@ -13,7 +14,7 @@ flowchart TD
     A[Clinical documents] --> B[Core extraction once]
     B --> C[Request evaluation]
     C --> D{Required answer missing?}
-    D -- No --> H[Build radiology handoff]
+    D -- No --> H[Build imaging request]
     D -- Yes, interactive --> E[Loopback browser form]
     E --> F{Answer available?}
     F -- Yes --> G[Recalculate Request from the same Core result]
@@ -21,10 +22,13 @@ flowchart TD
     F -- No --> I[Direct teleradiologist contact required]
     D -- Yes, non-interactive --> J[Terminal guidance + answer template]
     J --> I
-    H --> K[Remote radiologist review]
+    H --> K{Clinician action}
+    K -- Add to local request --> L[Persist all options and optional preference]
+    K -- Reject automation --> I
+    L --> M[Remote radiologist review and final choice]
 ```
 
-The first Request evaluation discovers reference, model-generated, and modality-specific questions. All currently known required or blocking questions appear together in one form; Request is not run between individual answers. Submitting the form changes the button state and displays an animated progress indicator while triggering a second Request evaluation, but not another Core extraction or source-document upload. The same browser request remains open during this calculation, then the form is replaced by the final review handoff. The refreshed reference context, safeguards, request, manifest, and handoff are written over the initial snapshots in the selected output directory.
+The first Request evaluation discovers reference, model-generated, and modality-specific questions. All currently known required or blocking questions appear together in one form; Request is not run between individual answers. Submitting the form changes the button state and displays an animated progress indicator while triggering a second Request evaluation, but not another Core extraction or source-document upload. The same browser session then presents the final imaging request. Recording the clinician action only updates the request and handoff artifacts: it makes no model call and sends nothing to an external system.
 
 ## Interactive mode
 
@@ -35,19 +39,19 @@ bulkinout request run \
   --interactive
 ```
 
-The CLI opens a browser form only when a required or blocking question remains. Boolean, integer, numeric, and text questions use distinct controls so canonical values retain their JSON types. Leaving a field empty records it as unavailable; it never converts missing information into an observed fact. The clinician may instead choose direct teleradiologist escalation.
+The CLI opens the review page whenever a reviewable request exists, even when no clarification is required. If a required or blocking question remains, boolean, integer, numeric, and text questions use distinct controls so canonical values retain their JSON types. Leaving a field empty records it as unavailable; it never converts missing information into an observed fact. The clinician may instead choose direct teleradiologist escalation.
 
 The form:
 
 - binds only to `127.0.0.1` on a random port;
-- uses a high-entropy, single-use URL token;
+- uses a high-entropy session URL token;
 - contains no remote scripts, fonts, images, or analytics;
 - uses one nonce-authorized inline script only for click feedback and the progress indicator;
 - rejects an unexpected host, path, form shape, or oversized request;
-- allows ten minutes to submit, remains open during recalculation, and closes its local server only after serving the final handoff;
+- allows ten minutes for the complete interaction, remains open during recalculation, and closes its local server after the final clinician action;
 - writes `answers.interactive.N.json` with owner-only permissions where supported.
 
-Browser failure or submission timeout leaves the initial guarded result intact and returns the operator to the file-based workflow. `--interactive` and `--answers` are mutually exclusive for one invocation. A new required question discovered only after recalculation is shown in the final handoff and terminal guidance; v0 deliberately performs one bounded interactive round.
+Browser failure or timeout leaves the latest guarded result intact and returns the operator to the file-based workflow. `--interactive` and `--answers` are mutually exclusive for one invocation. A new required question discovered only after recalculation is shown in the final handoff and terminal guidance; v0 deliberately performs one bounded clarification round.
 
 ## Non-interactive mode
 
@@ -80,7 +84,8 @@ Every Request run writes two additive artifacts:
 
 The package contains:
 
-- the proposal or explicit requirement for clinician contact;
+- every structured imaging option and its protocol, plus the original Bulkinout ranking;
+- any locally recorded clinician preference or explicit rejection of the automation;
 - all known and conflicting structured facts with document provenance;
 - a dedicated safety-fact view;
 - answered and unanswered clarifications;
@@ -90,7 +95,7 @@ The package contains:
 
 The visible review layer uses French clinical labels, translated display values for known canonical concepts, and source wording for free-text evidence. Developer-facing field paths, raw canonical values, terminology system/code annotations, confidence, validation flags, exact answer filenames, and scenario metadata remain unchanged in JSON and are grouped under the collapsed **Afficher la traçabilité technique** section. This separation changes presentation only; it does not translate source excerpts or modify clinical data. An absent code is rendered as `unmapped` in the technical trace and does not hide the clinical value.
 
-When a proposal is ready for review, the preferred and secondary `ImagingRecommendation` objects appear together as visually selectable cards with their protocol, contrast, urgency, rationale, and attention points. Each rationale is explicitly labelled **Argumentaire généré par Bulkinout — à vérifier**; it supports review but is not presented as source-verified evidence. Legacy narrative alternatives appear separately as notes and are not selectable. The local preselection changes only the highlighted card: it does not alter or persist the generated request. Only the preferred proposal determined the current run's modality-specific checks. The page ends with a disabled **Ajouter au bon de demande** placeholder, which performs no persistence, transmission, or prescription action in v0.
+When a proposal is ready for review, all named `ImagingRecommendation` objects appear as uniform cards with their protocol, contrast, urgency, rationale, and attention points. The original Bulkinout preference remains labelled independently. Clicking a card marks an optional **Préférence du clinicien**; confirming **Ajouter au bon de demande** persists all options and that preference in `teleradiology_request.json` and `radiology_handoff.json`. The radiologist still makes the final choice. **Écarter la proposition et appeler le téléradiologue** records the rejection, blocks the automatic request, and retains the artifacts for audit. Neither action authenticates the clinician, transmits an order, or calls a model. Each rationale remains labelled **Éléments de justification — à vérifier** because it supports review but is not source-verified evidence. Legacy narrative alternatives remain separate notes.
 
 The HTML presentation uses non-breaking French punctuation spacing before `?`, `!`, `:`, and `;` so punctuation cannot be orphaned at the start of a rendered line. JSON values and source data remain unchanged.
 
@@ -114,6 +119,8 @@ This means that the material informed the local scenario. It does not mean that 
 `ready_for_radiologist_review` provides a proposal with its clinical evidence, clarifications, uncertainties, safety data, alternatives, and references. The radiologist still accepts, modifies, or refuses it outside Bulkinout.
 
 `clinician_contact_required` provides no apparently approved examination. It explains why Bulkinout abstained and which questions or conflicts require direct discussion. In time-critical care, the form's escalation action must not delay direct contact.
+
+When several supported examinations remain after clarification, the same page may instead show an unselected option set under `ready_for_radiologist_review`. This is not an escalation or an automated choice: the teleradiologist receives the alternatives, their constraints, the clinical evidence, and the reference citations, then selects the appropriate examination under local procedures.
 
 ## Security and current limits
 

@@ -79,6 +79,7 @@ def test_build_request_collects_relevant_clinical_information():
     assert result.relevant_prior_imaging == [
         "modalité=US; région=abdomen; date=2025-01-02; résultat=normal"
     ]
+    assert [option.exam_name for option in result.imaging_options] == ["CT abdomen"]
 
 
 def test_blocking_question_blocks_request():
@@ -113,3 +114,23 @@ def test_request_uses_modality_and_region_fallback_and_draft_status():
 
     assert result.status == "draft"
     assert result.requested_exam == "MRI brain"
+
+
+def test_radiologist_selection_request_does_not_claim_one_requested_exam():
+    decision = ImagingDecision(
+        decision_status="radiologist_selection_required",
+        primary=recommendation(recommended=False),
+        secondary=[recommendation(exam_name="V/Q", contrast="no", recommended=False)],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+
+    result = build_teleradiology_request(ClinicalCase(), decision, [])
+
+    assert result.status == "ready_for_human_approval"
+    assert result.requested_exam is None
+    assert result.protocol_requested is None
+    assert result.contrast == "unknown"
+    assert result.urgency == "unknown"
+    assert result.rationale_for_exam == []
+    assert [option.exam_name for option in result.imaging_options] == ["CT abdomen", "V/Q"]

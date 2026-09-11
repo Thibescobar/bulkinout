@@ -4,7 +4,7 @@
 
 This document orders the work required to turn the current Request proof of concept into a reliable and evaluable system. It combines confirmed defects, known v0 limitations, clinical-assurance requirements, operational gaps, and future product work. Priorities express dependency and risk, while status records whether work belongs to the current proof-of-concept scope.
 
-The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, provenance, optional local clarification, an evidence-backed radiology handoff, and mandatory human review.
+The following foundations are already in place and should be preserved: strict typing, Ruff and mypy checks, deterministic tests with a coverage floor, golden cases, package builds, a public Python service, provider-neutral LLM interfaces, separate extraction and decision models, closed-world and shadow Request modes, provenance, optional local clarification, an evidence-backed radiology handoff, and mandatory human review.
 
 ## Scope and status
 
@@ -34,10 +34,12 @@ The completed proof-of-concept scope is R01–R04 and R16. R05 and R06 define ga
 | R11 | File snapshots are not atomic, versioned, locked, or concurrency-safe | Operational limitation | P3 | Standby | Runtime foundations |
 | R12 | Logging, retries, timeouts, monitoring, cost controls, and stable error codes are incomplete | Operational limitation | P3 | Standby | Runtime foundations |
 | R13 | No authenticated HTTP service, durable workflow state, or clinical-system integration exists | Platform limitation | P3 | Standby | Service boundary |
-| R14 | Clinician preselection and human approval are external and have no persisted identity or signature | Integration limitation | P3 | Standby | Approval boundary |
+| R14 | Local clinician preference is persisted, but identity, signature, radiologist approval, and clinical-system transmission remain external | Integration limitation | P3 | Standby | Approval boundary |
 | R15 | Report and post-exam processing are placeholders | Product roadmap | P4 | Standby | Report |
 | R16 | Required clarifications lacked a local interaction path and remote radiologists lacked an evidence-backed handoff | Request usability | P1 | Completed | Clinical handoff |
 | R17 | Scenario YAML receives only shallow structural validation before runtime use | Reference-authoring limitation | P1 | Standby | Reference governance |
+| R18 | Compact Request prompts have not been validated against a representative evaluation corpus | Performance and assurance | P2 | Standby | Model evaluation |
+| R19 | Remaining team-requested product improvements require individual scope and acceptance criteria | Product backlog | P2 | Standby pending CTO review | Post-POC iteration |
 
 ## P0 — Stabilize Request
 
@@ -93,6 +95,8 @@ Exit criteria:
 - extraction and decision failures are attributed to their owning stage;
 - a green deterministic CI run is never presented as proof of clinical model quality.
 
+The existing synthetic E2E cases remain useful regression smoke tests for known failure modes. Do not overfit prompts, thresholds, or expected results to this small corpus. Prioritize a representative, clinically reviewed evaluation corpus once the data-lifecycle gate is satisfied. Real-derived cases must be authorized, minimized or de-identified as required, stored in a controlled location, and kept out of Git. They must not be sent to an external model provider until the R06 controls and organizational approvals are in place.
+
 ### Reference governance
 
 1. Assign clinical ownership and review the 18 scenarios against local practice.
@@ -130,6 +134,12 @@ This work is separate from the P0 substring defect: P0 fixes incorrect matching 
 ### Reconciliation and timeline
 
 Implement evidence-aware reconciliation behind `core/reconciliation/` and chronological views behind `core/timeline/`. Equivalent observations may be grouped, but conflicting evidence must remain visible and source-grounded. Do not silently select one source as truth.
+
+A previous broad implementation was rolled back after it changed the behavior of a complex pulmonary-embolism case. Resume this work only after a representative evaluation baseline exists, in narrow independently measured increments with explicit before/after clinical assertions.
+
+### Prompt efficiency
+
+Keep compact Request prompting experimental until the representative evaluation baseline can compare clinical behavior, latency, and token use. Reintroduce it only when those measurements show no material regression; prompt reduction is not an acceptable reason to weaken provenance, safety facts, or decision context.
 
 ### Reference paths
 
@@ -178,12 +188,12 @@ P0  reference integrity — completed
 
 Suggested sequence for work that remains:
 
-1. `fix/reference_schema_validation`
-2. `governance/reference_validation`
-3. `security/data_lifecycle`
-4. `feature/clinical_normalization`
-5. `feature/runtime_operations`
-6. `feature/report`
+1. Present and review the current Request proof of concept with the CTO.
+2. Retain the synthetic E2E suite as a lightweight regression harness without tuning behavior to it.
+3. Complete the R06 data-lifecycle gate and establish a controlled, clinically reviewed evaluation corpus.
+4. Measure the baseline, then reassess compact prompting and reconciliation/timeline independently.
+5. Scope the remaining team-requested features one at a time against the measured baseline.
+6. Continue reference validation, runtime foundations, and Report according to their gates and priorities.
 
 ## Definition of done
 

@@ -4,14 +4,14 @@ This documentation explains both what v0 does and how its pieces cooperate. Star
 
 ## The system in one minute
 
-Bulkinout receives a directory of heterogeneous clinical documents. Core extracts source-grounded facts into a shared `RadiologyCase`. Request combines that case with YAML scenarios and an LLM, then applies deterministic guards before creating a French teleradiology request draft.
+Bulkinout receives a directory of heterogeneous clinical documents. Core extracts source-grounded facts into a shared `RadiologyCase`. Request combines that case with YAML scenarios and a configurable LLM, deterministic, or shadow decision mode, then applies deterministic guards before creating a French teleradiology request draft.
 
 ```mermaid
 flowchart LR
     A[Clinical documents] --> B[Core extraction]
     B --> C[ClinicalCase]
     C --> D[Reference matching]
-    D --> E[LLM candidate comparison]
+    D --> E[Configured decision mode]
     E --> F[Deterministic guards]
     F --> G{Enough information?}
     G -- No --> H[File or local browser clarification]
@@ -23,7 +23,7 @@ flowchart LR
 Three ideas are central:
 
 1. **Evidence remains traceable.** A clinical fact includes status, confidence, and source excerpts; it is not just a bare value.
-2. **The LLM does not own safety.** It proposes structured extraction and decisions, while deterministic code prevents selection when required information remains unresolved.
+2. **Decision engines do not own safety.** LLM and closed-world engines produce typed decisions, while shared deterministic code prevents selection when required information remains unresolved.
 3. **Internal data and presentation are separate concerns.** Technical metadata and canonical concepts use English. Current clinical interaction is in French. Source documents may use any language.
 
 ## Choose a reading path

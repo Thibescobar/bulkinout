@@ -148,7 +148,11 @@ class ImagingRecommendation(BaseModel):
 
 class ImagingDecision(BaseModel):
     decision_status: Literal[
-        "selected", "insufficient_information", "no_imaging_recommended", "safety_blocked"
+        "selected",
+        "radiologist_selection_required",
+        "insufficient_information",
+        "no_imaging_recommended",
+        "safety_blocked",
     ] = "insufficient_information"
     candidates: list[CandidateExam] = Field(default_factory=list)
     discriminating_questions: list[DiscriminatingQuestion] = Field(default_factory=list)
@@ -159,6 +163,14 @@ class ImagingDecision(BaseModel):
     clinician_call_reasons: list[str] = Field(default_factory=list)
     decision_ready_for_human_approval: bool = False
     validation_warning: str = "Aide à la décision. Une validation clinique humaine est requise avant prescription/transmission."
+
+
+class ClinicianRequestReview(BaseModel):
+    action: Literal["add_to_request", "contact_teleradiologist"]
+    preferred_option: ImagingRecommendation | None = None
+    responder_role: Literal["clinician", "emergency_clinician"]
+    recorded_at: datetime
+    response_method: Literal["interactive_browser"] = "interactive_browser"
 
 
 class TeleradiologyRequest(BaseModel):
@@ -177,6 +189,8 @@ class TeleradiologyRequest(BaseModel):
     safety_information: list[str] = Field(default_factory=list)
     unresolved_items: list[str] = Field(default_factory=list)
     rationale_for_exam: list[str] = Field(default_factory=list)
+    imaging_options: list[ImagingRecommendation] = Field(default_factory=list)
+    clinician_review: ClinicianRequestReview | None = None
     validated_by_clinician: bool = False
     warning: str = "Brouillon généré automatiquement. Ne pas transmettre sans validation clinique."
 

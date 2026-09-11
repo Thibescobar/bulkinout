@@ -3,11 +3,11 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-196%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-210%20passed-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
-**Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, an LLM, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
+**Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, a configurable decision engine, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
 
 ![Bulkinout workflow overview](docs/images/bulkinout-overview.svg)
 
@@ -28,6 +28,7 @@ The current Request workflow:
 - asks only questions that may change the decision;
 - optionally collects required answers in a private local browser form;
 - compares candidate examinations;
+- can make the comparison with an LLM, a closed-world deterministic engine, or both in shadow mode;
 - blocks unsafe or under-specified proposals;
 - prepares an evidence-backed French handoff for remote radiologist review.
 
@@ -66,7 +67,16 @@ Run the complete pre-exam workflow:
 bulkinout request run --input input --output output
 ```
 
-Add `--interactive` to open a short-lived browser form when required clinical answers are missing. All currently known required questions appear together. On submission, the button changes state and an animated progress indicator remains visible while Request is recalculated without extracting the source documents again. The same page then displays the examination proposed to the radiologist or the direct-escalation state. Its main review content uses French clinical labels; canonical fields, values, and reference metadata remain available in a collapsed technical trace.
+Request uses the current LLM decision engine by default. Select the closed-world engine to avoid the second model call, or shadow it without changing the active LLM result:
+
+```bash
+bulkinout request run --input input --output output_deterministic --decision-mode deterministic
+bulkinout request run --input input --output output_shadow --decision-mode shadow
+```
+
+Core extraction still uses its configured LLM in all three modes. Deterministic Request selects an explicitly preferred candidate or a single `usually_appropriate` candidate. When several supported options remain, or the only option is conditional, it prepares an unselected option set for the radiologist instead of forcing a choice or a telephone call. Shadow mode writes both guarded decisions for evaluation, while the LLM decision alone drives the request and handoff.
+
+Add `--interactive` to open one short-lived browser session. When clinical answers are missing, all currently known required questions appear together and Request is recalculated without repeating Core extraction. The same page then presents every structured imaging option with its protocol. The clinician can add the package to the local request artifacts, with an optional recorded preference, or reject the automation and request direct contact with the teleradiologist. This final action makes no additional model call and performs no external transmission. The main review content uses French clinical labels; canonical fields, values, and reference metadata remain available in a collapsed technical trace.
 
 ```bash
 bulkinout request run --input input --output output --interactive
@@ -106,10 +116,11 @@ bulkinout
 | `request run` | `--input` | `input` | Directory containing the clinical source documents. |
 |  | `--output` | `output` | Directory receiving all workflow outputs. |
 |  | `--answers` | none | Optional JSON answers from a previous clarification pass. |
-|  | `--interactive` | off | Open a private loopback browser form and recalculate Request from the same Core result. |
+|  | `--interactive` | off | Open the private clarification and imaging-request review session. |
 |  | `--reference` | packaged&nbsp;reference | Optional scenario-directory override. |
 |  | `--extraction-model` | extraction&nbsp;env | Model used by Core. |
 |  | `--decision-model` | decision&nbsp;env | Model used by Request. |
+|  | `--decision-mode` | `llm` | `llm`, `deterministic`, or non-decision-making `shadow` comparison. |
 |  | `--model` | shared&nbsp;env | Optional shared fallback for both stages. |
 |  | `--cold` | off | Request temperature 0 independently for each compatible model stage. |
 | `request catalog` | `--reference` | packaged&nbsp;reference | Optional reference directory to summarize instead. |
@@ -119,7 +130,7 @@ bulkinout
 |  | `--run` | required | Directory containing saved Request artifacts. |
 |  | `--report` | none | Optional path for a machine-readable evaluation report. |
 
-Here, extraction env, decision env, and shared env mean `BULKINOUT_EXTRACTION_MODEL`, `BULKINOUT_DECISION_MODEL`, and `BULKINOUT_MODEL`, respectively. The CLI currently uses the built-in OpenAI adapters, so `core structure` and `request run` require `OPENAI_API_KEY`. Each stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then the shared environment variable. `--cold` applies `temperature=0` to known compatible GPT-4.1 and GPT-4o models. Incompatible stages continue with their configured reasoning and emit a warning; no reasoning level is changed silently. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
+Here, extraction env, decision env, and shared env mean `BULKINOUT_EXTRACTION_MODEL`, `BULKINOUT_DECISION_MODEL`, and `BULKINOUT_MODEL`, respectively. The CLI uses the built-in OpenAI extractor, so `core structure` and `request run` require `OPENAI_API_KEY`. The decision model is used only in `llm` and `shadow` modes; `deterministic` neither constructs nor calls it. Each LLM stage resolves its model in this order: stage-specific option, shared `--model`, stage-specific environment variable, then the shared environment variable. `--cold` applies `temperature=0` to known compatible GPT-4.1 and GPT-4o models. Incompatible stages continue with their configured reasoning and emit a warning; no reasoning level is changed silently. Use `bulkinout COMMAND --help` and `bulkinout COMMAND SUBCOMMAND --help` for the current parser definition.
 
 ## Python integration
 
@@ -134,6 +145,7 @@ result = run_request(
     Path("input"),
     extraction_model="<multimodal-model>",
     decision_model="<decision-model>",
+    decision_mode="llm",  # "deterministic" or "shadow"
     cold=True,
 )
 
@@ -144,7 +156,7 @@ print(result.teleradiology_request.model_dump(mode="json"))
 write_request_outputs(result, Path("output"))
 ```
 
-With its defaults, this path uses the packaged 18-scenario reference and requires `OPENAI_API_KEY`. Pass `reference_dir=Path("reference/scenarios")` only to select an explicit override. Python callers can instead inject provider-neutral extraction and decision components, including local implementations; see the [Python API guide](docs/python-api.md#custom-and-local-llm-components). `run_request()` still owns Core, optional answers, reference matching, the decision model, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
+With its defaults, this path uses the packaged 18-scenario reference and requires `OPENAI_API_KEY`. Pass `reference_dir=Path("reference/scenarios")` only to select an explicit override. Python callers can instead inject provider-neutral extraction and decision components, including local implementations; see the [Python API guide](docs/python-api.md#custom-and-local-llm-components). `run_request()` still owns Core, optional answers, reference matching, decision-mode orchestration, and all deterministic guards. Expected application failures derive from `BulkinoutError`; provider and schema exceptions remain available for precise upstream handling.
 
 ## Generated outputs
 
@@ -156,11 +168,14 @@ With its defaults, this path uses the packaged 18-scenario reference and require
 | `reference_context.json` | Matched scenarios, candidate examinations, questions, and triggered rules. |
 | `missing_questions.json` | Deduplicated generic, reference, model-generated, and modality-specific questions. |
 | `imaging_decision.json` | Candidate comparison, decision status, rationale, and approval readiness. |
-| `teleradiology_request.json` | French clinical request draft awaiting human validation. |
+| `imaging_decision_llm.json` | Guarded LLM decision, written only in shadow mode. |
+| `imaging_decision_deterministic.json` | Guarded closed-world decision, written only in shadow mode. |
+| `decision_comparison.json` | Minimal agreement and required-question comparison, written only in shadow mode. |
+| `teleradiology_request.json` | French clinical request with all options and any recorded clinician preference or escalation. |
 | `answers.template.json` | Machine-readable template for a clarification pass. |
 | `run_manifest.json` | Package, code, input, LLM component, terminology provider, inference-setting, prompt, schema, and reference fingerprints for comparison. |
 | `radiology_handoff.json` | Structured primary and alternative proposals, or an escalation package, with their supporting trace. |
-| `radiology_handoff.html` | Self-contained French review page with a non-persistent visual preselection. |
+| `radiology_handoff.html` | Self-contained French imaging-request page reflecting the recorded local review action. |
 | `answers.interactive.N.json` | Private typed answer record created only by an interactive clarification round. |
 
 ## Tests and validation
@@ -211,7 +226,8 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 
 ## Limitations
 
-- **LLM-dependent extraction and decision support:** results vary with the configured model. The E2E evaluator makes saved runs comparable, but coverage remains synthetic and deterministic guards do not validate every clinical statement produced by the model.
+- **LLM-dependent extraction and optional decision support:** Core results vary with the extraction model, and `llm`/`shadow` decisions also vary with the decision model. The E2E evaluator makes saved runs comparable, but coverage remains synthetic and deterministic guards do not validate every clinical statement produced by a model.
+- **Conservative deterministic scope:** deterministic Request is limited by explicitly encoded candidates, conditions, and four current YAML rules. It can route supported alternatives for radiologist selection, but richer reviewed candidate metadata and rules are still required before this mode can cover every complex scenario without escalation.
 - **Limited terminology normalization:** clinical fields can carry provider-supplied coded concepts and common units receive conservative UCUM annotations. No SNOMED CT, LOINC, or RadLex dataset or terminology server is bundled; most clinical content therefore remains free text unless an approved provider is injected.
 - **Limited reconciliation and timeline logic:** contradictions are represented, but v0 has no specialized longitudinal merge engine or event timeline.
 - **Reference scope and validation:** the bundled 18 scenarios are examples marked `needs_local_validation`, not a complete or locally approved imaging policy.
@@ -219,7 +235,7 @@ Clinical input is language-agnostic. Internal keys and canonical values use Engl
 - **Simple reference paths:** matching reads first-level `section.field` values and does not traverse arbitrary nested clinical structures.
 - **No HTTP service:** the complete workflow has a public Python API. The optional loopback form is a short-lived local UI, not an authenticated service endpoint; transport, request isolation, persistence, and HTTP API contracts are not implemented.
 - **No post-exam workflow:** `Report`, image-analysis integration, findings, impression, and final-report generation are placeholders.
-- **Human approval is external:** interactive answers record a declared role but do not authenticate or sign it. Radiologist acceptance, persistent approval, transmission, and clinical-system integration remain external.
+- **Human approval is external:** interactive answers and clinician preference record a declared role but do not authenticate or sign it. Radiologist acceptance, transmission, and clinical-system integration remain external.
 
 The prioritized remediation sequence and exit criteria are maintained in the [`roadmap`](docs/roadmap.md).
 

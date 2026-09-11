@@ -109,6 +109,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "extractor": extractor,
                 "decision_engine": decision_engine,
                 "terminology_normalizer": terminology_normalizer,
+                "decision_mode": "llm",
             },
         ),
         (
@@ -122,6 +123,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "answers_path": tmp_path / "answers.json",
                 "decision_engine": decision_engine,
                 "terminology_normalizer": terminology_normalizer,
+                "decision_mode": "llm",
             },
         ),
     ]

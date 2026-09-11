@@ -39,7 +39,20 @@ class BrowserClarification:
     escalated: bool = False
 
 
-SubmissionHandler = Callable[[BrowserClarification], str]
+@dataclass(slots=True)
+class BrowserReview:
+    action: Literal["add_to_request", "contact_teleradiologist"]
+    preferred_option_index: int | None
+    responder_role: Literal["clinician", "emergency_clinician"]
+
+
+class InvalidReviewError(ValueError):
+    """Raised when a submitted review does not match the displayed options."""
+
+
+SubmissionHandler = Callable[[BrowserClarification, str, str], tuple[str, bool]]
+ReviewRenderer = Callable[[str, str], str]
+ReviewHandler = Callable[[BrowserReview], str]
 
 
 @dataclass(slots=True)
@@ -48,8 +61,11 @@ class _Session:
     questions: list[MissingQuestion]
     csp_nonce: str = field(default_factory=lambda: secrets.token_urlsafe(16))
     on_submit: SubmissionHandler | None = None
+    render_review: ReviewRenderer | None = None
+    on_review: ReviewHandler | None = None
     port: int = 0
     outcome: BrowserClarification | None = None
+    reviewed: bool = False
     submission_error: Exception | None = None
 
 
@@ -189,6 +205,40 @@ def _parse_submission(body: bytes, session: _Session) -> BrowserClarification:
     return BrowserClarification(answer_file=answer_file, escalated=action == "escalate")
 
 
+def _parse_review(body: bytes) -> BrowserReview:
+    try:
+        form = parse_qs(body.decode("utf-8"), keep_blank_values=True, strict_parsing=True)
+    except (UnicodeDecodeError, ValueError) as error:
+        raise ValueError("invalid form") from error
+    if set(form) not in (
+        {"role", "review_action"},
+        {"role", "review_action", "preferred_option"},
+    ) or any(len(values) != 1 for values in form.values()):
+        raise ValueError("unexpected form fields")
+    raw_role = form["role"][0]
+    raw_action = form["review_action"][0]
+    if raw_role not in {"clinician", "emergency_clinician"} or raw_action not in {
+        "add_to_request",
+        "contact_teleradiologist",
+    }:
+        raise ValueError("invalid form value")
+    raw_option = form.get("preferred_option", [""])[0].strip()
+    try:
+        option_index = int(raw_option) if raw_option else None
+    except ValueError as error:
+        raise ValueError("invalid option") from error
+    if option_index is not None and option_index < 0:
+        raise ValueError("invalid option")
+    return BrowserReview(
+        action=cast(
+            Literal["add_to_request", "contact_teleradiologist"],
+            raw_action,
+        ),
+        preferred_option_index=option_index,
+        responder_role=cast(Literal["clinician", "emergency_clinician"], raw_role),
+    )
+
+
 class _ClarificationHandler(BaseHTTPRequestHandler):
     def log_message(self, _format: str, *_args: object) -> None:
         return
@@ -219,10 +269,18 @@ class _ClarificationHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         session = self._session
-        if not self._authorized(f"/{session.token}") or session.outcome is not None:
+        if not self._authorized(f"/{session.token}") or session.reviewed:
             self._respond(404, "Page indisponible")
             return
-        self._respond(200, _render_form(session))
+        if session.questions and session.outcome is None:
+            self._respond(200, _render_form(session))
+        elif session.render_review is not None:
+            self._respond(
+                200,
+                session.render_review(f"/{session.token}/review", session.csp_nonce),
+            )
+        else:
+            self._respond(404, "Page indisponible")
 
     def _content_length(self) -> int | None:
         content_type = self.headers.get("Content-Type", "")
@@ -234,9 +292,63 @@ class _ClarificationHandler(BaseHTTPRequestHandler):
         except ValueError:
             return None
 
+    def _handle_submission(self, body: bytes, review_path: str) -> None:
+        session = self._session
+        try:
+            outcome = _parse_submission(body, session)
+        except (ValueError, TypeError):
+            self._respond(400, "Réponses invalides")
+            return
+        session.outcome = outcome
+        if session.on_submit is None:
+            self._respond(200, "Réponses enregistrées. Vous pouvez fermer cette fenêtre.")
+            return
+        try:
+            review_html, review_required = session.on_submit(
+                outcome, review_path, session.csp_nonce
+            )
+        except Exception as error:
+            session.submission_error = error
+            self._respond(
+                500,
+                "Le recalcul a échoué. La proposition n'a pas été transmise ; "
+                "consultez le terminal.",
+            )
+            return
+        if not review_required:
+            session.reviewed = True
+        self._respond(200, review_html)
+
+    def _handle_review(self, body: bytes) -> None:
+        session = self._session
+        try:
+            review = _parse_review(body)
+        except (ValueError, TypeError):
+            self._respond(400, "Choix invalide")
+            return
+        assert session.on_review is not None
+        try:
+            final_html = session.on_review(review)
+        except InvalidReviewError:
+            self._respond(400, "Choix invalide")
+            return
+        except Exception as error:
+            session.submission_error = error
+            self._respond(500, "L'enregistrement a échoué ; consultez le terminal.")
+            return
+        session.outcome = session.outcome or BrowserClarification(AnswerFile())
+        session.reviewed = True
+        self._respond(200, final_html)
+
     def do_POST(self) -> None:
         session = self._session
-        if not self._authorized(f"/{session.token}/submit") or session.outcome is not None:
+        submit_path = f"/{session.token}/submit"
+        review_path = f"/{session.token}/review"
+        is_submission = self._authorized(submit_path) and session.outcome is None
+        is_review = (
+            self._authorized(review_path) and session.on_review is not None and not session.reviewed
+        )
+        if not is_submission and not is_review:
             self._respond(404, "Page indisponible")
             return
         length = self._content_length()
@@ -246,44 +358,33 @@ class _ClarificationHandler(BaseHTTPRequestHandler):
         if length < 0 or length > _MAX_BODY_BYTES:
             self._respond(413, "Requête trop volumineuse")
             return
-        try:
-            outcome = _parse_submission(self.rfile.read(length), session)
-        except (ValueError, TypeError):
-            self._respond(400, "Réponses invalides")
+        body = self.rfile.read(length)
+        if is_submission:
+            self._handle_submission(body, review_path)
             return
-        session.outcome = outcome
-        if session.on_submit is None:
-            self._respond(200, "Réponses enregistrées. Vous pouvez fermer cette fenêtre.")
-            return
-        try:
-            review_html = session.on_submit(outcome)
-        except Exception as error:
-            session.submission_error = error
-            self._respond(
-                500,
-                "Le recalcul a échoué. La proposition n'a pas été transmise ; "
-                "consultez le terminal.",
-            )
-            return
-        self._respond(200, review_html)
+        self._handle_review(body)
 
 
 def collect_clinician_answers(
     questions: list[MissingQuestion],
     *,
     on_submit: SubmissionHandler | None = None,
+    render_review: ReviewRenderer | None = None,
+    on_review: ReviewHandler | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     opener: Callable[[str], bool] = webbrowser.open_new_tab,
     server_factory: type[HTTPServer] = HTTPServer,
 ) -> BrowserClarification | None:
-    """Open one short-lived loopback form and return typed answers, if submitted."""
+    """Run one short-lived clarification and request-review browser session."""
 
-    if not questions:
+    if not questions and (render_review is None or on_review is None):
         return None
     session = _Session(
         token=secrets.token_urlsafe(32),
         questions=questions,
         on_submit=on_submit,
+        render_review=render_review,
+        on_review=on_review,
     )
     server = server_factory(("127.0.0.1", 0), _ClarificationHandler)
     setattr(server, "clarification_session", session)
@@ -297,11 +398,15 @@ def collect_clinician_answers(
         if not opened:
             return None
         deadline = time.monotonic() + timeout_seconds
-        while session.outcome is None and time.monotonic() < deadline:
+        while (
+            not session.reviewed if on_review is not None else session.outcome is None
+        ) and time.monotonic() < deadline:
             server.timeout = min(0.25, max(0.0, deadline - time.monotonic()))
             server.handle_request()
         if session.submission_error is not None:
             raise session.submission_error
+        if on_review is not None and not session.reviewed:
+            return None
         return session.outcome
     finally:
         server.server_close()
