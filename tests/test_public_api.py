@@ -3,6 +3,7 @@ from pathlib import Path
 
 from bulkinout import __version__
 from bulkinout import (
+    TerminologyNormalizer,
     build_radiology_case,
     run_request,
     run_request_from_core,
@@ -26,6 +27,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
     calls = []
     extractor = object()
     decision_engine = object()
+    terminology_normalizer = TerminologyNormalizer([])
     monkeypatch.setattr(
         core_service,
         "build_radiology_case",
@@ -47,7 +49,13 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
     )
 
     assert (
-        build_radiology_case(tmp_path, model="model", cold=True, extractor=extractor)
+        build_radiology_case(
+            tmp_path,
+            model="model",
+            cold=True,
+            extractor=extractor,
+            terminology_normalizer=terminology_normalizer,
+        )
         == "core-result"
     )
     assert (
@@ -60,6 +68,7 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
             cold=True,
             extractor=extractor,
             decision_engine=decision_engine,
+            terminology_normalizer=terminology_normalizer,
         )
         == "request-result"
     )
@@ -72,11 +81,21 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
             cold=True,
             answers_path=tmp_path / "answers.json",
             decision_engine=decision_engine,
+            terminology_normalizer=terminology_normalizer,
         )
         == "continued-result"
     )
     assert calls == [
-        ("core", tmp_path, {"model": "model", "cold": True, "extractor": extractor}),
+        (
+            "core",
+            tmp_path,
+            {
+                "model": "model",
+                "cold": True,
+                "extractor": extractor,
+                "terminology_normalizer": terminology_normalizer,
+            },
+        ),
         (
             "request",
             tmp_path,
@@ -89,6 +108,8 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "answers_path": None,
                 "extractor": extractor,
                 "decision_engine": decision_engine,
+                "terminology_normalizer": terminology_normalizer,
+                "decision_mode": "llm",
             },
         ),
         (
@@ -101,6 +122,8 @@ def test_public_service_facade_delegates(monkeypatch, tmp_path):
                 "cold": True,
                 "answers_path": tmp_path / "answers.json",
                 "decision_engine": decision_engine,
+                "terminology_normalizer": terminology_normalizer,
+                "decision_mode": "llm",
             },
         ),
     ]

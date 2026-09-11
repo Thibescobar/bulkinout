@@ -12,6 +12,7 @@ classDiagram
     ClinicalCase o-- ClinicalField
     ClinicalCase o-- PriorImaging
     ClinicalField o-- SourceRef
+    ClinicalField o-- CodedConcept
     ImagingDecision *-- ImagingRecommendation
     ImagingDecision o-- CandidateExam
     ImagingDecision o-- DiscriminatingQuestion
@@ -34,6 +35,7 @@ classDiagram
         sources
         confidence
         validated
+        coded_concepts
     }
     class ImagingDecision {
         decision_status
@@ -51,7 +53,7 @@ The classes fall into four groups:
 | Longitudinal record | `RadiologyCase`, `WorkflowState`, `ArtifactRef` | Shared container, phase, inputs, outputs, and audit. |
 | Clinical evidence | `ClinicalCase`, `ClinicalField`, `SourceRef`, `PriorImaging` | Facts, uncertainty, and traceability. |
 | Request decision | `CandidateExam`, `DiscriminatingQuestion`, `ImagingRecommendation`, `ImagingDecision` | Candidate comparison and guarded decision state. |
-| I/O contracts | `LLMExtraction`, `LLMFact`, `LLMSource`, `AnswerFile`, `AnswerItem`, `TeleradiologyRequest` | Model response, clarification input, and clinical draft. |
+| I/O contracts | `LLMExtraction`, `LLMFact`, `LLMSource`, `AnswerFile`, `AnswerItem`, `ClinicianRequestReview`, `TeleradiologyRequest` | Model response, clarification input, and clinical request. |
 | Radiologist review | `RadiologyHandoff`, `HandoffFact`, `HandoffClarification`, `HandoffCitation`, `HandoffDecisionTrace` | Evidence-backed proposal or escalation package. |
 
 ## Evidence is not a bare value
@@ -71,7 +73,17 @@ Every current clinical datum is wrapped in `ClinicalField`:
     }
   ],
   "confidence": 0.98,
-  "validated": false
+  "validated": false,
+  "coded_concepts": [
+    {
+      "system": "urn:example:approved-local-terminology",
+      "code": "right-lower-quadrant",
+      "display": "Right lower quadrant",
+      "original_text": "right_lower_quadrant",
+      "version": "2026-09",
+      "normalized_value": null
+    }
+  ]
 }
 ```
 
@@ -82,8 +94,15 @@ Every current clinical datum is wrapped in `ClinicalField`:
 | `sources` | Zero or more source references. Non-unknown extracted facts should normally have at least one. |
 | `confidence` | Model confidence from `0.0` to `1.0`; not a calibrated clinical probability. |
 | `validated` | Human-validation flag, `False` by default. v0 provides no workflow that sets it globally. |
+| `coded_concepts` | Optional terminology annotations. Empty means unmapped, not unknown. Each annotation retains the triggering text and never replaces `value`. |
 
 Absence of a statement must remain unknown. For example, a document that never mentions pregnancy must not produce `value=false` for `imaging_safety.pregnancy`.
+
+## Coded concepts and free text
+
+`CodedConcept` separates terminology identity from presentation and source wording. `system` and `code` identify a concept; `display` is a developer-readable label; `original_text` records what was matched. Optional `version` identifies the terminology release, while `normalized_value` can retain a parsed numeric value for unit annotations.
+
+Normalization is additive. The functional value, evidence status, confidence, validation flag, and `SourceRef` objects remain unchanged. Unknown, conflicting, ambiguous, or unmatched facts receive no new code and remain usable through `ClinicalField.value`. See [Terminology normalization](terminology.md) for provider and licensing boundaries.
 
 ## Clinical case sections
 
@@ -151,15 +170,18 @@ A `DiscriminatingQuestion` names a stable field and records why its answer affec
 stateDiagram-v2
     [*] --> insufficient_information
     insufficient_information --> selected: required facts supplied
+    insufficient_information --> radiologist_selection_required: supported options remain
     insufficient_information --> safety_blocked: blocking safety gap
     insufficient_information --> no_imaging_recommended: rule or reasoning
     selected --> insufficient_information: unresolved required discriminator
     selected --> safety_blocked: unresolved blocking safety check
+    radiologist_selection_required --> insufficient_information: required fact unresolved
 ```
 
 | Status | Meaning |
 |---|---|
 | `selected` | One primary recommendation is justified, subject to human approval. |
+| `radiologist_selection_required` | Supported options can be transmitted, but none is selected by Bulkinout. |
 | `insufficient_information` | Material facts are missing or conflicting. |
 | `no_imaging_recommended` | The current context does not support initial imaging. |
 | `safety_blocked` | A blocking safety item prevents approval readiness. |
@@ -187,9 +209,9 @@ After a clinician supplies a non-empty value, `apply_answers()` stores it as an 
 
 ## Teleradiology request
 
-`TeleradiologyRequest` is presentation output. It contains French clinical summaries and labels, unresolved items, examination rationale, and an explicit warning. Its status is `draft`, `ready_for_human_approval`, or `blocked`, and `validated_by_clinician` defaults to `False`.
+`TeleradiologyRequest` is presentation output. It contains French clinical summaries and labels, unresolved items, every structured `imaging_options` proposal, and an explicit warning. An optional `clinician_review` records `add_to_request` or `contact_teleradiologist`, the declared role and time, and a full `ImagingRecommendation` preference when one was chosen. The preference does not replace Bulkinout's ranking or represent the radiologist's final choice. Status is `draft`, `ready_for_human_approval`, or `blocked`; rejecting automation changes it to `blocked`, while `validated_by_clinician` remains `False`.
 
-Do not treat serialization success as authorization to transmit the request. Identity, signature, persistence, and clinical-system integration are outside v0.
+Do not treat serialization success or a recorded local review as authorization to transmit the request. Identity, signature, radiologist approval, durable workflow persistence, and clinical-system integration are outside v0.
 
 ## Radiology handoff
 
@@ -197,12 +219,12 @@ Do not treat serialization success as authorization to transmit the request. Ide
 
 The JSON artifact always retains canonical English identifiers and structured values. Its HTML rendering presents French clinical labels and human-readable statuses by default, while preserving the exact canonical fields, values, confidence, validation flags, filenames, and scenario metadata in a collapsed technical trace. Source excerpts remain in their original language.
 
-The decision trace separates applicable reference candidate IDs from model candidate IDs. `selected_reference_candidate` is populated only when the proposed examination name exactly matches an applicable YAML candidate. Triggered rules are labelled `local_rule_triggered`; citations are labelled `scenario_background`. These distinctions prevent model wording or scenario-level references from being presented as source endorsement of a patient-specific decision.
+The decision trace separates applicable reference candidate IDs from model candidate IDs. `selected_reference_candidate` is populated only when a selected examination name exactly matches an applicable YAML candidate; it remains empty when the radiologist must choose among unselected options. Triggered rules are labelled `local_rule_triggered`; citations are labelled `scenario_background`. These distinctions prevent model wording or scenario-level references from being presented as source endorsement of a patient-specific decision.
 
-`radiology_handoff.html` renders the same content in French. It escapes every clinical value, contains no remote assets, and allows a visual, non-persistent preselection between structured proposals. It is intended for review rather than automatic transmission or approval.
+`radiology_handoff.html` renders the same content in French. It escapes every clinical value, contains no remote assets, and, during `--interactive`, can persist an optional clinician preference or explicit escalation into the JSON artifacts. All proposals remain present and the page never represents this preference as radiologist approval or external transmission.
 
 ## Evaluation and run metadata
 
-`RunManifest` is a separate technical model rather than clinical case data. Schema version 3 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
+`RunManifest` is a separate technical model rather than clinical case data. Schema version 5 records the package version and a SHA-256 fingerprint of every distributed Python source, followed by fingerprints for inputs, decision mode and executed engines, inference settings, prompts, Pydantic schemas, the complete reference revision, and matched scenario files. It also records provider, component, and model identities. OpenAI component settings distinguish requested temperature, applied temperature, and compatibility status so an ignored `--cold` flag remains visible. Deterministic mode records `llm_calls: 0` for its Request engine. The code fingerprint changes when a safeguard or other packaged Python source changes, including uncommitted editable-install changes. Missing custom-provider metadata is explicit as `unreported`; missing inference metadata uses an empty object. Prompt and document contents are not copied into the manifest, although filenames can remain sensitive.
 
 `E2EExpectations` and `EvaluationReport` define the offline model-evaluation boundary. Expectations use structured facts, tolerances, scenario/status sets, question fields, and acceptable presentation terms. Reports keep Core and Request results separate so a final-output failure is not automatically attributed to extraction.

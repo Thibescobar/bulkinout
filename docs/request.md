@@ -1,6 +1,6 @@
 # Bulkinout Request
 
-Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, uses the packaged or explicitly overridden YAML reference to constrain an LLM comparison, applies deterministic guards, and builds a French teleradiology request plus an evidence-backed review handoff.
+Request is the implemented pre-exam workflow. It consumes a `ClinicalCase`, combines it with the packaged or explicitly overridden YAML reference, runs the selected decision mode, applies deterministic guards, and builds a French teleradiology request plus an evidence-backed review handoff.
 
 ## Complete execution order
 
@@ -12,13 +12,16 @@ flowchart TD
     C --> D
     D --> E[Match reference scenarios]
     E --> F[Build reference context]
-    F --> G[LLM returns ImagingDecision]
-    G --> H[Merge reference and model questions]
-    H --> I[Generate modality-specific questions]
-    I --> J[Deduplicate and enforce strongest constraints]
-    J --> K[Build TeleradiologyRequest]
-    K --> L[Build cited RadiologyHandoff]
-    L --> M[Write outputs and audit event]
+    F --> G{Decision mode}
+    G -->|llm| H[LLM decision]
+    G -->|deterministic| I[Closed-world decision]
+    G -->|shadow| J[Both decisions, kept separate]
+    H --> K[Guard active decision]
+    I --> K
+    J --> K
+    K --> L[Generate and merge required questions]
+    L --> M[Build active request and handoff]
+    M --> N[Write outputs and audit event]
 ```
 
 The orchestration lives in `run_request()` and `run_request_from_core()` in `src/bulkinout/request/service.py`. The first includes Core extraction; the second safely deep-copies an existing `CoreResult` and recalculates Request without processing source documents again. Both use the same answer handling, guard order, and clinical behavior.
@@ -75,9 +78,21 @@ These checks are not a protocol matrix. Scenario-specific questions belong in th
 - unanswered material, required, and blocking questions ordered by priority;
 - deterministic rules triggered by the current facts.
 
-This object is saved as `reference_context.json` and sent to the decision model. It is the best starting point when a scenario or candidate appears wrong.
+This object is saved as `reference_context.json` and passed to the configured decision engine or engines. It is the best starting point when a scenario or candidate appears wrong.
 
-## 4. LLM candidate comparison
+## 4. Decision modes
+
+`decision_mode` accepts `llm`, `deterministic`, or `shadow`; `llm` remains the default.
+
+| Mode | Request decision | Second LLM call | Active request and handoff |
+|---|---|---|---|
+| `llm` | `OpenAIRequestDecision` or an injected engine | One | LLM decision |
+| `deterministic` | `DeterministicRequestDecision` | None | Deterministic decision |
+| `shadow` | Both engines on the same case and context | One | LLM decision only |
+
+Core extraction remains unchanged and still uses its configured extractor in every mode. Interactive recalculation also preserves the selected mode and reuses the existing Core result.
+
+### LLM comparison
 
 The Request service depends on `RequestDecisionEngine`. Its default implementation, `OpenAIRequestDecision`, resolves its model from the explicit decision setting, `BULKINOUT_DECISION_MODEL`, or the shared `BULKINOUT_MODEL` fallback, then sends three inputs:
 
@@ -92,6 +107,18 @@ The Request service depends on `RequestDecisionEngine`. Its default implementati
 Every implementation must return an `ImagingDecision`. The default prompt tells the model to use reference context as the local normative context, compare candidates, ask the minimum number of material questions, avoid fabricated safety facts, and abstain when required information is missing. It also requires every alternative worth radiologist review to use the same complete `ImagingRecommendation` structure under `secondary`; ruled-out candidates remain comparison evidence rather than selectable proposals.
 
 The model is still a variable component. Its schema constrains shape, not clinical truth or reproducibility. Injecting another provider does not bypass the deterministic guards that re-evaluate critical state transitions in the following steps.
+
+### Closed-world deterministic decision
+
+`DeterministicRequestDecision` consumes only the already filtered candidates and triggered rules in `ReferenceContext`. It selects an explicitly preferred applicable candidate, or a single candidate marked `usually_appropriate`. It returns `no_imaging_recommended` only for an explicit triggered rule. If several supported candidates remain, or the sole candidate is conditional, it returns `radiologist_selection_required` with the same typed recommendation structure for every option. Missing required reference information, no applicable candidate, or conflicting rule results still produce escalation.
+
+The engine does not synthesize examinations, protocols, urgency, clinical scores, or medical explanations. It copies reviewed candidate metadata from YAML and keeps internal scenario, candidate, and rule identifiers in the decision trace rather than exposing them as clinical rationale. This makes results reproducible while allowing complex but modeled choices to reach the radiologist without pretending that Bulkinout selected one.
+
+The pulmonary-embolism scenario illustrates this boundary. After the required clinical inputs are available, CTA pulmonary arteries and lung V/Q scanning are represented as equivalent review options. The known contrast history remains visible as a safety fact; the radiologist selects the examination under local procedures. The reference does not encode an autonomous contrast-re-exposure decision.
+
+### Shadow comparison
+
+Shadow mode guards both decisions independently, then writes `imaging_decision_llm.json`, `imaging_decision_deterministic.json`, and `decision_comparison.json`. The comparison records statuses, primary examinations, protocols, equality flags, and required-question fields. It never merges decisions. `imaging_decision.json`, `teleradiology_request.json`, and both handoff files remain driven solely by the LLM branch.
 
 ## 5. Deterministic decision guard
 
@@ -124,7 +151,7 @@ Checks are generated only after a primary modality exists, avoiding irrelevant q
 
 Pregnancy relevance is intentionally broad. It is skipped only for an observed male sex (`M`, `MALE`, or `HOMME`) or an observed age below 10 or above 60. Invalid age values restore the conservative default.
 
-The Request service marks high- and critical-priority modality questions as required for readiness. Explicitly blocking safety questions select `safety_blocked`; other required gaps normally select `insufficient_information`.
+The Request service marks high- and critical-priority modality questions as required for readiness after one proposal has been selected. It does not apply the first option's modality checks globally to an unselected radiologist option set; candidate-specific constraints remain on their respective cards. Explicitly blocking safety questions select `safety_blocked`; other required gaps normally select `insufficient_information`.
 
 ## 7. Request construction
 
@@ -145,15 +172,17 @@ The request status is:
 | `ready_for_human_approval` | No block/callback and the decision declares review readiness. |
 | `draft` | Neither of the above. |
 
-`validated_by_clinician` remains false, and the French warning explicitly prohibits transmission without clinical validation.
+`ready_for_human_approval` may contain either one preferred proposal or an unselected set associated with `radiologist_selection_required`. In the latter case, `requested_exam` and `protocol_requested` remain empty so the request cannot imply that the first displayed option was chosen.
+
+`imaging_options` contains every named structured proposal sent for review. An interactive `clinician_review` may record an optional preference or direct-contact action, but `validated_by_clinician` remains false and no external transmission occurs.
 
 ## 8. Radiologist handoff
 
 `build_radiology_handoff()` adds the review trace that a remote radiologist needs around the clinical draft. Its schema-v2 output preserves the primary and secondary proposals as the same `ImagingRecommendation` type, alongside known and conflicting facts with their document sources, submitted clarifications, safety facts, matched scenarios, locally triggered rule IDs, model candidates, and scenario-level reference citations. Narrative `primary.alternatives` remain compatibility notes rather than selectable proposals.
 
-The handoff links the primary examination to a reference candidate only after an exact match against an applicable YAML examination name. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
+The handoff links a selected primary examination to a reference candidate only after an exact match against an applicable YAML examination name. No selected reference candidate is recorded while the radiologist must choose among unselected options. LLM-generated candidate IDs remain separately labelled. Citations use the relationship `scenario_background`: they show which material informed the local scenario without claiming that ACR or another organization approved the generated patient-specific proposal.
 
-`ready_for_radiologist_review` means the preferred and secondary proposals can be reviewed. Their model-generated rationales are labelled as requiring verification and are not treated as source-linked proof. Only the preferred proposal determines the current run's modality-specific checks; secondary proposals are explicitly presented for radiologist discussion. `clinician_contact_required` means Bulkinout abstained or remains blocked and direct discussion is required. Neither state records clinician preselection or radiologist acceptance.
+`ready_for_radiologist_review` means either that a Bulkinout-preferred proposal can be validated or that supported options await radiologist selection. An option set has no automatic clinician preference and does not populate a singular requested examination. The HTML view presents only named examinations as option cards, each with its protocol; a model summary without an examination is shown separately as decision context. In interactive mode the clinician may record an optional preference while transmitting the full option set, or reject automation and require direct contact. This local action is separate from the unchanged Bulkinout ranking and does not represent radiologist acceptance. Justifications and examination-specific cautions remain visible, while the complete clinical record, sources, references, warnings, and technical trace use progressive disclosure. Model-generated rationales remain labelled as requiring verification and are not treated as source-linked proof; deterministic option text comes from the reviewed YAML reference. `clinician_contact_required` means Bulkinout abstained, remains blocked, or was explicitly rejected by the clinician.
 
 ## Clarification loop example
 
@@ -171,9 +200,14 @@ Clinician response
 Request recalculation in the same process
   ├── Core extraction is reused
   ├── answer updates the corresponding case field
-  ├── reference and LLM decision are recalculated
+  ├── reference and configured decision mode are recalculated
   ├── guards evaluate the new state
   └── cited radiology handoff is rebuilt
+
+Clinician request review
+  ├── every imaging option remains attached to the request
+  ├── optional clinician preference is recorded separately
+  └── no new inference or external transmission occurs
 ```
 
 The file-based `--answers` workflow remains a fresh independent run and repeats extraction. Interactive mode performs one bounded clarification round in memory and retains the answer file in the final manifest. It does not provide durable workflow state, authenticated identity, or a remote session.
@@ -185,10 +219,10 @@ When the final draft is wrong, inspect artifacts from earliest to latest:
 1. `llm_extraction.json`: did Core extract the fact and provenance correctly?
 2. `case.json`: did conversion or answer application place it under the expected field?
 3. `reference_context.json`: did matching expose the expected scenario, questions, candidates, and rules?
-4. `imaging_decision.json`: what did the LLM propose, and which status survived the guard?
+4. `imaging_decision.json`: what did the active engine propose, and which status survived the guard? In shadow mode, compare the two engine-specific files next.
 5. `missing_questions.json`: which merged generic, reference, model, or modality questions remain?
 6. `teleradiology_request.json`: was reliable information assembled correctly?
 7. `radiology_handoff.json` or `.html`: can the remote radiologist follow facts, answers, safety, rationale, alternatives, and references?
-8. `run_manifest.json`: which inputs, components, inference settings, prompts, schemas, and reference revision produced the run?
+8. `run_manifest.json`: which inputs, LLM components, terminology providers, inference settings, prompts, schemas, and reference revision produced the run?
 
 This artifact-by-artifact approach identifies the owning layer before code or reference data is changed.

@@ -34,10 +34,10 @@ bulkinout
 
 ## Configuration precedence
 
-Both LLM-backed CLI commands currently use the built-in OpenAI adapters and need:
+Both Core-capable CLI commands use the built-in OpenAI extractor and need:
 
 - `OPENAI_API_KEY` in the process environment;
-- an extraction model and, for Request, a decision model.
+- an extraction model and, for Request `llm` or `shadow` mode, a decision model.
 
 For `request run`, each stage resolves its model in this order:
 
@@ -49,6 +49,8 @@ For `request run`, each stage resolves its model in this order:
 `core structure --model` configures extraction only, then falls back to `BULKINOUT_EXTRACTION_MODEL` and `BULKINOUT_MODEL`. `.env.example` documents variable names, but Bulkinout does not load `.env` files itself.
 
 `--cold` requests `temperature=0` from each built-in OpenAI component. Bulkinout applies it to known compatible GPT-4.1 and GPT-4o models and omits their unsupported `reasoning` parameter. For other models, including GPT-5.6 with the current `medium` reasoning effort, it preserves reasoning, omits temperature, and emits a `ColdModeWarning`. This is a best-effort stability control, not a determinism guarantee.
+
+`--decision-mode` does not affect Core extraction. In `deterministic` mode, `--decision-model` is retained for command compatibility but is unused and no Request decision LLM is constructed.
 
 ```bash
 export OPENAI_API_KEY="..."
@@ -95,10 +97,11 @@ bulkinout request run \
 | `--input` | `input` | Clinical document directory processed by Core. |
 | `--output` | `output` | Destination for aggregate and intermediate JSON artifacts. |
 | `--answers` | none | Optional answer JSON from a previous clarification pass. |
-| `--interactive` | off | Open a short-lived loopback browser form for required answers. Mutually exclusive with `--answers`. |
+| `--interactive` | off | Open the short-lived clarification and imaging-request review session. Mutually exclusive with `--answers`. |
 | `--reference` | packaged reference | Optional scenario-directory override. |
 | `--extraction-model` | `BULKINOUT_EXTRACTION_MODEL` | Model used for Core extraction. |
 | `--decision-model` | `BULKINOUT_DECISION_MODEL` | Model used for Request decision support. |
+| `--decision-mode` | `llm` | `llm`, `deterministic`, or `shadow`. |
 | `--model` | `BULKINOUT_MODEL` | Optional shared fallback for both stages. |
 | `--cold` | off | Request temperature 0 independently for each compatible stage. |
 
@@ -109,6 +112,20 @@ Running the Core and Request workflow...
 ```
 
 It then writes all outputs and finishes with the guarded decision status, whether a clinician call is required, the request status, the safely proposed examination or abstention, and the HTML handoff path. When interactive mode is off and a required answer remains, the terminal also lists each question, points to `answers.template.json`, and prints the `--answers` rerun pattern.
+
+### Decision modes
+
+```bash
+bulkinout request run --input input --output output_llm --decision-mode llm
+bulkinout request run --input input --output output_det --decision-mode deterministic
+bulkinout request run --input input --output output_shadow --decision-mode shadow
+```
+
+- `llm` is the unchanged default: one decision model returns `ImagingDecision`, then deterministic guards run.
+- `deterministic` makes no second model call. It selects an explicit rule preference or a single `usually_appropriate` candidate. Undecided but supported candidates are transmitted as unselected options for radiologist review; missing required information or the absence of any applicable candidate still causes escalation.
+- `shadow` runs each Request engine once on the same Core result and reference context. The LLM decision remains active; the deterministic result is evaluation evidence only.
+
+Shadow mode adds `imaging_decision_llm.json`, `imaging_decision_deterministic.json`, and `decision_comparison.json`. The active `imaging_decision.json`, teleradiology request, and handoff are unchanged by the shadow result. All modes still require human validation.
 
 ### Interactive clarification
 
@@ -121,9 +138,9 @@ bulkinout request run \
   --interactive
 ```
 
-The form opens only when a required or blocking question exists and groups all questions known at that point. Request is not rerun between individual answers. On submission, the selected button changes state and a spinner confirms that processing is underway. The answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by a new Request calculation from the existing Core result. The same page waits for that calculation and then displays the final radiology handoff, including the safely proposed examination or direct-escalation state. Source documents are extracted and uploaded only once during this command. Selecting direct escalation, leaving all answers unavailable, browser failure, or timeout preserves the guarded initial result and prints the file-based instructions.
+When clarification is required, the form groups all questions known at that point; Request is not rerun between individual answers. On submission, a spinner remains visible while the answer is saved to a private `answers.interactive.N.json`, applied as a non-validated observed fact, and followed by one Request calculation from the existing Core result. The same page then displays every imaging option and protocol. If no clarification is required, it opens directly on this review. The clinician may persist an optional preference with the complete option set or reject the automation and request direct teleradiologist contact. This final action makes no new Core or Request call. Source documents are extracted and uploaded only once during the command.
 
-The server binds only to `127.0.0.1` on a random port, serves no remote assets, accepts one token-protected form submission, allows ten minutes for that submission, and closes after returning the final handoff in the same browser page. It is a local UI, not an authenticated HTTP API or a signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
+The server binds only to `127.0.0.1` on a random port, serves no remote assets, uses a token-protected path, allows ten minutes for the complete interaction, and closes after the final review action. It is a local UI, not an authenticated HTTP API, order transport, or signature mechanism. See [Interactive clarification and radiology handoff](interactive-handoff.md).
 
 ### File-based clarification
 
@@ -214,7 +231,7 @@ This command only reports that the post-exam workflow is reserved for a later ph
 
 ## Output lifecycle
 
-JSON files are written directly with UTF-8 indentation. A Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`. The schema-v3 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, components, applied inference settings, prompts, schemas, and reference revision. It records whether cold mode was requested, applied, or rejected by the model configuration. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
+JSON files are written directly with UTF-8 indentation. A normal Request run writes ten JSON snapshots plus the self-contained `radiology_handoff.html`; shadow mode adds three JSON comparison artifacts. The schema-v5 `run_manifest.json` hashes identify the package version, distributed Python source, inputs, executed decision engines, terminology providers, applied inference settings, prompts, schemas, and reference revision. It explicitly records the requested decision mode and active engine, including zero decision-LLM calls for deterministic mode. The output directory is created if needed, and files with the same names are overwritten individually. Writes are not transactional: an interrupted run may leave a mixture of old and new files. Interactive answer files use numbered names and are never overwritten.
 
 Use a fresh output directory for important runs:
 
@@ -230,10 +247,11 @@ Generated `output*/` directories are ignored by Git and may contain sensitive cl
 |---|---|---|
 | `OPENAI_API_KEY is missing.` | Required key is not exported. | Set it in the command environment; do not commit it. |
 | `No extraction model configured.` | No extraction-specific or shared model is configured. | Set `--extraction-model`, `--model`, or the corresponding environment variable. |
-| `No decision model configured.` | No decision-specific or shared model is configured. | Set `--decision-model`, `--model`, or the corresponding environment variable. |
+| `No decision model configured.` | `llm` or `shadow` mode has no decision-specific or shared model. | Set `--decision-model`, `--model`, or the corresponding environment variable, or explicitly use `--decision-mode deterministic`. |
 | `No supported document found` | Input is empty, wrong, or contains only unsupported extensions. | Check `--input` and the supported-file list. |
 | Pydantic validation error | The provider response does not satisfy the requested schema. | Inspect model compatibility and raw provider behavior. |
 | No matched scenarios | Extracted field paths or terms do not satisfy any entry predicate. | Inspect `case.json` and `reference_context.json`; add tested synonyms when appropriate. |
+| `radiologist_selection_required` | Several supported examinations remain, or the only candidate is conditional. | Review the unselected options and their constraints in `radiology_handoff.html`. |
 | `insufficient_information` | A required or high-impact fact remains unknown/conflicting. | Complete `answers.template.json` after clinical clarification. |
 | `safety_blocked` | A blocking safety fact is unresolved. | Obtain and record the missing safety information. |
 | Interactive form does not open or expires | No usable local browser or no submission within ten minutes. | Follow the printed `answers.template.json` and `--answers` instructions. |

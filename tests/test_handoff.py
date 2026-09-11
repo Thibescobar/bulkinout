@@ -4,8 +4,10 @@ from bulkinout.core.models import (
     AnswerFile,
     AnswerItem,
     CandidateExam,
+    CodedConcept,
     ClinicalCase,
     ClinicalField,
+    ClinicianRequestReview,
     FieldStatus,
     ImagingDecision,
     ImagingRecommendation,
@@ -70,6 +72,14 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     case = ClinicalCase(
         current_problem={"indication": observed("Douleur de fosse iliaque droite")},
         labs={"egfr_ml_min_1_73m2": observed(92, "laboratory.pdf")},
+    )
+    case.current_problem["indication"].coded_concepts.append(
+        CodedConcept(
+            system="urn:bulkinout:test",
+            code="rlq-pain",
+            display="Right lower quadrant pain",
+            original_text="Douleur de fosse iliaque droite",
+        )
     )
     case = apply_answers(
         case,
@@ -149,6 +159,7 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
         "labs.egfr_ml_min_1_73m2",
     }
     assert handoff.clarifications[0].answer is False
+    assert handoff.supporting_facts[0].coded_concepts[0].code == "rlq-pain"
     assert handoff.clarifications[0].responder_role == "emergency_clinician"
     assert handoff.decision_trace.selected_reference_candidate == "rlq_appendicitis:ct_iv"
     assert handoff.decision_trace.triggered_rules[0]["relationship"] == ("local_rule_triggered")
@@ -157,21 +168,23 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
 
     html = render_radiology_handoff_html(handoff)
     assert "Proposition à valider par le radiologue" in html
+    assert "Demande d’imagerie" in html
+    assert "Propositions préparées pour validation par le radiologue" in html
     assert "Demande clinique" in html
     assert "Appendicite\u202f?" in html
-    assert "Examen proposé" in html
-    assert "Choix à présenter au radiologue" in html
+    assert "Examen proposé" not in html
+    assert "Propositions à transmettre au radiologue" in html
     assert "Proposition privilégiée par Bulkinout" in html
     assert "Alternative 1" in html
     assert "Échographie abdomino-pelvienne" in html
     assert "Étude ciblée de la fosse iliaque droite" in html
     assert "Alternative sans irradiation selon le contexte clinique." in html
     assert "Dépend de l’expertise et de la fenêtre acoustique." in html
-    assert html.count("Argumentaire généré par Bulkinout — à vérifier") == 2
+    assert html.count("Éléments de justification — à vérifier") == 2
     assert "Justification de la proposition" not in html
-    assert "Présélection visuelle uniquement" in html
-    assert html.count('name="exam-choice"') == 2
-    assert html.count(" checked>") == 1
+    assert "Présélection visuelle uniquement" not in html
+    assert html.count('name="preferred_option"') == 2
+    assert " checked" not in html
     assert ".exam-option input:checked + .exam-card" in html
     assert "Notes sur les alternatives" in html
     assert "Le recours à l’échographie dépend de l’expertise disponible." in html
@@ -188,14 +201,68 @@ def test_handoff_follows_clinical_facts_answers_reference_and_proposal():
     assert "Grossesse possible ou en cours" in html
     assert "Renseigné par le clinicien" in html
     assert "Afficher la traçabilité technique" in html
+    assert "urn:bulkinout:test | rlq-pain | Right lower quadrant pain" in html
     assert "Canonical field" in html
     assert "note.md" in html
     assert "Aucune proposition transmissible" not in html
     assert "Right Lower Quadrant Pain" in html
     assert "answers.interactive.1.json" in html
     assert "https://example.test/acr" in html
-    assert "Ajouter au bon de demande" in html
-    assert 'button type="button" disabled' in html
+    assert "Ajouter au bon de demande" not in html
+
+    interactive_html = render_radiology_handoff_html(
+        handoff,
+        review_action="/token/review",
+        csp_nonce="nonce",
+        responder_role="emergency_clinician",
+    )
+    assert 'action="/token/review"' in interactive_html
+    assert "✓</span> Ajouter au bon de demande" in interactive_html
+    assert "☎</span> Écarter la proposition et appeler le téléradiologue" in interactive_html
+    assert '<option value="emergency_clinician" selected>' in interactive_html
+    assert '<script nonce="nonce">' in interactive_html
+    assert 'form.classList.add("submitting")' in interactive_html
+    assert "button.disabled = true" not in interactive_html
+
+
+def test_saved_handoff_distinguishes_clinician_preference_from_radiologist_validation():
+    preferred = ImagingRecommendation(
+        exam_name="Scintigraphie V/Q",
+        protocol="Acquisition ventilation-perfusion",
+        contrast="no",
+    )
+    request = TeleradiologyRequest(
+        status="ready_for_human_approval",
+        imaging_options=[
+            ImagingRecommendation(exam_name="Angioscanner pulmonaire"),
+            preferred,
+        ],
+        clinician_review=ClinicianRequestReview(
+            action="add_to_request",
+            preferred_option=preferred,
+            responder_role="clinician",
+            recorded_at=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
+        ),
+    )
+    decision = ImagingDecision(
+        decision_status="selected",
+        primary=request.imaging_options[0],
+        secondary=[preferred],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+    handoff = build_radiology_handoff(
+        ClinicalCase(), decision, [], request, {"matched_scenarios": []}
+    )
+
+    html = render_radiology_handoff_html(handoff)
+
+    assert "Demande préparée dans Bulkinout" in html
+    assert "Préférence du clinicien : Scintigraphie V/Q" in html
+    assert "Le choix final reste celui du radiologue" in html
+    assert "aucune transmission automatique n’a été effectuée" in html
+    assert html.count(" checked disabled") == 1
+    assert "Acquisition ventilation-perfusion" in html
 
 
 def test_blocked_handoff_keeps_unanswered_questions_and_escapes_html():
@@ -255,6 +322,78 @@ def test_blocked_handoff_does_not_present_raw_model_exam_as_a_recommendation():
     assert "Aucune proposition transmissible à ce stade" in html
     assert "Examen envisagé, non proposé" in html
     assert "<strong>Examen proposé" not in html
+
+
+def test_radiologist_selection_handoff_presents_unselected_options():
+    decision = ImagingDecision(
+        decision_status="radiologist_selection_required",
+        primary=ImagingRecommendation(
+            recommended=False,
+            exam_name="TDM abdomino-pelvienne avec injection IV",
+            modality="CT",
+            contrast="yes",
+        ),
+        secondary=[
+            ImagingRecommendation(
+                recommended=False,
+                exam_name="Scintigraphie V/Q",
+                modality="NM",
+                contrast="no",
+            )
+        ],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+    request = TeleradiologyRequest(status="ready_for_human_approval")
+
+    handoff = build_radiology_handoff(ClinicalCase(), decision, [], request, reference_context())
+    html = render_radiology_handoff_html(handoff)
+
+    assert handoff.status == "ready_for_radiologist_review"
+    assert handoff.radiologist_selection_required is True
+    assert handoff.decision_trace.selected_reference_candidate is None
+    assert "Choix de l’examen par le radiologue requis" in html
+    assert "Décision attendue" in html
+    assert "Propositions à transmettre au radiologue" in html
+    assert "Appel préalable : non requis" in html
+    assert "Option 1" in html
+    assert "Option 2" in html
+    assert 'name="preferred_option"' in html
+    assert " checked" not in html
+    assert "Toutes les propositions sont transmises" in html
+    assert "Afficher le dossier clinique détaillé et ses sources" in html
+    assert "Appel au téléradiologue requis" not in html
+
+
+def test_radiologist_selection_handoff_omits_summary_without_an_exam():
+    decision = ImagingDecision(
+        decision_status="radiologist_selection_required",
+        primary=ImagingRecommendation(
+            recommended=False,
+            rationale=["Deux examens restent appropriés."],
+            safety_considerations=["Le choix dépend des procédures locales."],
+        ),
+        secondary=[
+            ImagingRecommendation(exam_name="Angioscanner pulmonaire", modality="CT"),
+            ImagingRecommendation(exam_name="Scintigraphie V/Q", modality="NM"),
+        ],
+        clinician_call_required=False,
+        decision_ready_for_human_approval=True,
+    )
+    handoff = build_radiology_handoff(
+        ClinicalCase(),
+        decision,
+        [],
+        TeleradiologyRequest(status="ready_for_human_approval"),
+        {"matched_scenarios": []},
+    )
+
+    html = render_radiology_handoff_html(handoff)
+
+    assert html.count('name="preferred_option"') == 2
+    assert "Examen non renseigné" not in html
+    assert "Deux examens restent appropriés." in html
+    assert "Pourquoi le choix reste ouvert" in html
 
 
 def test_clinical_view_hides_canonical_terms_but_keeps_them_in_technical_trace():

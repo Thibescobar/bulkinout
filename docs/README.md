@@ -4,14 +4,14 @@ This documentation explains both what v0 does and how its pieces cooperate. Star
 
 ## The system in one minute
 
-Bulkinout receives a directory of heterogeneous clinical documents. Core extracts source-grounded facts into a shared `RadiologyCase`. Request combines that case with YAML scenarios and an LLM, then applies deterministic guards before creating a French teleradiology request draft.
+Bulkinout receives a directory of heterogeneous clinical documents. Core extracts source-grounded facts into a shared `RadiologyCase`. Request combines that case with YAML scenarios and a configurable LLM, deterministic, or shadow decision mode, then applies deterministic guards before creating a French teleradiology request draft.
 
 ```mermaid
 flowchart LR
     A[Clinical documents] --> B[Core extraction]
     B --> C[ClinicalCase]
     C --> D[Reference matching]
-    D --> E[LLM candidate comparison]
+    D --> E[Configured decision mode]
     E --> F[Deterministic guards]
     F --> G{Enough information?}
     G -- No --> H[File or local browser clarification]
@@ -23,7 +23,7 @@ flowchart LR
 Three ideas are central:
 
 1. **Evidence remains traceable.** A clinical fact includes status, confidence, and source excerpts; it is not just a bare value.
-2. **The LLM does not own safety.** It proposes structured extraction and decisions, while deterministic code prevents selection when required information remains unresolved.
+2. **Decision engines do not own safety.** LLM and closed-world engines produce typed decisions, while shared deterministic code prevents selection when required information remains unresolved.
 3. **Internal data and presentation are separate concerns.** Technical metadata and canonical concepts use English. Current clinical interaction is in French. Source documents may use any language.
 
 ## Choose a reading path
@@ -32,9 +32,10 @@ Three ideas are central:
 
 1. [Architecture](architecture.md) for components, dependency direction, and the end-to-end sequence.
 2. [Data model](data-model.md) for the objects passed between layers.
-3. [Core](core.md) and [Request](request.md) for detailed processing.
-4. [Reference](reference.md) for deterministic scenario behavior.
-5. [Interactive clarification and handoff](interactive-handoff.md) for the clinician-to-teleradiologist boundary.
+3. [Terminology normalization](terminology.md) for coded concepts, providers, licensing, and free-text fallback.
+4. [Core](core.md) and [Request](request.md) for detailed processing.
+5. [Reference](reference.md) for deterministic scenario behavior.
+6. [Interactive clarification and handoff](interactive-handoff.md) for the clinician-to-teleradiologist boundary.
 
 ### Run or troubleshoot the software
 
@@ -69,7 +70,7 @@ Three ideas are central:
 ```text
 bulkinout/
 ├── src/bulkinout/
-│   ├── core/                 ingestion, extraction, models, case construction
+│   ├── core/                 ingestion, extraction, terminology, case construction
 │   ├── request/              reference, decision, guards, request generation
 │   ├── report/               post-exam placeholder
 │   ├── clarification_browser.py private loopback clarification form
@@ -94,4 +95,4 @@ bulkinout/
 
 ## v0 boundaries
 
-`core/normalization/`, `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` reserve architectural boundaries but contain no substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service. The ordered path beyond these boundaries is maintained in the [roadmap](roadmap.md).
+`core/normalization/` implements a small provider-neutral terminology foundation and conservative UCUM unit annotations. It is not a complete terminology service. `core/reconciliation/`, `core/timeline/`, `core/audit/`, and `report/` remain reserved architectural boundaries without substantial domain implementation. The active audit trail is `RadiologyCase.audit`, populated during Core and Request execution. The current product is a proof of concept, not a validated medical device or production clinical service. The ordered path beyond these boundaries is maintained in the [roadmap](roadmap.md).

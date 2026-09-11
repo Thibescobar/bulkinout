@@ -4,6 +4,8 @@ The reference is a versioned, auditable input to Request. Each YAML file describ
 
 All 18 bundled scenarios are marked `needs_local_validation`. They are implementation examples derived from public guidance, primarily ACR Appropriateness Criteria; they are not a complete or locally approved protocol library.
 
+The current loader validates YAML syntax, a mapping at the document root, and string `id` and `title` fields. It does not yet validate every nested predicate, question, candidate, rule, or source against a complete runtime schema. Bundled scenarios are exercised by tests and golden cases, but a malformed custom reference may still fail only when the affected structure is evaluated. This limitation is tracked as R17 in the [roadmap](roadmap.md).
+
 ## Scenario anatomy
 
 ```yaml
@@ -74,8 +76,12 @@ Predicates read known values from first-level `ClinicalCase` dictionary paths.
 | `contains_token` | Case-insensitive whole-term search for one acronym or term. | `{field: current_problem.suspected_diagnosis, contains_token: "EP"}` |
 | `contains_any_term` | Whole-term search for any synonym without changing the predicate count. | `{field: current_problem.location, contains_any_term: ["RLQ", "right lower quadrant"]}` |
 | `in` | Exact membership in a supplied list. | `{field: labs.d_dimer, in: ["negative", "normal"]}` |
+| `concept_is` | Exact `system` and `code` match against a field's terminology annotations. | `{field: current_problem.location, concept_is: {system: "urn:local", code: "rlq"}}` |
+| `concept_in` | Match any exact coded-concept selector in a list. | `{field: current_problem.location, concept_in: [{system: "urn:local", code: "rlq"}]}` |
 
-Unknown and conflicting fields never satisfy a predicate. Use substring operators for intentional roots such as `appendic`; use boundary-aware term operators for short acronyms so `EP` does not match `sepsis`. Matching does not currently remove accents, lemmatize words, expand abbreviations automatically, or use a terminology server.
+Unknown and conflicting fields never satisfy a predicate. Use substring operators for intentional roots such as `appendic`; use boundary-aware term operators for short acronyms so `EP` does not match `sepsis`. Text operators do not remove accents, lemmatize words, or expand abbreviations automatically. Code operators require annotations produced by the configured terminology providers; no remote terminology server or clinical code dataset is bundled.
+
+The 18 bundled scenarios remain text- and value-based. Code predicates are an opt-in authoring mechanism and must have a free-text fallback or a deployment guarantee that the required provider is configured. Adding a code predicate to an existing scenario is a functional reference change and requires golden and multilingual regression cases.
 
 ## `all`, `any`, and scoring
 
@@ -109,13 +115,15 @@ Questions connect a stable clinical field to French presentation text and Englis
 
 `unresolved_material_questions()` returns relevant questions whose field is absent, unknown, or conflicting. A material question may inform comparison without being mandatory. Required and blocking questions are converted to deterministic `MissingQuestion` objects after matching; the LLM may add questions but cannot remove or weaken these constraints. Questions from all sources are deduplicated by canonical field while retaining the strongest requirement.
 
-Choose `answer_kind` for the clinical concept rather than its presentation wording. This lets the interactive adapter preserve `false`, integer, and numeric answers as canonical JSON values. It does not validate clinical units or terminology; those remain explicit in the question and future normalization work.
+Choose `answer_kind` for the clinical concept rather than its presentation wording. This lets the interactive adapter preserve `false`, integer, and numeric answers as canonical JSON values. After answers are applied, configured terminology providers may annotate recognized text and units. They do not replace the typed answer or prove its clinical correctness.
 
 Pregnancy questions use the same conservative relevance rule as modality checks: they are omitted only for an observed male sex or an observed age outside 10–60. Missing, conflicting, or invalid demographic data keeps the question relevant.
 
 ## Candidate filtering
 
-Every candidate has a stable ID and French examination name. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.
+Every candidate has a stable ID and French examination name. It may also carry a reviewed protocol, urgency, rationale, and safety considerations used verbatim by deterministic Request. A candidate without `when` is always exposed. A candidate with `when` is included only when its condition evaluates true.
+
+When no explicit preference rule fires, one `usually_appropriate` candidate can be selected. Multiple candidates, or one candidate with another appropriateness category, become an unselected radiologist option set. This distinction prevents YAML ordering from masquerading as a clinical preference.
 
 This filtering is deterministic and happens before the context reaches the decision model. It is appropriate for explicit facts such as pregnancy-dependent modality eligibility, but it should not encode complex or locally disputed clinical reasoning without review and tests.
 
@@ -135,7 +143,7 @@ rules:
       reason: ACR: initial imaging is generally not appropriate for this variant.
 ```
 
-`evaluate_rules()` returns matching rule IDs and result dictionaries. It does not directly mutate `ImagingDecision`; the results become part of the LLM reference context. This distinction matters when debugging: a correctly triggered rule can still be interpreted incorrectly by the model.
+`evaluate_rules()` returns matching rule IDs and result dictionaries. It does not directly mutate `ImagingDecision`; the results become part of `ReferenceContext`. The LLM receives this context, while the closed-world engine recognizes only explicit `preferred_candidate` and `no_imaging_recommended` results. A correctly triggered rule can therefore still be interpreted incorrectly in LLM mode. Deterministic mode escalates conflicting or unsupported results, but can transmit multiple supported candidates without selecting one.
 
 ## Authoring a scenario
 

@@ -10,7 +10,6 @@ Bulkinout requires Python 3.11 or newer. From the repository root:
 conda create --name bulkinout python=3.11 -y
 conda activate bulkinout
 python -m pip install -e ".[dev]"
-cp .env.example .env
 ```
 
 The editable install exposes the `bulkinout` command while keeping imports connected to `src/`. Deterministic tests do not need credentials. The built-in OpenAI CLI path requires `OPENAI_API_KEY` and either stage-specific models or the shared `BULKINOUT_MODEL` / `--model` fallback:
@@ -33,7 +32,7 @@ flowchart LR
     X --> C["ClinicalCase + provenance"]
     C --> R["RadiologyCase"]
     R --> M["Reference matching"]
-    M --> L["LLM candidate comparison"]
+    M --> L["Configured Request decision mode"]
     L --> G["Deterministic guards"]
     G --> T["Teleradiology draft"]
     R -. future .-> P["Report"]
@@ -129,6 +128,18 @@ LLM calls are not part of the default suite and may vary across models. A succes
 Use four spaces, type hints on source functions, `pathlib.Path` for paths, `snake_case` for functions and modules, `PascalCase` for models, and uppercase constants. Ruff enforces formatting and a cyclomatic-complexity ceiling of 10; strict mypy settings cover `src/`. Prefer small domain helpers over nested branches.
 
 The canonical technical language is English. Clinical input remains language-agnostic, matching dictionaries may be multilingual, and French is reserved for clinical content presented to current users. A terminology refactor must preserve existing matching and must not rename stable identifiers.
+
+## Use the branch promotion workflow
+
+Create each change from `develop` using a scoped `feature/*`, `fix/*`, or `refactor/*` branch. Promote completed work in one direction:
+
+```text
+feature/*, fix/*, refactor/* → develop → prerelease → release/x.y.z → main
+```
+
+`develop` integrates ongoing work. `prerelease` contains tested, demo-ready POC states. A short-lived `release/x.y.z` branch permits release hardening without accepting new features, and `main` is reserved for releases that should be tagged. Do not commit feature work directly to `prerelease` or `main`. Create a `hotfix/*` from `main` only for an urgent released-version correction, then merge it back into every active branch it affects.
+
+Do not change the package version for every commit on `prerelease`. When a prerelease state is intentionally shared, use a PEP 440 version such as `0.2.0rc1` and create the matching Git tag `v0.2.0rc1`. The final release uses `0.2.0` on `main`.
 
 ## Complete the validation checklist
 

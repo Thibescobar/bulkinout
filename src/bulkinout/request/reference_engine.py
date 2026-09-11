@@ -8,13 +8,14 @@ from typing import cast
 
 import yaml
 
-from ..core.models import ClinicalCase, FieldStatus
+from ..core.models import ClinicalCase, ClinicalField, FieldStatus
 from ..errors import ReferenceDataError
 from ..types import JsonValue
 from .reference_resources import load_reference_documents
 from .rules import pregnancy_is_relevant
 from .types import (
     Condition,
+    ConceptSelector,
     Predicate,
     ReferenceCandidate,
     ReferenceContext,
@@ -33,17 +34,27 @@ class ScenarioMatch:
     scenario: ReferenceScenario
 
 
-def _raw(case: ClinicalCase, field: str) -> tuple[JsonValue, bool]:
+def _clinical_field(case: ClinicalCase, field: str) -> ClinicalField | None:
     if "." not in field:
-        return None, False
+        return None
     section_name, key = field.split(".", 1)
     section = getattr(case, section_name, None)
     if not isinstance(section, dict):
-        return None, False
+        return None
     cf = section.get(key)
-    if not cf or cf.status in {FieldStatus.unknown, FieldStatus.conflicting}:
+    if not isinstance(cf, ClinicalField) or cf.status in {
+        FieldStatus.unknown,
+        FieldStatus.conflicting,
+    }:
+        return None
+    return cf
+
+
+def _raw(case: ClinicalCase, field: str) -> tuple[JsonValue, bool]:
+    clinical_field = _clinical_field(case, field)
+    if clinical_field is None:
         return None, False
-    return cf.value, True
+    return clinical_field.value, True
 
 
 def _searchable_text(value: JsonValue) -> str:
@@ -57,10 +68,31 @@ def _contains_term(haystack: str, needle: JsonValue) -> bool:
     return re.search(rf"(?<!\w){term}(?!\w)", haystack) is not None
 
 
+def _has_concept(clinical_field: ClinicalField, selector: ConceptSelector) -> bool:
+    return any(
+        concept.system == selector["system"] and concept.code == selector["code"]
+        for concept in clinical_field.coded_concepts
+    )
+
+
+def _concept_predicate(clinical_field: ClinicalField, pred: Predicate) -> bool | None:
+    selector = pred.get("concept_is")
+    if selector is not None:
+        return _has_concept(clinical_field, selector)
+    selectors = pred.get("concept_in")
+    if selectors is not None:
+        return any(_has_concept(clinical_field, item) for item in selectors)
+    return None
+
+
 def _predicate(case: ClinicalCase, pred: Predicate) -> bool:
-    value, known = _raw(case, pred["field"])
-    if not known:
+    clinical_field = _clinical_field(case, pred["field"])
+    if clinical_field is None:
         return False
+    value = clinical_field.value
+    concept_result = _concept_predicate(clinical_field, pred)
+    if concept_result is not None:
+        return concept_result
     if "equals" in pred:
         return value == pred["equals"]
     if "not_equals" in pred:

@@ -151,11 +151,11 @@
   },
   {
     "id": "suspected_pulmonary_embolism",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "title": "Suspected pulmonary embolism",
     "status": "needs_local_validation",
     "source_file": "suspected_pe.yaml",
-    "candidate_count": 1,
+    "candidate_count": 2,
     "question_count": 3,
     "source_count": 1
   },
