@@ -3,8 +3,8 @@
 ![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)
 [![license](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE.md)
 [![CI](https://img.shields.io/github/actions/workflow/status/Thibescobar/bulkinout/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/Thibescobar/bulkinout/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-210%20passed-brightgreen)
-![coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+![tests](https://img.shields.io/badge/tests-226%20passed-brightgreen)
+![coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 ![linting](https://img.shields.io/badge/linting-ruff-7f54b3)
 
 **Bulk in. Intelligence out.** Bulkinout turns heterogeneous clinical documents into an auditable radiology case designed to support workflows before and after imaging. The current release implements Request: it combines versioned reference data, a configurable decision engine, and deterministic safeguards to prepare an imaging proposal and a teleradiology request. Report is the planned post-exam counterpart and is not implemented in v0.
